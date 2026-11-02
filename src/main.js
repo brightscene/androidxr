@@ -5,6 +5,8 @@ import { TRACKS, GUIDED } from './audio/tracks.js';
 import { SCRIPTS, WHISPERS, WELCOMES, estimateSeconds } from './audio/scripts.js';
 import { Voice, GuideRunner } from './audio/voice.js';
 import { bandName } from './audio/entrainment.js';
+import { decodeStrobe, flashRateAt } from './audio/strobe.js';
+import { StrobeLayer } from './visuals/strobe.js';
 import { U, damp } from './visuals/common.js';
 import { World } from './visuals/world.js';
 import { GalaxyScene } from './visuals/scenes/galaxy.js';
@@ -50,6 +52,16 @@ class App {
     this.nature = p.nature || 'off';
     this.voiceChoice = p.voice || 'auto';
     this.volume = p.volume ?? 0.8;
+    // light (AudioStrobe / SpectraStrobe) settings
+    this.strobeAccepted = p.strobeAccepted ?? false;
+    this.lights = this.strobeAccepted ? p.lights ?? true : false;
+    this.lightStyle = p.lightStyle || 'both';
+    this.lightColour = p.lightColour || 'palette';
+    this.lightMax = p.lightMax ?? 0.6;
+    this.lightMode = p.lightMode || 'exact';
+    this.lightsGenerated = p.lightsGenerated ?? false;
+    this.lightSymbol = p.lightSymbol ?? -1;
+    this.rgb = [[0, 0, 0], [0, 0, 0]];
     this.playing = false;
     this.player = null;
     this.engine = new AudioEngine();
@@ -77,6 +89,8 @@ class App {
 
     this.world = new World(this.scene, this.camera);
     this.world.voyage.comfort = COMFORT[this.dives];
+    this.strobe = new StrobeLayer(this.camera);
+    this.strobe.setSymbol(this.lightSymbol);
     this.menu = new XRMenu(this);
     this.menu.group.visible = false;
     this.scene.add(this.menu.group);
@@ -107,6 +121,8 @@ class App {
         selected: this.selected.id === 'import' ? undefined : this.selected.id, minutes: this.minutes, entrainment: this.entrainment,
         journey: this.journey, solfeggio: this.solfeggio, whispers: this.whispers, captions: this.captions,
         dives: this.dives, nature: this.nature, voice: this.voiceChoice, volume: this.volume,
+        strobeAccepted: this.strobeAccepted, lights: this.lights, lightStyle: this.lightStyle, lightColour: this.lightColour,
+        lightMax: this.lightMax, lightMode: this.lightMode, lightsGenerated: this.lightsGenerated, lightSymbol: this.lightSymbol,
       }));
     } catch (_) {}
   }
@@ -132,6 +148,14 @@ class App {
   setNature(n) { this.nature = n; this.engine.setNature(n); this._changed(); }
   setVoice(v) { this.voiceChoice = v; this.voice.setChoice(v); this._changed(); }
   setVolume(v) { this.volume = v; this.engine.setVolume(v); this.savePrefs(); }
+  // Lights are photosensitive content: they stay off until the warning is accepted.
+  setLights(on) {
+    if (on && !this.strobeAccepted) { this.ui.showStrobeWarning(); this.menu.showWarning(true); return; }
+    this.lights = on; this._changed();
+  }
+  acceptStrobe() { this.strobeAccepted = true; this.lights = true; this.menu.showWarning(false); this.ui.hideStrobeWarning(); this._changed(); }
+  declineStrobe() { this.menu.showWarning(false); this.ui.hideStrobeWarning(); }
+  setLightOpt(key, v) { this[key] = v; if (key === 'lightSymbol') this.strobe.setSymbol(v); this._changed(); }
   cycle(key, options) { const i = options.indexOf(this[key]); return options[(i + 1) % options.length]; }
 
   previewVoice() {
@@ -175,9 +199,10 @@ class App {
     const est = guided ? track.estimate + (track.tail || 30) : 0;
     const opts = {
       minutes: guided ? est / 60 : this.minutes,
-      entrainment: this.entrainment,
+      // light-encoded tracks carry their own entrainment programme: don't layer ours on top
+      entrainment: track.strobe ? 'off' : this.entrainment,
       profile: this.journey === 'auto' ? track.profile : this.journey,
-      solfeggio: this.solfeggio,
+      solfeggio: track.strobe ? false : this.solfeggio,
       dives: this.dives !== 'off',
     };
     this.player = track.buffer ? new ImportedPlayer(this.engine, track, track.buffer, opts) : new Composer(this.engine, track, opts);
@@ -239,13 +264,21 @@ class App {
   async importFile(file, sceneName) {
     await this.engine.init();
     const buf = await this.engine.ctx.decodeAudioData(await file.arrayBuffer());
+    this.ui.importStatus('Looking for AudioStrobe / SpectraStrobe light signals…');
+    const strobe = await decodeStrobe(buf, (f) => this.ui.importStatus(`Decoding light signals… ${Math.round(f * 100)}%`));
     const base = this.selected.buffer || this.selected.guided ? TRACKS[4] : this.selected;
     const track = {
       ...base, id: 'import', guided: undefined,
       title: file.name.replace(/\.[^.]+$/, '').slice(0, 28),
       intent: `Your track · ${base.freq} Hz tone`,
-      scene: sceneName || base.scene, buffer: buf,
+      scene: sceneName || base.scene, buffer: buf, strobe,
     };
+    if (strobe) {
+      const name = strobe.format === 'spectrastrobe' ? 'SpectraStrobe (full colour)' : `AudioStrobe (${(strobe.carriers.a / 1000).toFixed(1)} kHz)`;
+      track.intent = `${name} · lights`;
+      // start a quiet session by default for light tracks: their own audio carries the entrainment
+      this.ui.toast(`${name} light encoding found.${this.lights ? '' : ' Turn on Lights to see it.'}`);
+    }
     this.imported = track;
     this.select(track);
     return track;
@@ -285,6 +318,7 @@ class App {
     this.menu.group.visible = true;
     this.menu.show(!this.playing);
     this._placeMenuIn = 4;
+    this.strobe.setXR(true);
     this.ui.setXR(true);
   }
 
@@ -292,6 +326,7 @@ class App {
     this.world.setPassthrough(false);
     this.renderer.setClearColor(0x000000, 1);
     this.menu.group.visible = false;
+    this.strobe.setXR(false);
     this.ui.setXR(false);
     this._resize();
   }
@@ -345,8 +380,9 @@ class App {
       this._whispers(this.engine.now, sec, remain);
       const mm = Math.floor(remain / 60), ss = String(Math.floor(remain % 60)).padStart(2, '0');
       const hz = this.player.beatHz(now);
-      const wave = this.entrainment !== 'off' && hz ? ` · ${bandName(hz)} ${hz.toFixed(1)} Hz` : '';
-      const sub = `${this.playingTrack.title} · ${sec.name}${wave} · ${mm}:${ss}`;
+      const wave = this.player.entrainMode !== 'off' && hz ? ` · ${bandName(hz)} ${hz.toFixed(1)} Hz` : '';
+      const lr = this.lightRates && this.lights ? ` · Lights ${this.lightRates[0].toFixed(1)}/${this.lightRates[1].toFixed(1)} Hz` : '';
+      const sub = `${this.playingTrack.title} · ${sec.name}${wave}${lr} · ${mm}:${ss}`;
       let cue, alpha;
       if (this.playingTrack.guided) {
         cue = this.captions ? this.caption : '';
@@ -359,7 +395,7 @@ class App {
         alpha = sec.index <= 1 ? 0.9 : sec.index === 4 ? 0.6 : 0.3;
       }
       this.menu.setCue(cue, sub, this.menu.visible ? 0 : alpha);
-      this.ui.setCue(cue, `${sec.name}${wave} · ${mm}:${ss} left`, this.player.progress(now), alpha);
+      this.ui.setCue(cue, `${sec.name}${wave}${lr} · ${mm}:${ss} left`, this.player.progress(now), alpha);
     } else {
       // idle preview: a gentle synthetic pulse so the scene is alive in the menu
       s.breath = 0.5 - 0.5 * Math.cos((t / 10) * Math.PI * 2);
@@ -409,8 +445,56 @@ class App {
       return true;
     });
 
+    this._updateLights(dt, t);
     this.world.update(dt, t, head.pos);
     this.renderer.render(this.scene, this.camera);
+  }
+
+  // Per-eye light colour from decoded AudioStrobe/SpectraStrobe, or (optionally)
+  // pulsed at the brainwave beat rate on generated tracks.
+  _updateLights(dt, t) {
+    let target = null;
+    const tr = this.playingTrack;
+    if (this.lights && this.strobeAccepted && this.playing && this.player) {
+      const now = this.engine.heardTime;
+      const st = tr.strobe;
+      if (st) {
+        const i = Math.min(st.frames - 1, Math.max(0, Math.floor(this.player.elapsed(now) * st.rate)));
+        const eye = (arr, side) => {
+          if (!st.mono) return [arr[i * 3], arr[i * 3 + 1], arr[i * 3 + 2]];
+          const c = this._colourSet(side, t);
+          const b = arr[i * 3];
+          return [c.r * b, c.g * b, c.b * b];
+        };
+        target = [eye(st.L, 0), eye(st.R, 1)];
+        if (t - (this._rateT || 0) > 1) {
+          this._rateT = t;
+          const el = this.player.elapsed(now);
+          this.lightRates = [flashRateAt(st, 0, el), flashRateAt(st, 1, el)];
+        }
+      } else if (this.lightsGenerated && this.entrainment !== 'off') {
+        const hz = this.player.beatHz(now);
+        const ph = this.player.elapsed(now) * hz * Math.PI * 2;
+        const b = Math.pow(0.5 + 0.5 * Math.sin(ph), 2) * Math.min(1, this.sectionEnergy + 0.3);
+        target = [0, 1].map((side) => { const c = this._colourSet(side, t); return [c.r * b, c.g * b, c.b * b]; });
+        this.lightRates = [hz, hz];
+      }
+    }
+    if (!target) { this.lightRates = null; this.strobe.update(dt, t, null, null, {}); return; }
+    const k = this.lightMode === 'soft' ? 1 - Math.exp(-dt * 7) : 1;
+    for (let s = 0; s < 2; s++) for (let c = 0; c < 3; c++) this.rgb[s][c] += (target[s][c] - this.rgb[s][c]) * k;
+    this.strobe.update(dt, t, this.rgb[0], this.rgb[1], { style: this.lightStyle, max: this.lightMax });
+  }
+
+  _colourSet(side, t) {
+    const c = (this._lc ||= [new THREE.Color(), new THREE.Color()])[side];
+    switch (this.lightColour) {
+      case 'white': return c.setRGB(1, 0.93, 0.85);
+      case 'amber': return c.setRGB(1, 0.5, 0.12);
+      case 'violet': return side ? c.setRGB(0.2, 0.9, 0.8) : c.setRGB(0.62, 0.3, 1);
+      case 'rainbow': return c.setHSL((t * 0.012 + side * 0.18) % 1, 0.85, 0.55);
+      default: return c.copy(side ? U.uC1.value : U.uC2.value).lerp(new THREE.Color(1, 1, 1), 0.15);
+    }
   }
 
   _resize() {

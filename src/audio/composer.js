@@ -480,8 +480,22 @@ export class ImportedPlayer extends Sequenced {
     this.src.buffer = this.buffer;
     const g = ctx.createGain(); g.gain.value = 0.9;
     const send = ctx.createGain(); send.gain.value = 0.15;
-    this.src.connect(g).connect(this.e.dry);
-    this.src.connect(send).connect(this.e.reverbSend);
+    // strip light-control tones from what you hear (they are decoded separately)
+    let node = this.src;
+    if (this.track.strobe) {
+      for (const f of Object.values(this.track.strobe.carriers)) {
+        for (let k = 0; k < 2; k++) {
+          const n = ctx.createBiquadFilter();
+          n.type = 'notch'; n.frequency.value = f; n.Q.value = 12;
+          node = node.connect(n);
+        }
+      }
+      const lp = ctx.createBiquadFilter();
+      lp.type = 'lowpass'; lp.frequency.value = 17500; lp.Q.value = 0.5;
+      node = node.connect(lp);
+    }
+    node.connect(g).connect(this.e.dry);
+    node.connect(send).connect(this.e.reverbSend);
     this.src.start(this.t0);
     this.nextBreath = this.t0;
     this.breathGuide = 0.4;

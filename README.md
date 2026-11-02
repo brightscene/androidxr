@@ -39,6 +39,19 @@ MindLyte is a meditation app for Android XR. You drift slowly through a field of
   The app then uses the recordings automatically. They play spatially, just in front of you.
 - The music ducks gently whenever the voice speaks.
 
+**Lights: AudioStrobe® and SpectraStrobe™ decoding** (`src/audio/strobe.js`, `src/visuals/strobe.js`)
+- Light-and-sound tracks hide their light signals as near-inaudible tones in the audio. When you import a track (*Bring your own AI track*), MindLyte scans 17.5–20.6 kHz and works out which format the track uses:
+  - **AudioStrobe**: a single carrier, normally 19.2 kHz. Other frequencies are detected automatically too, such as the 19.5 kHz used by *Oceamniotic*. Its level in the left and right channels sets the left and right light.
+  - **SpectraStrobe**: an 18.2 kHz reference tone plus red at 18.7, green at 19.2 and blue at 19.7 kHz, giving full colour in each eye. Each colour is scaled against the reference tone.
+- Each tone is demodulated (complex heterodyne, low-pass, then 500 Hz control frames). A 16-minute track decodes in a few seconds.
+- In the headset, each eye gets its own light, like mind-machine glasses. A glowing sacred symbol and/or a soft full-field glow flashes at exactly the encoded rate and colour. On a flat screen the two eyes are shown side by side.
+- **Symbols:** Flower of Life, Sri Yantra, Lotus, Merkaba, Ripples and Seed of Life (or cycle through them all).
+- **AudioStrobe colours** (AudioStrobe carries no colour information, only brightness): track palette, warm white, amber, violet/teal or slow rainbow.
+- **Brightness** limit, and **Exact** or **Softened** flashing.
+- The control tones are notched out of what you hear. MindLyte's own tones are switched off on light tracks, because those tracks carry their own entrainment programme.
+- Optional: *Also pulse lights with MindLyte's brainwave tones*, which flashes the lights at the current binaural/isochronic beat on the generated tracks.
+- ⚠️ Lights stay off until the photosensitivity warning has been accepted. This happens once, either on screen or in the headset.
+
 **The other scenes** (light ocean, breathing orb, aurora, sacred geometry, lotus mandala, cymatics) are all still included. The voyage now runs behind every one of them.
 
 ## Run locally

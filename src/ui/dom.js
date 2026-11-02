@@ -1,3 +1,5 @@
+import { SYMBOLS } from '../visuals/strobe.js';
+
 // Flat-screen UI: the launcher you see in a browser panel on Android XR
 // (and on phones/desktops), plus the in-session bar.
 
@@ -64,6 +66,16 @@ export class DomUI {
     on('#whispers', 'change', (e) => app.setWhispers(e.target.checked));
     on('#captions', 'change', (e) => app.setCaptions(e.target.checked));
     on('#preview-voice', 'click', () => app.previewVoice());
+    this.$('#light-symbol').innerHTML = ['<option value="-1">Cycle through all</option>', ...SYMBOLS.map((n, i) => `<option value="${i}">${n}</option>`)].join('');
+    on('#lights', 'change', (e) => { app.setLights(e.target.checked); this.refresh(); });
+    on('#light-style', 'change', (e) => app.setLightOpt('lightStyle', e.target.value));
+    on('#light-symbol', 'change', (e) => app.setLightOpt('lightSymbol', Number(e.target.value)));
+    on('#light-colour', 'change', (e) => app.setLightOpt('lightColour', e.target.value));
+    on('#light-mode', 'change', (e) => app.setLightOpt('lightMode', e.target.value));
+    on('#light-max', 'input', (e) => app.setLightOpt('lightMax', Number(e.target.value)));
+    on('#lights-generated', 'change', (e) => app.setLightOpt('lightsGenerated', e.target.checked));
+    on('#sw-accept', 'click', () => app.acceptStrobe());
+    on('#sw-cancel', 'click', () => app.declineStrobe());
     on('#volume', 'input', (e) => app.setVolume(Number(e.target.value)));
     on('#begin', 'click', () => app.beginOrResume());
     on('#enter-vr', 'click', () => this._enter('immersive-vr'));
@@ -74,12 +86,15 @@ export class DomUI {
     on('#file', 'change', async (e) => {
       const f = e.target.files[0];
       if (!f) return;
-      this.$('#import-status').textContent = 'Analysing…';
+      this.$('#import-status').textContent = 'Reading audio…';
       try {
         await app.importFile(f, this.$('#import-scene').value);
         this._buildCards();
         this.refresh();
-        this.$('#import-status').textContent = 'Ready: added to Soundscapes';
+        const st = app.imported.strobe;
+        this.$('#import-status').textContent = st
+          ? `Ready: ${st.format === 'spectrastrobe' ? 'SpectraStrobe' : 'AudioStrobe'} lights decoded. Added to Soundscapes.`
+          : 'Ready: added to Soundscapes (no light encoding found)';
       } catch (err) {
         this.$('#import-status').textContent = 'Could not decode that file';
       }
@@ -117,11 +132,20 @@ export class DomUI {
     this.$('#whispers').checked = app.whispers;
     this.$('#captions').checked = app.captions;
     this.$('#volume').value = app.volume;
+    this.$('#lights').checked = app.lights;
+    this.$('#light-style').value = app.lightStyle;
+    this.$('#light-symbol').value = String(app.lightSymbol);
+    this.$('#light-colour').value = app.lightColour;
+    this.$('#light-mode').value = app.lightMode;
+    this.$('#light-max').value = app.lightMax;
+    this.$('#lights-generated').checked = app.lightsGenerated;
     const tr = app.selected;
     this.$('#sel-title').textContent = tr.title;
     this.$('#sel-meta').textContent = tr.guided
       ? `Guided with voice · ${tr.intent} · ${tr.freq} Hz · ${tr.profile} brainwave journey`
-      : `${tr.buffer ? 'Your track with a ' : ''}${tr.freq} Hz${tr.buffer ? ' tone' : ''} · ${tr.intent} · ${tr.scene} scene`;
+      : tr.buffer
+        ? `Your track · ${tr.intent} · ${tr.scene} scene`
+        : `${tr.freq} Hz · ${tr.intent} · ${tr.scene} scene`;
     this.$('#begin').textContent = app.playing ? (app.playingTrack === tr ? 'Resume' : 'Switch to this') : 'Begin here';
   }
 
@@ -129,7 +153,7 @@ export class DomUI {
     this.menu.classList.add('hidden');
     this.session.classList.remove('hidden');
     document.body.classList.add('playing');
-    this.$('#session-title').textContent = `${track.title} · ${track.freq} Hz`;
+    this.$('#session-title').textContent = track.strobe ? `${track.title} · ${track.strobe.format === 'spectrastrobe' ? 'SpectraStrobe' : 'AudioStrobe'}` : track.buffer ? track.title : `${track.title} · ${track.freq} Hz`;
     this.refresh();
   }
 
@@ -148,6 +172,10 @@ export class DomUI {
     this.$('#cue-sub').textContent = sub;
     this.$('#progress').style.width = `${(progress * 100).toFixed(2)}%`;
   }
+
+  importStatus(text) { this.$('#import-status').textContent = text; }
+  showStrobeWarning() { this.$('#strobe-warning').classList.remove('hidden'); }
+  hideStrobeWarning() { this.$('#strobe-warning').classList.add('hidden'); this.refresh(); }
 
   setXR(on) { document.body.classList.toggle('in-xr', on); }
 

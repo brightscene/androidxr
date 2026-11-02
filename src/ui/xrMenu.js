@@ -84,7 +84,7 @@ export class XRMenu {
     this.group.add(this.panel);
 
     // backdrop
-    const bg = new Button(1.44, 1.2, (c, w, h) => {
+    const bg = new Button(1.44, 1.32, (c, w, h) => {
       roundRect(c, 0, 0, w, h, 60);
       const g = c.createLinearGradient(0, 0, 0, h);
       g.addColorStop(0, 'rgba(10,12,28,0.9)');
@@ -151,6 +151,11 @@ export class XRMenu {
     this._add(new Button(0.3, 0.065, pill(() => `Dives: ${label[app.dives]}`), () => app.setDives(app.cycle('dives', ['gentle', 'full', 'off']))), -0.16, y2);
     this._add(new Button(0.3, 0.065, pill(() => `Nature: ${label[app.nature]}`), () => app.engine.init().then(() => app.setNature(app.cycle('nature', ['off', 'rain', 'ocean'])))), 0.16, y2);
     this._add(new Button(0.16, 0.065, pill(() => `Vol ${Math.round(app.volume * 10)}`), () => app.setVolume(app.volume >= 0.95 ? 0.3 : Math.min(1, app.volume + 0.1))), 0.47, y2);
+    const y3 = -0.54;
+    this._add(new Button(0.2, 0.065, pill('Lights', () => app.lights), () => app.setLights(!app.lights)), -0.5, y3);
+    this._add(new Button(0.3, 0.065, pill(() => `Flashing: ${app.lightMode === 'soft' ? 'Soft' : 'Exact'}`), () => app.setLightOpt('lightMode', app.lightMode === 'soft' ? 'exact' : 'soft')), -0.22, y3);
+    this._add(new Button(0.3, 0.065, pill(() => `Brightness ${Math.round(app.lightMax * 100)}%`), () => app.setLightOpt('lightMax', app.lightMax >= 0.95 ? 0.2 : Math.round((app.lightMax + 0.2) * 10) / 10)), 0.1, y3);
+    this._add(new Button(0.26, 0.065, pill(() => `Show: ${{ both: 'Symbol+glow', symbol: 'Symbol', field: 'Glow' }[app.lightStyle]}`), () => app.setLightOpt('lightStyle', app.cycle('lightStyle', ['both', 'symbol', 'field']))), 0.4, y3);
 
     this.beginBtn = this._add(new Button(0.42, 0.09, (c, w, h, b) => {
       roundRect(c, 4, 4, w - 8, h - 8, (h - 8) / 2);
@@ -161,9 +166,43 @@ export class XRMenu {
       c.textAlign = 'center';
       c.textBaseline = 'middle';
       c.fillText(app.playing ? (app.playingTrack === app.selected ? 'Resume' : 'Switch track') : 'Begin', w / 2, h / 2 + 2);
-    }, () => app.beginOrResume()), -0.12, -0.56);
-    this.endBtn = this._add(new Button(0.22, 0.09, pill('End session'), () => app.stop()), 0.24, -0.56);
-    bg.mesh.position.y = -0.02;
+    }, () => app.beginOrResume()), -0.12, -0.66);
+    this.endBtn = this._add(new Button(0.22, 0.09, pill('End session'), () => app.stop()), 0.24, -0.66);
+    bg.mesh.position.y = -0.07;
+
+    // photosensitivity warning, shown before lights can be turned on
+    this.warn = new THREE.Group();
+    this.warn.position.z = 0.03;
+    this.warn.visible = false;
+    this.panel.add(this.warn);
+    const card = new Button(1.12, 0.62, (c, w, h) => {
+      roundRect(c, 0, 0, w, h, 40);
+      c.fillStyle = 'rgba(18,14,30,0.98)'; c.fill();
+      c.strokeStyle = 'rgba(255,200,120,0.6)'; c.lineWidth = 5; c.stroke();
+      c.fillStyle = '#fff'; c.textAlign = 'left';
+      c.font = `500 46px ${FONT}`; c.fillText('Flashing lights warning', 50, 80);
+      c.font = `400 27px ${FONT}`; c.fillStyle = 'rgba(255,255,255,0.88)';
+      const lines = [
+        'Lights flash at about 1–40 times a second. This can trigger',
+        'seizures in people with photosensitive epilepsy.',
+        '',
+        "Don't use if you or your family have had epilepsy or seizures,",
+        'have a serious eye, head or heart condition, or are pregnant.',
+        'Stop straight away if you feel unwell or disoriented.',
+        'Never use while driving or after alcohol or drugs.',
+      ];
+      lines.forEach((l, i) => c.fillText(l, 50, 140 + i * 40));
+    }, null, 800);
+    card.mesh.renderOrder = 1001;
+    card.mesh.position.y = 0.05;
+    this.warn.add(card.mesh);
+    this.warnButtons = [
+      new Button(0.42, 0.08, pill('I understand, turn on lights'), () => app.acceptStrobe()),
+      new Button(0.2, 0.08, pill('Not now'), () => app.declineStrobe()),
+    ];
+    this.warnButtons[0].mesh.position.set(-0.13, -0.18, 0.01);
+    this.warnButtons[1].mesh.position.set(0.23, -0.18, 0.01);
+    for (const b of this.warnButtons) { b.mesh.renderOrder = 1002; this.warn.add(b.mesh); }
 
     // toggle orb shown during a session
     this.orb = new Button(0.11, 0.11, (c, w, h, b) => {
@@ -258,7 +297,13 @@ export class XRMenu {
     }
   }
 
+  showWarning(on) {
+    this.warn.visible = on;
+    if (on && !this.visible) this.show(true);
+  }
+
   _interactive() {
+    if (this.warn.visible && this.panel.visible) return this.warnButtons.map((b) => b.mesh);
     const list = [];
     if (this.panel.visible) for (const b of this.buttons) if (b.onSelect && b.mesh.visible && b !== this.orb) list.push(b.mesh);
     if (this.orb.mesh.visible) list.push(this.orb.mesh);
@@ -291,6 +336,6 @@ export class XRMenu {
         u.dot.visible = false;
       }
     }
-    for (const b of this.buttons) if (b.onSelect) b.setHover(hovered.has(b));
+    for (const b of [...this.buttons, ...this.warnButtons]) if (b.onSelect) b.setHover(hovered.has(b));
   }
 }

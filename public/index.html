@@ -87,6 +87,23 @@
       <p id="voice-note" class="muted note"></p>
     </details>
 
+    <details class="panel" id="lights-panel">
+      <summary>Lights · AudioStrobe &amp; SpectraStrobe</summary>
+      <p class="muted">Light-and-sound tracks hide light signals in the audio. MindLyte decodes them and flashes a symbol for each eye at the encoded rate and colour, like mind-machine glasses. Import an encoded track below.</p>
+      <div class="grid">
+        <label class="toggle"><input type="checkbox" id="lights" /> <span>Lights on</span></label>
+        <label><span class="label">Show</span>
+          <select id="light-style"><option value="both">Symbol + glow</option><option value="symbol">Symbol only</option><option value="field">Soft full-field glow</option></select></label>
+        <label><span class="label">Symbol</span><select id="light-symbol"></select></label>
+        <label><span class="label">AudioStrobe colours</span>
+          <select id="light-colour"><option value="palette">Track palette</option><option value="white">Warm white</option><option value="amber">Amber</option><option value="violet">Violet / teal</option><option value="rainbow">Slow rainbow</option></select></label>
+        <label><span class="label">Flashing</span>
+          <select id="light-mode"><option value="exact">Exact (as encoded)</option><option value="soft">Softened pulses</option></select></label>
+        <label class="group"><span class="label">Brightness</span><input id="light-max" type="range" min="0.1" max="1" step="0.05" /></label>
+        <label class="toggle"><input type="checkbox" id="lights-generated" /> <span>Also pulse lights with MindLyte's brainwave tones</span></label>
+      </div>
+    </details>
+
     <details class="panel">
       <summary>Bring your own AI track</summary>
       <p class="muted">Load a track you generated elsewhere (Suno, Udio, MP3/WAV). MindLyte analyses its beats and dynamics to key the visuals, and layers the tones underneath.</p>
@@ -129,6 +146,20 @@
   </div>
 
   <div id="toast"></div>
+
+  <div id="strobe-warning" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="sw-title">
+    <div class="modal-card">
+      <h3 id="sw-title">Flashing lights warning</h3>
+      <p>Lights mode flashes light at rates between about 1 and 40 times a second. Flashing light at these rates can trigger seizures in people with photosensitive epilepsy, sometimes for the first time.</p>
+      <ul>
+        <li>Don't use it if you or anyone in your family has had epilepsy or seizures, or if you have a serious eye condition, a head injury or a heart condition, or you're pregnant.</li>
+        <li>Stop straight away if you feel dizzy, sick or disoriented, or notice twitching or changes in your vision.</li>
+        <li>Don't use it while driving or operating machinery, or after alcohol or other drugs.</li>
+      </ul>
+      <p class="muted">You can lower the brightness or choose softened pulses at any time.</p>
+      <div class="go"><button id="sw-accept" class="primary">I understand, turn on lights</button><button id="sw-cancel" class="ghost">Not now</button></div>
+    </div>
+  </div>
   <script src="app.js"></script>
 </body>
 </html>

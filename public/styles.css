@@ -105,3 +105,9 @@ body.in-xr #menu, body.in-xr #session { display: none !important; }
   .card .f { font-size: 22px; }
 }
 body:not(.playing) #close-menu { display: none; }
+
+.modal { position: fixed; inset: 0; display: grid; place-items: center; background: rgba(0, 0, 0, 0.6); z-index: 20; padding: 16px; }
+.modal-card { max-width: 560px; background: rgba(16, 16, 34, 0.96); border: 1px solid var(--line); border-radius: 22px; padding: 24px 26px; line-height: 1.5; }
+.modal-card h3 { margin: 0 0 10px; font-weight: 500; font-size: 20px; }
+.modal-card ul { padding-left: 18px; margin: 10px 0; }
+.modal-card li { margin: 6px 0; font-size: 14.5px; }
