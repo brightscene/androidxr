@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { U, POINT_SIZE } from './common.js';
 
 // Light layer for decoded AudioStrobe / SpectraStrobe tracks.
 //
@@ -132,11 +133,82 @@ export class StrobeLayer {
     camera.add(this.dim);
     this.dimLevel = 0;
 
+    this.leds = { leds: [0, 1].map((side) => this._buildLeds(side, 'dome')), pandora: [0, 1].map((side) => this._buildLeds(side, 'disc')) };
+
+    // Pandora panel diffuser: a soft glow behind the LED disc
+    this.diffuser = [0, 1].map((side) => {
+      const m = new THREE.Mesh(new THREE.CircleGeometry(1.05, 64, side ? -Math.PI / 2 : Math.PI / 2, Math.PI), new THREE.ShaderMaterial({
+        transparent: true, depthTest: false, depthWrite: false, blending: THREE.AdditiveBlending,
+        uniforms: { uCol: { value: new THREE.Color() }, uB: { value: 0 } },
+        vertexShader: 'varying vec2 vP; void main(){ vP = position.xy; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
+        fragmentShader: 'uniform vec3 uCol; uniform float uB; varying vec2 vP; void main(){ float r = length(vP); gl_FragColor = vec4(uCol * uB * 0.22 * smoothstep(1.05, 0.7, r), 1.0); }',
+      }));
+      m.position.z = -2.02;
+      m.renderOrder = 949;
+      m.frustumCulled = false;
+      m.visible = false;
+      camera.add(m);
+      return m;
+    });
+
     camera.layers.enable(1);
     camera.layers.enable(2);
     this.symbol = 0;
     this.symbolTimer = 0;
     this.auto = true;
+  }
+
+  // LED layouts. The left half is driven by the left light channel, the right half by the right.
+  //  dome: NeuroVizr-style starfield, a wide curved dome of LEDs in concentric rings
+  //  disc: Pandora Star-style, one large round panel densely packed with LED rings
+  _buildLeds(side, kind) {
+    const pos = [], seed = [], ring = [];
+    const rings = kind === 'disc' ? 15 : 12;
+    for (let k = 0; k <= rings; k++) {
+      const count = k === 0 ? 1 : 6 * k;
+      for (let j = 0; j < count; j++) {
+        const phi = (j / count) * Math.PI * 2 + (kind === 'disc' ? 0 : k * 0.37);
+        let x, y, z;
+        if (kind === 'disc') {
+          const r = (k / rings) * 0.95;
+          x = Math.cos(phi) * r; y = Math.sin(phi) * r; z = -2.0;
+        } else {
+          const R = 2.4, ang = (k / rings) * 62 * (Math.PI / 180);
+          const yaw = ang * Math.cos(phi) * 1.15, pitch = ang * Math.sin(phi) * 0.72;
+          x = Math.sin(yaw) * Math.cos(pitch) * R; y = Math.sin(pitch) * R; z = -Math.cos(yaw) * Math.cos(pitch) * R;
+        }
+        if (k > 0 && (side ? x < -0.002 : x > 0.002)) continue; // this half only (centre LED in both)
+        pos.push(x, y, z);
+        seed.push(Math.random());
+        ring.push(k / rings);
+      }
+    }
+    const ledSize = kind === 'disc' ? 0.055 : 0.095;
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    g.setAttribute('aSeed', new THREE.Float32BufferAttribute(seed, 1));
+    g.setAttribute('aRing', new THREE.Float32BufferAttribute(ring, 1));
+    const pts = new THREE.Points(g, new THREE.ShaderMaterial({
+      transparent: true, depthTest: false, depthWrite: false, blending: THREE.AdditiveBlending,
+      uniforms: { uViewH: U.uViewH, uTime: U.uTime, uCol: { value: new THREE.Color() }, uB: { value: 0 }, uMax: { value: 0.6 }, uSize: { value: ledSize } },
+      vertexShader: /* glsl */ `attribute float aSeed, aRing; uniform float uViewH, uTime, uSize; varying float vS; varying float vR;
+        ${POINT_SIZE}
+        void main(){ vS = aSeed; vR = aRing; vec4 mv = modelViewMatrix * vec4(position,1.0);
+          gl_PointSize = max(2.0, pointPx(uSize + aSeed * 0.02, mv)); gl_Position = projectionMatrix * mv; }`,
+      fragmentShader: /* glsl */ `uniform vec3 uCol; uniform float uB, uMax, uTime; varying float vS; varying float vR;
+        void main(){
+          float d = length(gl_PointCoord - 0.5) * 2.0;
+          float core = smoothstep(0.32, 0.0, d), halo = exp(-d * d * 4.0) * (1.0 - d);
+          float tw = 0.85 + 0.15 * sin(uTime * (1.0 + vS * 3.0) + vS * 40.0);
+          vec3 c = uCol * (halo * 1.1 + core * 0.6) + mix(uCol, vec3(1.0), 0.6) * core * 0.9;
+          gl_FragColor = vec4(c * uB * uMax * tw * (1.0 - vR * 0.25), 1.0);
+        }`,
+    }));
+    pts.frustumCulled = false;
+    pts.renderOrder = 951;
+    pts.visible = false;
+    this.camera.add(pts);
+    return pts;
   }
 
   // Layer 1/2 are seen only by the left/right eye in a headset.
@@ -163,8 +235,31 @@ export class StrobeLayer {
     const show = !!(rgbL && rgbR);
     // "eyes" (one symbol per eye, fused into one in the centre) only means something in a headset
     const perEye = this.xr && opts.layout === 'eyes';
+    const ledMode = opts.style === 'leds' || opts.style === 'pandora';
+    for (const [kind, set] of Object.entries(this.leds)) set.forEach((p, side) => {
+      p.visible = show && opts.style === kind;
+      if (kind === 'pandora') {
+        const d = this.diffuser[side];
+        d.visible = p.visible;
+        if (d.visible) {
+          const rgb = side ? rgbR : rgbL;
+          const pk = Math.max(rgb[0], rgb[1], rgb[2], 1e-4);
+          d.material.uniforms.uB.value = pk * opts.max;
+          d.material.uniforms.uCol.value.setRGB(rgb[0] / pk, rgb[1] / pk, rgb[2] / pk);
+          d.layers.set(perEye ? side + 1 : 0);
+        }
+      }
+      if (!p.visible) return;
+      const rgb = side ? rgbR : rgbL;
+      const peak = Math.max(rgb[0], rgb[1], rgb[2], 1e-4);
+      const u = p.material.uniforms;
+      u.uB.value = peak;
+      u.uCol.value.setRGB(rgb[0] / peak, rgb[1] / peak, rgb[2] / peak);
+      u.uMax.value = opts.max;
+      p.layers.set(perEye ? side + 1 : 0);
+    });
     this.meshes.forEach((m, side) => {
-      m.visible = show;
+      m.visible = show && !ledMode;
       if (!show) return;
       const u = m.material.uniforms;
       const rgb = side ? rgbR : rgbL;
@@ -178,14 +273,15 @@ export class StrobeLayer {
         u.uMix.value = Math.min(1, u.uMix.value + dt / 2.5);
         if (u.uMix.value >= 1) { u.uSym.value = u.uSymB.value; u.uMix.value = 0; }
       }
+      // per-eye: each eye sees only its own symbol, off to its own side (like LEDs in light glasses)
       m.layers.set(perEye ? side + 1 : 0);
-      m.position.set(perEye ? 0 : side ? SEP : -SEP, 0, -DIST);
-      m.scale.setScalar(perEye ? 0.95 : 0.7);
+      m.position.set(side ? SEP : -SEP, 0, -DIST);
+      m.scale.setScalar(0.7);
     });
     this.dimLevel += ((show ? opts.dim ?? 0.5 : 0) - this.dimLevel) * (1 - Math.exp(-dt * 2));
     this.dim.visible = this.dimLevel > 0.005;
     this.dim.material.uniforms.uDim.value = this.dimLevel;
-    this.dim.material.uniforms.uSides.value = perEye ? 0 : 1;
+    this.dim.material.uniforms.uSides.value = ledMode ? 0 : 1;
     if (show && this.auto) {
       this.symbolTimer += dt;
       if (this.symbolTimer > 24) { this.symbolTimer = 0; this._go((this.symbol + 1) % SYMBOLS.length); }

@@ -136,6 +136,7 @@ export class XRMenu {
       c.font = `300 60px ${FONT}`;
       c.textAlign = 'left';
       c.fillText('MindLyte', 52, 88);
+      c.font = `400 22px ${FONT}`; c.fillStyle = 'rgba(255,255,255,0.35)'; c.fillText(`v${__BUILD__}`, 54, 122);
     }, null, 650);
     bg.mesh.position.set(0, -0.02, -0.01);
     bg.mesh.renderOrder = 999;
@@ -282,9 +283,9 @@ export class XRMenu {
     }, { alpha: 0.75, size: 0.46 })), 0, ROW0 + 0.01);
     const r = (i, ...a) => this._row(p, i * 0.87 + 0.75, ...a);
     r(0, 'Lights', [['On', true], ['Off', false]], () => app.lights, (v) => app.setLights(v));
-    r(7, 'Layout', [['Side by side', 'sides'], ['One per eye', 'eyes']], () => app.lightLayout, (v) => app.setLightOpt('lightLayout', v), [0.22, 0.22]);
+    r(7, 'Eyes', [['Both eyes see both', 'sides'], ['Each eye its own', 'eyes']], () => app.lightLayout, (v) => app.setLightOpt('lightLayout', v), [0.3, 0.3]);
     r(8, 'Dim background', [['Off', 0], ['30%', 0.3], ['50%', 0.5], ['70%', 0.7], ['85%', 0.85]], () => app.lightDim, (v) => app.setLightOpt('lightDim', v), [0.12, 0.12, 0.12, 0.12, 0.12]);
-    r(1, 'Show', [['Symbol + glow', 'both'], ['Symbol', 'symbol'], ['Glow', 'field']], () => app.lightStyle, (v) => app.setLightOpt('lightStyle', v), [0.24, 0.17, 0.17]);
+    r(1, 'Show', [['Symbol + glow', 'both'], ['Symbol', 'symbol'], ['Glow', 'field'], ['LED starfield', 'leds'], ['Pandora panel', 'pandora']], () => app.lightStyle, (v) => app.setLightOpt('lightStyle', v), [0.21, 0.13, 0.11, 0.21, 0.21]);
     r(2, 'Symbol', [['Cycle', -1], ...SYMBOLS.map((n, i) => [n.replace(' of ', ' '), i])], () => app.lightSymbol, (v) => app.setLightOpt('lightSymbol', v), [0.12, 0.15, 0.15, 0.12, 0.14, 0.13, 0.14]);
     r(3, 'Colours', [['Vivid', 'vivid'], ['Palette', 'palette'], ['White', 'white'], ['Amber', 'amber'], ['Violet', 'violet'], ['Rainbow', 'rainbow']], () => app.lightColour, (v) => app.setLightOpt('lightColour', v), [0.14, 0.14, 0.14, 0.14, 0.14, 0.15]);
     r(4, 'Flashing', [['Exact', 'exact'], ['Softened', 'soft']], () => app.lightMode, (v) => app.setLightOpt('lightMode', v));

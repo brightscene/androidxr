@@ -16,6 +16,7 @@ const res = await build({
   outfile: 'dist/app.js',
   write: true,
   legalComments: 'none',
+  define: { __BUILD__: JSON.stringify(new Date().toISOString().slice(0, 16).replace('T', ' ')) },
 });
 if (res.errors.length) process.exit(1);
 

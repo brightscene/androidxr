@@ -96,12 +96,12 @@
       <div class="grid">
         <label class="toggle"><input type="checkbox" id="lights" /> <span>Lights on</span></label>
         <label><span class="label">Show</span>
-          <select id="light-style"><option value="both">Symbol + glow</option><option value="symbol">Symbol only</option><option value="field">Soft full-field glow</option></select></label>
+          <select id="light-style"><option value="both">Symbol + glow</option><option value="symbol">Symbol only</option><option value="field">Soft full-field glow</option><option value="leds">LED starfield (NeuroVizr-style)</option><option value="pandora">LED panel (Pandora Star-style)</option></select></label>
         <label><span class="label">Symbol</span><select id="light-symbol"></select></label>
         <label><span class="label">AudioStrobe colours</span>
           <select id="light-colour"><option value="vivid">Vivid magenta / cyan</option><option value="palette">Track palette</option><option value="white">Warm white</option><option value="amber">Amber</option><option value="violet">Violet / green</option><option value="rainbow">Slow rainbow</option></select></label>
-        <label><span class="label">Layout</span>
-          <select id="light-layout"><option value="sides">Two symbols, side by side</option><option value="eyes">One per eye (headset, fused)</option></select></label>
+        <label><span class="label">Eyes (headset)</span>
+          <select id="light-layout"><option value="sides">Both eyes see both lights</option><option value="eyes">Each eye sees only its own light</option></select></label>
         <label><span class="label">Dim background</span>
           <select id="light-dim"><option value="0">Off</option><option value="0.3">30%</option><option value="0.5">50%</option><option value="0.7">70%</option><option value="0.85">85%</option></select></label>
         <label><span class="label">Flashing</span>
@@ -134,6 +134,7 @@
       <button id="enter-ar" class="primary alt">Enter passthrough</button>
       <button id="begin" class="ghost">Begin here</button>
     </section>
+    <p id="version" class="muted note"></p>
     <p id="xr-note" class="muted note">In the headset: point and pinch to choose. Binaural tones need headphones; isochronic tones work on speakers.</p>
   </main>
 

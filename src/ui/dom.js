@@ -13,6 +13,7 @@ export class DomUI {
     this.refreshVoices();
     this._wire();
     this._checkXR();
+    this.$('#version').textContent = `MindLyte v${__BUILD__}`;
     this.refresh();
   }
 
