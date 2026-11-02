@@ -8,6 +8,9 @@ export const U = {
   uBreath: { value: 0 },
   uLevel: { value: 0 },
   uBeat: { value: 0 },
+  uTravel: { value: 0 }, // metres travelled through the stars
+  uSpeed: { value: 0.5 }, // current travel speed (m/s)
+  uDive: { value: 0 }, // 0..1 dive envelope
   uC0: { value: new THREE.Color('#0b1d3a') },
   uC1: { value: new THREE.Color('#1f6f8b') },
   uC2: { value: new THREE.Color('#99e1d9') },

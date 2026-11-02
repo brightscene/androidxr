@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "Generative solfeggio meditation with spatial visuals for Android XR (WebXR PWA)",
   "private": true,
+  "type": "module",
   "scripts": {
     "build": "node build.mjs",
     "serve": "npx --yes http-server dist -p 8080 -c-1"

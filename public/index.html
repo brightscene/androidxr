@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="theme-color" content="#0a0c1c" />
-  <title>Stillpoint · XR meditation</title>
+  <meta name="theme-color" content="#07071a" />
+  <title>MindLyte · XR meditation</title>
   <link rel="manifest" href="manifest.webmanifest" />
   <link rel="icon" href="icons/icon-192.png" />
   <link rel="stylesheet" href="styles.css" />
@@ -15,38 +15,84 @@
   <main id="menu">
     <header>
       <div>
-        <h1>Stillpoint</h1>
-        <p class="lede">Generative soundscapes tuned to the nine solfeggio frequencies, with spatial light that moves with the music.</p>
+        <h1>MindLyte</h1>
+        <p class="lede">Drift through galaxies on generative soundscapes tuned to the solfeggio frequencies, with brainwave tones and a gentle voice to guide you.</p>
       </div>
       <button id="close-menu" class="ghost small" title="Hide menu">Hide</button>
     </header>
 
     <section class="selected">
-      <div>
-        <div id="sel-title" class="sel-title"></div>
-        <div id="sel-meta" class="sel-meta"></div>
-      </div>
+      <div id="sel-title" class="sel-title"></div>
+      <div id="sel-meta" class="sel-meta"></div>
     </section>
 
+    <h2>Guided journeys</h2>
+    <section id="guided" class="tracks"></section>
+
+    <h2>Soundscapes</h2>
     <section id="tracks" class="tracks"></section>
 
     <section class="opts">
-      <div class="group">
+      <div class="group" id="length-group">
         <span class="label">Length</span>
         <div id="durations" class="seg">
-          <button data-min="5">5 min</button><button data-min="10">10 min</button><button data-min="20">20 min</button>
+          <button data-min="5">5 min</button><button data-min="10">10 min</button><button data-min="20">20 min</button><button data-min="30">30 min</button>
         </div>
       </div>
-      <label class="toggle"><input type="checkbox" id="tone" checked /> <span>Solfeggio tone</span></label>
-      <label class="toggle"><input type="checkbox" id="binaural" checked /> <span>Binaural beat</span></label>
       <label class="group vol"><span class="label">Volume</span><input id="volume" type="range" min="0" max="1" step="0.01" value="0.8" /></label>
     </section>
 
-    <details class="import">
+    <details class="panel" open>
+      <summary>Sound &amp; journey</summary>
+      <div class="grid">
+        <label><span class="label">Brainwave tones</span>
+          <select id="entrainment">
+            <option value="binaural">Binaural (headphones)</option>
+            <option value="isochronic">Isochronic (speakers ok)</option>
+            <option value="both">Binaural + isochronic</option>
+            <option value="off">Off</option>
+          </select></label>
+        <label><span class="label">Brainwave journey</span>
+          <select id="journey">
+            <option value="auto">Auto (per track)</option>
+            <option value="relax">Relax · alpha → theta</option>
+            <option value="meditate">Meditate · deep theta</option>
+            <option value="sleep">Sleep · theta → delta</option>
+            <option value="focus">Focus · alpha / low beta</option>
+          </select></label>
+        <label><span class="label">Nature bed</span>
+          <select id="nature">
+            <option value="off">Off</option>
+            <option value="rain">Soft rain</option>
+            <option value="ocean">Ocean waves</option>
+          </select></label>
+        <label><span class="label">Deep dives</span>
+          <select id="dives">
+            <option value="gentle">Gentle</option>
+            <option value="full">Full speed</option>
+            <option value="off">Off (no motion)</option>
+          </select></label>
+        <label class="toggle"><input type="checkbox" id="tone" /> <span>Solfeggio tone</span></label>
+      </div>
+    </details>
+
+    <details class="panel">
+      <summary>Voice</summary>
+      <div class="grid">
+        <label><span class="label">Guide voice</span><select id="voice"></select></label>
+        <label class="toggle"><input type="checkbox" id="whispers" /> <span>Whispers in soundscapes</span></label>
+        <label class="toggle"><input type="checkbox" id="captions" /> <span>Show captions</span></label>
+        <button id="preview-voice" class="ghost small">Hear the voice</button>
+      </div>
+      <p id="voice-note" class="muted note"></p>
+    </details>
+
+    <details class="panel">
       <summary>Bring your own AI track</summary>
-      <p>Load a track you generated elsewhere (e.g. Suno or Udio, MP3/WAV). Stillpoint analyses its beats and dynamics to key the visuals, and layers the selected solfeggio tone underneath.</p>
+      <p class="muted">Load a track you generated elsewhere (Suno, Udio, MP3/WAV). MindLyte analyses its beats and dynamics to key the visuals, and layers the tones underneath.</p>
       <div class="row">
         <select id="import-scene">
+          <option value="galaxy">Galaxy voyage</option>
           <option value="mandala">Lotus mandala</option>
           <option value="aurora">Aurora</option>
           <option value="ocean">Light ocean</option>
@@ -64,7 +110,7 @@
       <button id="enter-ar" class="primary alt">Enter passthrough</button>
       <button id="begin" class="ghost">Begin here</button>
     </section>
-    <p id="xr-note" class="muted note">In the headset: point and pinch to choose. Binaural beats work best with headphones.</p>
+    <p id="xr-note" class="muted note">In the headset: point and pinch to choose. Binaural tones need headphones; isochronic tones work on speakers.</p>
   </main>
 
   <div id="session" class="hidden">

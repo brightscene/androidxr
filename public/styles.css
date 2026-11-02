@@ -23,7 +23,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 header { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
 h1 { font-weight: 250; font-size: 40px; letter-spacing: 0.02em; margin: 0 0 4px; }
 .lede { margin: 0; color: var(--muted); max-width: 560px; line-height: 1.45; }
-.selected { margin: 20px 0 12px; }
+.selected { margin: 18px 0 4px; }
 .sel-title { font-size: 22px; font-weight: 500; }
 .sel-meta { color: var(--muted); font-size: 14px; margin-top: 2px; text-transform: none; }
 
@@ -49,16 +49,20 @@ h1 { font-weight: 250; font-size: 40px; letter-spacing: 0.02em; margin: 0 0 4px;
 .toggle input { accent-color: #fff; width: 18px; height: 18px; }
 .vol input { width: 130px; accent-color: #fff; }
 
-.import { margin: 14px 0 6px; border-top: 1px solid var(--line); padding-top: 12px; }
-.import summary { cursor: pointer; font-size: 15px; }
-.import p { color: var(--muted); font-size: 13.5px; line-height: 1.45; margin: 8px 0; }
-.import .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
-.import select, .file {
-  background: rgba(255, 255, 255, 0.08); color: var(--fg); border: 1px solid var(--line); border-radius: 999px; padding: 7px 14px; font: inherit; font-size: 14px;
+.panel { margin: 12px 0 4px; border-top: 1px solid var(--line); padding-top: 12px; }
+.panel summary { cursor: pointer; font-size: 15px; }
+.panel p { font-size: 13.5px; line-height: 1.45; margin: 8px 0; }
+.panel .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.panel .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px 18px; margin-top: 12px; align-items: end; }
+.panel .grid > label:not(.toggle) { display: grid; gap: 6px; }
+select, .file {
+  background: rgba(255, 255, 255, 0.08); color: var(--fg); border: 1px solid var(--line); border-radius: 999px; padding: 8px 14px; font: inherit; font-size: 14px; max-width: 100%;
 }
-.import select option { color: #111; }
+select option { color: #111; }
 .file input { display: none; }
 .file { cursor: pointer; }
+h2 { font-weight: 400; font-size: 13px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); margin: 18px 0 10px; }
+.disabled { opacity: 0.35; pointer-events: none; }
 
 .go { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 18px; }
 .primary, .ghost { border-radius: 999px; padding: 12px 22px; font-size: 15px; font-weight: 500; border: 1px solid var(--line); }

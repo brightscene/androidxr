@@ -84,7 +84,7 @@ export class XRMenu {
     this.group.add(this.panel);
 
     // backdrop
-    const bg = new Button(1.32, 1.02, (c, w, h) => {
+    const bg = new Button(1.44, 1.2, (c, w, h) => {
       roundRect(c, 0, 0, w, h, 60);
       const g = c.createLinearGradient(0, 0, 0, h);
       g.addColorStop(0, 'rgba(10,12,28,0.9)');
@@ -97,21 +97,22 @@ export class XRMenu {
       c.fillStyle = '#fff';
       c.font = `300 64px ${FONT}`;
       c.textAlign = 'left';
-      c.fillText('Stillpoint', 60, 100);
+      c.fillText('MindLyte', 60, 100);
       c.font = `400 30px ${FONT}`;
       c.fillStyle = 'rgba(255,255,255,0.6)';
-      c.fillText('Choose a frequency · point and pinch', 60, 148);
+      c.fillText('Choose a journey · point and pinch', 60, 148);
     }, null, 700);
     bg.mesh.position.set(0, 0, -0.01);
     bg.mesh.renderOrder = 999;
     this.panel.add(bg.mesh);
 
-    // track cards
-    this.cards = app.tracks.map((tr, i) => {
-      const col = i % 3, row = Math.floor(i / 3);
-      const card = new Button(0.38, 0.17, (c, w, h, b) => {
+    // journey cards: guided first, then soundscapes
+    const all = [...app.guided, ...app.tracks];
+    this.cards = all.map((tr, i) => {
+      const col = i % 4, row = Math.floor(i / 4);
+      const card = new Button(0.31, 0.15, (c, w, h, b) => {
         const sel = app.selected === tr;
-        roundRect(c, 6, 6, w - 12, h - 12, 34);
+        roundRect(c, 6, 6, w - 12, h - 12, 30);
         const g = c.createLinearGradient(0, 0, w, h);
         g.addColorStop(0, tr.palette[0]);
         g.addColorStop(0.6, tr.palette[1]);
@@ -125,25 +126,31 @@ export class XRMenu {
         c.stroke();
         c.fillStyle = '#fff';
         c.textAlign = 'left';
-        c.font = `600 ${Math.round(h * 0.2)}px ${FONT}`;
-        c.fillText(tr.title, 34, h * 0.36);
-        c.font = `300 ${Math.round(h * 0.3)}px ${FONT}`;
-        c.fillText(`${tr.freq} Hz`, 34, h * 0.7);
-        c.font = `400 ${Math.round(h * 0.11)}px ${FONT}`;
-        c.fillStyle = 'rgba(255,255,255,0.8)';
-        c.fillText(tr.intent, 34, h * 0.88);
+        c.font = `600 ${Math.round(h * 0.17)}px ${FONT}`;
+        c.fillText(tr.title, 30, h * 0.32);
+        c.font = `300 ${Math.round(h * 0.26)}px ${FONT}`;
+        c.fillText(tr.guided ? `~${Math.round(tr.estimate / 60)} min` : `${tr.freq} Hz`, 30, h * 0.64);
+        c.font = `400 ${Math.round(h * 0.1)}px ${FONT}`;
+        c.fillStyle = 'rgba(255,255,255,0.85)';
+        c.fillText(tr.guided ? `Guided · ${tr.intent}` : tr.intent, 30, h * 0.86);
       }, () => app.select(tr));
-      return this._add(card, (col - 1) * 0.4, 0.13 - row * 0.185);
+      return this._add(card, (col - 1.5) * 0.325, 0.2 - row * 0.165);
     });
 
-    // options row
-    const y = -0.4;
+    // option rows
+    const y1 = -0.36, y2 = -0.45;
     [5, 10, 20].forEach((m, i) => {
-      this._add(new Button(0.15, 0.07, pill(`${m} min`, () => app.minutes === m), () => { app.setMinutes(m); this.refresh(); }), -0.5 + i * 0.165, y);
+      this._add(new Button(0.13, 0.065, pill(`${m} min`, () => app.minutes === m && !app.selected.guided), () => app.setMinutes(m)), -0.6 + i * 0.14, y1);
     });
-    this._add(new Button(0.2, 0.07, pill('Binaural', () => app.binaural), () => { app.setBinaural(!app.binaural); this.refresh(); }), 0.12, y);
-    this._add(new Button(0.2, 0.07, pill('Tone', () => app.solfeggio), () => { app.setSolfeggio(!app.solfeggio); this.refresh(); }), 0.34, y);
-    this._add(new Button(0.12, 0.07, pill('Exit'), () => app.exitXR()), 0.53, y);
+    this._add(new Button(0.17, 0.065, pill('Solfeggio', () => app.solfeggio), () => app.setSolfeggio(!app.solfeggio)), -0.08, y1);
+    this._add(new Button(0.17, 0.065, pill('Whispers', () => app.whispers), () => app.setWhispers(!app.whispers)), 0.1, y1);
+    this._add(new Button(0.17, 0.065, pill('Captions', () => app.captions), () => app.setCaptions(!app.captions)), 0.28, y1);
+    this._add(new Button(0.12, 0.065, pill('Exit'), () => app.exitXR()), 0.6, y1);
+    const label = { binaural: 'Binaural', isochronic: 'Isochronic', both: 'Bin + Iso', off: 'Off', gentle: 'Gentle', full: 'Full', rain: 'Rain', ocean: 'Ocean' };
+    this._add(new Button(0.3, 0.065, pill(() => `Tones: ${label[app.entrainment]}`), () => app.setEntrainment(app.cycle('entrainment', ['binaural', 'isochronic', 'both', 'off']))), -0.48, y2);
+    this._add(new Button(0.3, 0.065, pill(() => `Dives: ${label[app.dives]}`), () => app.setDives(app.cycle('dives', ['gentle', 'full', 'off']))), -0.16, y2);
+    this._add(new Button(0.3, 0.065, pill(() => `Nature: ${label[app.nature]}`), () => app.engine.init().then(() => app.setNature(app.cycle('nature', ['off', 'rain', 'ocean'])))), 0.16, y2);
+    this._add(new Button(0.16, 0.065, pill(() => `Vol ${Math.round(app.volume * 10)}`), () => app.setVolume(app.volume >= 0.95 ? 0.3 : Math.min(1, app.volume + 0.1))), 0.47, y2);
 
     this.beginBtn = this._add(new Button(0.42, 0.09, (c, w, h, b) => {
       roundRect(c, 4, 4, w - 8, h - 8, (h - 8) / 2);
@@ -154,12 +161,9 @@ export class XRMenu {
       c.textAlign = 'center';
       c.textBaseline = 'middle';
       c.fillText(app.playing ? (app.playingTrack === app.selected ? 'Resume' : 'Switch track') : 'Begin', w / 2, h / 2 + 2);
-    }, () => app.beginOrResume()), -0.12, -0.5 + 0.0);
-    this.endBtn = this._add(new Button(0.22, 0.09, pill('End session'), () => app.stop()), 0.24, -0.5);
-    this.beginBtn.mesh.position.y = -0.52;
-    this.endBtn.mesh.position.y = -0.52;
-    bg.mesh.position.y = -0.03;
-    bg.mesh.scale.y = 1.08;
+    }, () => app.beginOrResume()), -0.12, -0.56);
+    this.endBtn = this._add(new Button(0.22, 0.09, pill('End session'), () => app.stop()), 0.24, -0.56);
+    bg.mesh.position.y = -0.02;
 
     // toggle orb shown during a session
     this.orb = new Button(0.11, 0.11, (c, w, h, b) => {

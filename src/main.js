@@ -1,9 +1,13 @@
 import * as THREE from 'three';
 import { AudioEngine } from './audio/engine.js';
 import { Composer, ImportedPlayer } from './audio/composer.js';
-import { TRACKS } from './audio/tracks.js';
+import { TRACKS, GUIDED } from './audio/tracks.js';
+import { SCRIPTS, WHISPERS, WELCOMES, estimateSeconds } from './audio/scripts.js';
+import { Voice, GuideRunner } from './audio/voice.js';
+import { bandName } from './audio/entrainment.js';
 import { U, damp } from './visuals/common.js';
 import { World } from './visuals/world.js';
+import { GalaxyScene } from './visuals/scenes/galaxy.js';
 import { OceanScene } from './visuals/scenes/ocean.js';
 import { OrbScene } from './visuals/scenes/orb.js';
 import { AuroraScene } from './visuals/scenes/aurora.js';
@@ -14,28 +18,49 @@ import { XRMenu } from './ui/xrMenu.js';
 import { DomUI } from './ui/dom.js';
 
 const SCENE_TYPES = {
-  ocean: OceanScene, orb: OrbScene, aurora: AuroraScene,
+  galaxy: GalaxyScene, ocean: OceanScene, orb: OrbScene, aurora: AuroraScene,
   geometry: GeometryScene, mandala: MandalaScene, cymatics: CymaticsScene,
 };
-
+// how fast you drift through space, and how vivid the projected nebula is, per scene
+const SCENE_FEEL = {
+  galaxy: { cruise: 1.2, nebula: 1 }, aurora: { cruise: 0.3, nebula: 0.5 }, ocean: { cruise: 0.25, nebula: 0.55 },
+  orb: { cruise: 0.5, nebula: 0.8 }, geometry: { cruise: 0.45, nebula: 0.7 }, mandala: { cruise: 0.4, nebula: 0.7 },
+  cymatics: { cruise: 0.4, nebula: 0.7 },
+};
 const PHASE_TEXT = { in: 'Breathe in', hold: 'Hold', out: 'Breathe out', rest: 'Rest' };
+const COMFORT = { off: 0, gentle: 0.5, full: 1 };
+const shuffle = (a) => { a = [...a]; for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+
+const loadPrefs = () => { try { return JSON.parse(localStorage.getItem('mindlyte') || '{}'); } catch { return {}; } };
 
 class App {
   constructor() {
     this.tracks = TRACKS;
-    this.selected = TRACKS.find((t) => t.id === 'bloom');
-    this.minutes = 10;
-    this.binaural = true;
-    this.solfeggio = true;
-    this.volume = 0.8;
+    this.guided = GUIDED;
+    for (const g of GUIDED) g.estimate = estimateSeconds(SCRIPTS[g.guided]);
+    const p = loadPrefs();
+    this.selected = [...TRACKS, ...GUIDED].find((t) => t.id === p.selected) || TRACKS.find((t) => t.id === 'intuition');
+    this.minutes = p.minutes || 10;
+    this.entrainment = p.entrainment || 'binaural';
+    this.journey = p.journey || 'auto';
+    this.solfeggio = p.solfeggio ?? true;
+    this.whispers = p.whispers ?? true;
+    this.captions = p.captions ?? false;
+    this.dives = p.dives || 'gentle';
+    this.nature = p.nature || 'off';
+    this.voiceChoice = p.voice || 'auto';
+    this.volume = p.volume ?? 0.8;
     this.playing = false;
     this.player = null;
     this.engine = new AudioEngine();
+    this.voice = new Voice(this.engine);
+    this.voice.setChoice(this.voiceChoice);
+    this.voice.onVoices = () => this.ui?.refreshVoices();
     this.state = { energy: 0.35, breath: 0, low: 0, mid: 0, high: 0, level: 0 };
     this.sectionEnergy = 0.35;
     this.events = [];
+    this.caption = '';
 
-    // --- renderer
     const r = (this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' }));
     r.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     r.setSize(window.innerWidth, window.innerHeight);
@@ -45,12 +70,13 @@ class App {
     document.getElementById('stage').appendChild(r.domElement);
 
     this.scene = new THREE.Scene();
-    this.camera = new THREE.PerspectiveCamera(72, window.innerWidth / window.innerHeight, 0.05, 300);
+    this.camera = new THREE.PerspectiveCamera(72, window.innerWidth / window.innerHeight, 0.05, 400);
     this.camera.position.set(0, 1.6, 0);
     this.camera.rotation.order = 'YXZ';
     this.scene.add(this.camera);
 
-    this.world = new World(this.scene);
+    this.world = new World(this.scene, this.camera);
+    this.world.voyage.comfort = COMFORT[this.dives];
     this.menu = new XRMenu(this);
     this.menu.group.visible = false;
     this.scene.add(this.menu.group);
@@ -61,6 +87,7 @@ class App {
     this.palTarget = [new THREE.Color(), new THREE.Color(), new THREE.Color()];
     this.applyPalette(this.selected.palette, true);
     this.setScene(this.selected.scene);
+    this.engine.setNature(this.nature);
 
     this.ui = new DomUI(this);
     this._lookControls();
@@ -70,25 +97,47 @@ class App {
 
     this.lastT = performance.now();
     this.t = 0;
-    this.idle = { nextBeat: 0, beat: 0 };
-    r.setAnimationLoop((time, frame) => this.frame(frame));
+    this.idle = { nextBeat: 0, beat: 0, nextDive: 25 };
+    r.setAnimationLoop(() => this.frame());
   }
 
-  // ------------------------------------------------------------ selection
+  savePrefs() {
+    try {
+      localStorage.setItem('mindlyte', JSON.stringify({
+        selected: this.selected.id === 'import' ? undefined : this.selected.id, minutes: this.minutes, entrainment: this.entrainment,
+        journey: this.journey, solfeggio: this.solfeggio, whispers: this.whispers, captions: this.captions,
+        dives: this.dives, nature: this.nature, voice: this.voiceChoice, volume: this.volume,
+      }));
+    } catch (_) {}
+  }
+
+  _changed() { this.ui?.refresh(); this.menu.refresh(); this.savePrefs(); }
+
+  // ------------------------------------------------------------ settings
   select(track) {
     this.selected = track;
     if (!this.playing) {
       this.setScene(track.scene);
       this.applyPalette(track.palette);
     }
-    this.menu.refresh();
-    this.ui.refresh();
+    this._changed();
   }
+  setMinutes(m) { this.minutes = m; this._changed(); }
+  setEntrainment(m) { this.entrainment = m; this.player?.setEntrainment?.(m); this._changed(); }
+  setJourney(j) { this.journey = j; this._changed(); }
+  setSolfeggio(on) { this.solfeggio = on; this.player?.setSolfeggio(on); this._changed(); }
+  setWhispers(on) { this.whispers = on; if (!on && !this.guide) this.voice.cancel(); this._changed(); }
+  setCaptions(on) { this.captions = on; this._changed(); }
+  setDives(d) { this.dives = d; this.world.voyage.comfort = COMFORT[d]; this._changed(); }
+  setNature(n) { this.nature = n; this.engine.setNature(n); this._changed(); }
+  setVoice(v) { this.voiceChoice = v; this.voice.setChoice(v); this._changed(); }
+  setVolume(v) { this.volume = v; this.engine.setVolume(v); this.savePrefs(); }
+  cycle(key, options) { const i = options.indexOf(this[key]); return options[(i + 1) % options.length]; }
 
-  setMinutes(m) { this.minutes = m; this.ui.refresh(); this.menu.refresh(); }
-  setBinaural(on) { this.binaural = on; this.player?.setBinaural(on); this.ui.refresh(); this.menu.refresh(); }
-  setSolfeggio(on) { this.solfeggio = on; this.player?.setSolfeggio(on); this.ui.refresh(); this.menu.refresh(); }
-  setVolume(v) { this.volume = v; this.engine.setVolume(v); }
+  previewVoice() {
+    this.voice.unlock();
+    this.engine.init().then(() => this.voice.speak('welcome-1', WELCOMES[0]));
+  }
 
   applyPalette(pal, instant) {
     pal.forEach((hex, i) => this.palTarget[i].set(hex));
@@ -96,6 +145,9 @@ class App {
   }
 
   setScene(name) {
+    const feel = SCENE_FEEL[name] || SCENE_FEEL.galaxy;
+    this.world.voyage.cruise = feel.cruise;
+    this.world.setNebula(feel.nebula);
     if (this.active && this.active.name === name) return;
     if (this.active) this.outgoing.push(this.active);
     const s = new SCENE_TYPES[name]();
@@ -107,24 +159,38 @@ class App {
   }
 
   // ------------------------------------------------------------ playback
-  async beginOrResume() {
+  beginOrResume() {
+    this.voice.unlock(); // inside the user gesture
     if (this.playing && this.playingTrack === this.selected) { this.menu.show(false); return; }
-    await this.start(this.selected);
+    return this.start(this.selected);
   }
 
   async start(track) {
+    this.voice.unlock();
     await this.engine.init();
     this.engine.setVolume(this.volume);
+    this._stopGuide();
     if (this.player) this.player.stop(2.5);
-    const opts = { minutes: this.minutes, binaural: this.binaural, solfeggio: this.solfeggio };
-    this.player = track.buffer
-      ? new ImportedPlayer(this.engine, track, track.buffer, opts)
-      : new Composer(this.engine, track, opts);
+    const guided = !!track.guided;
+    const est = guided ? track.estimate + (track.tail || 30) : 0;
+    const opts = {
+      minutes: guided ? est / 60 : this.minutes,
+      entrainment: this.entrainment,
+      profile: this.journey === 'auto' ? track.profile : this.journey,
+      solfeggio: this.solfeggio,
+      dives: this.dives !== 'off',
+    };
+    this.player = track.buffer ? new ImportedPlayer(this.engine, track, track.buffer, opts) : new Composer(this.engine, track, opts);
     this.engine.fadeMaster(1, 3);
     this.player.start();
     this.playing = true;
     this.playingTrack = track;
-    this.sectionName = '';
+    this.caption = '';
+    this.whisperQueue = shuffle(WHISPERS.map((t, i) => ({ id: `whisper-${i + 1}`, text: t })));
+    const w = Math.floor(Math.random() * WELCOMES.length);
+    this.welcome = { id: `welcome-${w + 1}`, text: WELCOMES[w] };
+    this.nextWhisper = this.engine.now + 22;
+    if (guided) this._startGuide(track);
     this.setScene(track.scene);
     this.applyPalette(track.palette);
     if (this.renderer.xr.isPresenting) this.menu.show(false);
@@ -132,13 +198,39 @@ class App {
     this.ui.onStart(track);
   }
 
+  _startGuide(track) {
+    const player = this.player;
+    this.guide = new GuideRunner(this.voice, SCRIPTS[track.guided], {
+      startDelay: 12,
+      onLine: (text) => { this.caption = text; },
+      onMark: (m) => {
+        if (m.mark === 'dive' && this.dives !== 'off') player.dive(this.engine.now + 0.1, m.args[0] || 12, m.args[1] ?? 0.5);
+      },
+      onDone: () => {
+        // let the music breathe on after the last words, then close gently
+        const tail = track.tail || 30;
+        this._guideEndTimer = setTimeout(() => { if (this.player === player && this.playing) this.stop(true); }, tail * 1000);
+      },
+    });
+    this.guide.start();
+  }
+
+  _stopGuide() {
+    clearTimeout(this._guideEndTimer);
+    if (this.guide) { this.guide.stop(); this.guide = null; }
+    this.voice.cancel();
+    this.caption = '';
+  }
+
   stop(completed = false) {
     if (!this.playing) return;
     this.playing = false;
-    this.player.stop(4);
-    this.engine.fadeMaster(0, 4);
+    const fade = completed ? this.playingTrack.fadeOut || 5 : 4;
+    this._stopGuide();
+    this.player.stop(fade);
+    this.engine.fadeMaster(0, fade);
     const p = this.player;
-    setTimeout(() => { if (this.player === p) this.player = null; }, 4500);
+    setTimeout(() => { if (this.player === p) this.player = null; }, fade * 1000 + 500);
     if (this.renderer.xr.isPresenting) this.menu.show(true);
     this.menu.refresh();
     this.ui.onStop(completed);
@@ -147,22 +239,34 @@ class App {
   async importFile(file, sceneName) {
     await this.engine.init();
     const buf = await this.engine.ctx.decodeAudioData(await file.arrayBuffer());
-    const base = this.selected.buffer ? this.tracks.find((t) => t.freq === this.selected.freq) || TRACKS[4] : this.selected;
+    const base = this.selected.buffer || this.selected.guided ? TRACKS[4] : this.selected;
     const track = {
-      ...base,
-      id: 'import',
+      ...base, id: 'import', guided: undefined,
       title: file.name.replace(/\.[^.]+$/, '').slice(0, 28),
       intent: `Your track · ${base.freq} Hz tone`,
-      scene: sceneName || base.scene,
-      buffer: buf,
+      scene: sceneName || base.scene, buffer: buf,
     };
     this.imported = track;
     this.select(track);
     return track;
   }
 
+  // Whispers: an occasional line from the guide during ordinary soundscapes.
+  _whispers(now, sec, remain) {
+    if (!this.whispers || this.playingTrack.guided || this.voice.speaking || now < this.nextWhisper) return;
+    if (remain < 45) return;
+    let line = null;
+    if (this.welcome) { line = this.welcome; this.welcome = null; }
+    else if (sec.index >= 1) line = this.whisperQueue.shift();
+    if (!line) { this.nextWhisper = now + 20; return; }
+    this.voice.speak(line.id, line.text, { onend: () => { if (this.caption === line.text) this.caption = ''; } });
+    this.caption = line.text;
+    this.nextWhisper = now + 95 + Math.random() * 85;
+  }
+
   // ------------------------------------------------------------ XR
   async enterXR(mode) {
+    this.voice.unlock();
     await this.engine.init();
     const session = await navigator.xr.requestSession(mode, {
       requiredFeatures: ['local-floor'],
@@ -180,7 +284,7 @@ class App {
     this.renderer.setClearColor(0x000000, ar ? 0 : 1);
     this.menu.group.visible = true;
     this.menu.show(!this.playing);
-    this._placeMenuIn = 4; // wait for first real head pose
+    this._placeMenuIn = 4;
     this.ui.setXR(true);
   }
 
@@ -223,12 +327,10 @@ class App {
 
     const head = this.getHead();
     if (this.engine.ctx) this.engine.updateListener(head.pos, head.fwd, head.up);
-
-    // palette glide
     [U.uC0, U.uC1, U.uC2].forEach((u, i) => u.value.lerp(this.palTarget[i], 1 - Math.exp(-dt * 0.8)));
 
     const s = this.state;
-    let events = this.events;
+    const events = this.events;
     events.length = 0;
     if (this.player && this.playing) {
       const now = this.engine.heardTime;
@@ -238,13 +340,26 @@ class App {
       this.engine.readBands(s);
       const sec = this.player.sectionAtTime(now);
       const remain = Math.max(0, this.player.duration - this.player.elapsed(now));
+      // a guided voice must never be cut off by the music ending
+      if (this.guide && !this.guide.done && remain < 50 && this.player.extend) this.player.extend(60);
+      this._whispers(this.engine.now, sec, remain);
       const mm = Math.floor(remain / 60), ss = String(Math.floor(remain % 60)).padStart(2, '0');
-      const count = b.left > 0.05 ? Math.ceil(b.left) : '';
-      const cueText = `${PHASE_TEXT[b.phase]}${count ? '  ' + count : ''}`;
-      const sub = `${this.playingTrack.title} · ${this.playingTrack.freq} Hz · ${sec.name} · ${mm}:${ss}`;
-      const alpha = sec.index <= 1 ? 0.9 : sec.index === 4 ? 0.6 : 0.3;
-      this.menu.setCue(cueText, sub, this.menu.visible ? 0 : alpha);
-      this.ui.setCue(cueText, `${sec.name} · ${mm}:${ss} left`, this.player.progress(now), alpha);
+      const hz = this.player.beatHz(now);
+      const wave = this.entrainment !== 'off' && hz ? ` · ${bandName(hz)} ${hz.toFixed(1)} Hz` : '';
+      const sub = `${this.playingTrack.title} · ${sec.name}${wave} · ${mm}:${ss}`;
+      let cue, alpha;
+      if (this.playingTrack.guided) {
+        cue = this.captions ? this.caption : '';
+        alpha = cue ? 0.85 : 0;
+      } else if (this.caption && this.captions) {
+        cue = this.caption; alpha = 0.85;
+      } else {
+        const count = b.left > 0.05 ? Math.ceil(b.left) : '';
+        cue = `${PHASE_TEXT[b.phase]}${count ? '  ' + count : ''}`;
+        alpha = sec.index <= 1 ? 0.9 : sec.index === 4 ? 0.6 : 0.3;
+      }
+      this.menu.setCue(cue, sub, this.menu.visible ? 0 : alpha);
+      this.ui.setCue(cue, `${sec.name}${wave} · ${mm}:${ss} left`, this.player.progress(now), alpha);
     } else {
       // idle preview: a gentle synthetic pulse so the scene is alive in the menu
       s.breath = 0.5 - 0.5 * Math.cos((t / 10) * Math.PI * 2);
@@ -255,11 +370,12 @@ class App {
         events.push({ type: 'beat', beat: i % 4, bar: i >> 2, accent: i % 4 === 0 });
         if (i % 4 === 0) events.push({ type: 'bar', bar: i >> 2 });
         if (i % 8 === 0) events.push({ type: 'chord', index: (i >> 3) % 4 });
-        if (Math.random() < 0.45) {
+        if (Math.random() < 0.35) {
           const u = Math.random(), az = (u - 0.5) * 2.4, r = 2.6;
           events.push({ type: 'note', u, vel: 0.5, pos: [Math.sin(az) * r, 0.9 + u * 1.9, -Math.cos(az) * r] });
         }
       }
+      if (t > this.idle.nextDive) { this.idle.nextDive = t + 45; events.push({ type: 'dive', duration: 9, intensity: 0.5 }); }
       this.menu.setCue('', '', 0);
     }
 
@@ -267,7 +383,12 @@ class App {
       if (e.type === 'section') this.sectionEnergy = e.energy;
       if (e.type === 'beat') U.uBeat.value = Math.min(1, U.uBeat.value + (e.accent ? 0.7 : 0.3));
       if (e.type === 'note') this.world.sparks.emit(e.pos, e.vel);
-      if (e.type === 'end') { this.stop(true); continue; }
+      if (e.type === 'dive') this.world.voyage.startDive(e.duration, e.intensity);
+      if (e.type === 'end') {
+        if (this.guide && !this.guide.done) continue;
+        this.stop(true);
+        continue;
+      }
       this.active?.onEvent(e);
     }
 
@@ -277,7 +398,6 @@ class App {
     U.uLevel.value = s.level;
     U.uBeat.value *= Math.exp(-dt * 3);
 
-    // scene crossfades
     if (this.active) {
       this.active.setFade(damp(this.active.fade, 1, 0.8, dt));
       this.active.update(dt, t, s);
@@ -300,7 +420,6 @@ class App {
     this.renderer.setSize(window.innerWidth, window.innerHeight);
   }
 
-  // Drag to look around on flat screens (phone, tablet, desktop, Android XR 2D panel).
   _lookControls() {
     const el = this.renderer.domElement;
     let down = null;
@@ -309,7 +428,7 @@ class App {
     el.addEventListener('pointermove', (e) => {
       if (!down) return;
       this.yaw += (e.clientX - down.x) * 0.0045;
-      this.pitch = Math.max(-1.2, Math.min(1.2, this.pitch + (e.clientY - down.y) * 0.0045));
+      this.pitch = Math.max(-1.3, Math.min(1.3, this.pitch + (e.clientY - down.y) * 0.0045));
       down = { x: e.clientX, y: e.clientY };
       this.camera.rotation.set(this.pitch, this.yaw, 0);
     });

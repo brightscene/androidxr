@@ -7,46 +7,71 @@ export class DomUI {
     this.$ = (s) => document.querySelector(s);
     this.menu = this.$('#menu');
     this.session = this.$('#session');
-    this.grid = this.$('#tracks');
     this._buildCards();
+    this.refreshVoices();
     this._wire();
     this._checkXR();
     this.refresh();
   }
 
+  _card(tr) {
+    const b = document.createElement('button');
+    b.className = 'card';
+    b.style.setProperty('--a', tr.palette[0]);
+    b.style.setProperty('--b', tr.palette[1]);
+    b.style.setProperty('--c', tr.palette[2]);
+    const f = tr.guided ? `~${Math.round((tr.estimate + (tr.guided === 'sleep' ? 0 : tr.tail || 0)) / 60)} min` : tr.buffer ? 'Your track' : `${tr.freq} Hz`;
+    b.innerHTML = `<span class="t">${escapeHtml(tr.title)}</span><span class="f">${f}</span><span class="i">${escapeHtml(tr.intent)}${tr.guided ? ` · ${tr.freq} Hz` : ''}</span>`;
+    b.addEventListener('click', () => this.app.select(tr));
+    b._track = tr;
+    return b;
+  }
+
   _buildCards() {
-    this.grid.innerHTML = '';
-    const list = [...this.app.tracks];
-    if (this.app.imported) list.push(this.app.imported);
-    for (const tr of list) {
-      const b = document.createElement('button');
-      b.className = 'card';
-      b.style.setProperty('--a', tr.palette[0]);
-      b.style.setProperty('--b', tr.palette[1]);
-      b.style.setProperty('--c', tr.palette[2]);
-      b.innerHTML = `<span class="t">${escapeHtml(tr.title)}</span><span class="f">${tr.buffer ? 'Your track' : tr.freq + ' Hz'}</span><span class="i">${escapeHtml(tr.intent)}</span>`;
-      b.addEventListener('click', () => this.app.select(tr));
-      b._track = tr;
-      this.grid.appendChild(b);
-    }
+    const g = this.$('#guided'), s = this.$('#tracks');
+    g.innerHTML = ''; s.innerHTML = '';
+    for (const tr of this.app.guided) g.appendChild(this._card(tr));
+    for (const tr of this.app.tracks) s.appendChild(this._card(tr));
+    if (this.app.imported) s.appendChild(this._card(this.app.imported));
+  }
+
+  refreshVoices() {
+    const sel = this.$('#voice');
+    if (!sel) return;
+    const v = this.app.voice;
+    const opts = [['auto', v.hasRecorded ? `Recorded: ${v.recordedName}` : 'Auto (Irish voice if available)']];
+    for (const x of v.englishVoices()) opts.push([x.voiceURI, `${x.name} (${x.lang})`]);
+    sel.innerHTML = opts.map(([val, label]) => `<option value="${escapeHtml(val)}">${escapeHtml(label)}</option>`).join('');
+    sel.value = opts.some(([val]) => val === this.app.voiceChoice) ? this.app.voiceChoice : 'auto';
+    const irish = v.englishVoices().some((x) => /en[-_]IE/i.test(x.lang));
+    this.$('#voice-note').textContent = v.hasRecorded
+      ? 'Using recorded voice clips.'
+      : irish
+        ? `Using ${v.description}.`
+        : `No Irish voice on this device yet, so using ${v.description}. You can add one in your device's text-to-speech settings, or record a real Irish voice (see README).`;
   }
 
   _wire() {
     const app = this.app;
-    this.$('#durations').addEventListener('click', (e) => {
-      const m = Number(e.target.dataset.min);
-      if (m) app.setMinutes(m);
-    });
-    this.$('#binaural').addEventListener('change', (e) => app.setBinaural(e.target.checked));
-    this.$('#tone').addEventListener('change', (e) => app.setSolfeggio(e.target.checked));
-    this.$('#volume').addEventListener('input', (e) => app.setVolume(Number(e.target.value)));
-    this.$('#begin').addEventListener('click', () => app.beginOrResume());
-    this.$('#enter-vr').addEventListener('click', () => this._enter('immersive-vr'));
-    this.$('#enter-ar').addEventListener('click', () => this._enter('immersive-ar'));
-    this.$('#end').addEventListener('click', () => app.stop());
-    this.$('#show-menu').addEventListener('click', () => this.menu.classList.remove('hidden'));
-    this.$('#close-menu').addEventListener('click', () => this.menu.classList.add('hidden'));
-    this.$('#file').addEventListener('change', async (e) => {
+    const on = (id, ev, fn) => this.$(id).addEventListener(ev, fn);
+    on('#durations', 'click', (e) => { const m = Number(e.target.dataset.min); if (m) app.setMinutes(m); });
+    on('#tone', 'change', (e) => app.setSolfeggio(e.target.checked));
+    on('#entrainment', 'change', (e) => app.setEntrainment(e.target.value));
+    on('#journey', 'change', (e) => app.setJourney(e.target.value));
+    on('#nature', 'change', (e) => { app.engine.init().then(() => app.setNature(e.target.value)); });
+    on('#dives', 'change', (e) => app.setDives(e.target.value));
+    on('#voice', 'change', (e) => { app.setVoice(e.target.value); this.refreshVoices(); });
+    on('#whispers', 'change', (e) => app.setWhispers(e.target.checked));
+    on('#captions', 'change', (e) => app.setCaptions(e.target.checked));
+    on('#preview-voice', 'click', () => app.previewVoice());
+    on('#volume', 'input', (e) => app.setVolume(Number(e.target.value)));
+    on('#begin', 'click', () => app.beginOrResume());
+    on('#enter-vr', 'click', () => this._enter('immersive-vr'));
+    on('#enter-ar', 'click', () => this._enter('immersive-ar'));
+    on('#end', 'click', () => app.stop());
+    on('#show-menu', 'click', () => this.menu.classList.remove('hidden'));
+    on('#close-menu', 'click', () => this.menu.classList.add('hidden'));
+    on('#file', 'change', async (e) => {
       const f = e.target.files[0];
       if (!f) return;
       this.$('#import-status').textContent = 'Analysing…';
@@ -54,11 +79,12 @@ export class DomUI {
         await app.importFile(f, this.$('#import-scene').value);
         this._buildCards();
         this.refresh();
-        this.$('#import-status').textContent = 'Ready: selected below the library';
+        this.$('#import-status').textContent = 'Ready: added to Soundscapes';
       } catch (err) {
         this.$('#import-status').textContent = 'Could not decode that file';
       }
     });
+    this.app.voice.ready.then(() => this.refreshVoices());
   }
 
   async _enter(mode) {
@@ -80,14 +106,23 @@ export class DomUI {
 
   refresh() {
     const app = this.app;
-    for (const c of this.grid.children) c.classList.toggle('sel', c._track === app.selected);
+    for (const c of document.querySelectorAll('.card')) c.classList.toggle('sel', c._track === app.selected);
     for (const b of this.$('#durations').children) b.classList.toggle('on', Number(b.dataset.min) === app.minutes);
-    this.$('#binaural').checked = app.binaural;
+    this.$('#length-group').classList.toggle('disabled', !!app.selected.guided);
     this.$('#tone').checked = app.solfeggio;
+    this.$('#entrainment').value = app.entrainment;
+    this.$('#journey').value = app.journey;
+    this.$('#nature').value = app.nature;
+    this.$('#dives').value = app.dives;
+    this.$('#whispers').checked = app.whispers;
+    this.$('#captions').checked = app.captions;
+    this.$('#volume').value = app.volume;
     const tr = app.selected;
     this.$('#sel-title').textContent = tr.title;
-    this.$('#sel-meta').textContent = `${tr.buffer ? 'Your track with a ' : ''}${tr.freq} Hz${tr.buffer ? ' tone' : ''} · ${tr.intent} · scene: ${tr.scene}`;
-    this.$('#begin').textContent = app.playing ? (app.playingTrack === tr ? 'Resume' : 'Switch to this track') : 'Begin here';
+    this.$('#sel-meta').textContent = tr.guided
+      ? `Guided with voice · ${tr.intent} · ${tr.freq} Hz · ${tr.profile} brainwave journey`
+      : `${tr.buffer ? 'Your track with a ' : ''}${tr.freq} Hz${tr.buffer ? ' tone' : ''} · ${tr.intent} · ${tr.scene} scene`;
+    this.$('#begin').textContent = app.playing ? (app.playingTrack === tr ? 'Resume' : 'Switch to this') : 'Begin here';
   }
 
   onStart(track) {
@@ -114,9 +149,7 @@ export class DomUI {
     this.$('#progress').style.width = `${(progress * 100).toFixed(2)}%`;
   }
 
-  setXR(on) {
-    document.body.classList.toggle('in-xr', on);
-  }
+  setXR(on) { document.body.classList.toggle('in-xr', on); }
 
   toast(msg) {
     const t = this.$('#toast');

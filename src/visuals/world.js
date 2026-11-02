@@ -1,14 +1,18 @@
 import * as THREE from 'three';
-import { U, NOISE, POINT_SIZE, SOFT_DOT, additive } from './common.js';
+import { U, NOISE, POINT_SIZE, SOFT_DOT, additive, damp } from './common.js';
+import { Voyage } from './voyage.js';
 
 // Persistent environment: sky dome, stars, drifting motes, and the
 // spatial "sparks" that bloom wherever a note is placed in 3D audio space.
 export class World {
-  constructor(scene) {
+  constructor(scene, camera) {
     this.root = new THREE.Group();
     scene.add(this.root);
+    this.nebula = { value: 0.5 };
     this._sky();
     this._stars();
+    this._lasers();
+    this.voyage = new Voyage(scene, camera);
     this._motes();
     this.sparks = new Sparks(this.root);
   }
@@ -16,6 +20,7 @@ export class World {
   setPassthrough(on) {
     this.sky.visible = !on;
     this.stars.material.uniforms.uDim.value = on ? 0.35 : 1;
+    this.passthrough = on;
   }
 
   _sky() {
@@ -23,23 +28,31 @@ export class World {
     const mat = new THREE.ShaderMaterial({
       side: THREE.BackSide,
       depthWrite: false,
-      uniforms: { ...U },
+      uniforms: { ...U, uNeb: this.nebula },
       vertexShader: /* glsl */ `
         varying vec3 vDir;
         void main(){ vDir = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }`,
+      // Aura-projector style: slowly turning, domain-warped nebula in three hues.
       fragmentShader: /* glsl */ `
-        uniform vec3 uC0, uC1, uC2; uniform float uTime, uEnergy, uBreath;
+        uniform vec3 uC0, uC1, uC2; uniform float uTime, uEnergy, uBreath, uTravel, uNeb, uDive;
         varying vec3 vDir;
         ${NOISE}
+        vec3 rotY(vec3 p, float a){ float c = cos(a), s = sin(a); return vec3(c*p.x + s*p.z, p.y, -s*p.x + c*p.z); }
         void main(){
+          vec3 d = rotY(vDir, uTime * 0.006 + uTravel * 0.0012);
           float h = vDir.y;
-          vec3 col = mix(uC0 * 0.6, uC0, smoothstep(-0.4, 0.2, h));
-          col = mix(col, uC1 * 0.45, smoothstep(0.0, 0.9, h) * 0.6);
-          float n = fbm(vDir * 2.2 + vec3(0.0, uTime * 0.01, uTime * 0.006));
-          float n2 = fbm(vDir * 5.0 - vec3(uTime * 0.008));
-          float neb = smoothstep(0.45, 0.85, n) * (0.5 + 0.5 * n2);
-          col += uC2 * neb * (0.06 + uEnergy * 0.1 + uBreath * 0.04);
-          col += uC1 * pow(max(0.0, 1.0 - abs(h)), 6.0) * 0.12; // horizon glow
+          vec3 col = mix(uC0 * 0.5, uC0, smoothstep(-0.5, 0.3, h));
+          vec3 q = d * 1.8 + vec3(0.0, uTime * 0.004, 0.0);
+          vec3 w = vec3(fbm(q + 1.7), fbm(q + 9.2), fbm(q + 4.1));
+          float n = fbm(q + w * 1.6 + uTravel * 0.002);
+          float n2 = fbm(d * 6.0 + w * 2.0);
+          float cloud = smoothstep(0.38, 0.85, n);
+          vec3 tint = mix(uC1, uC2, smoothstep(0.3, 0.8, w.x));
+          tint = mix(tint, vec3(uC1.b, uC1.r * 0.6, uC2.g) * 1.2, smoothstep(0.55, 0.9, w.y) * 0.5);
+          float glow = cloud * (0.35 + 0.65 * n2);
+          col += tint * glow * uNeb * (0.35 + uEnergy * 0.35 + uBreath * 0.1 + uDive * 0.4);
+          col += uC2 * pow(cloud, 3.0) * uNeb * 0.25;
+          col += uC1 * pow(max(0.0, 1.0 - abs(h)), 6.0) * 0.1;
           gl_FragColor = vec4(col, 1.0);
         }`,
     });
@@ -83,6 +96,44 @@ export class World {
     this.root.add(this.stars);
   }
 
+  // Laser-projector stars: tiny sharp points on the dome that sparkle.
+  _lasers() {
+    const n = 1400;
+    const pos = new Float32Array(n * 3), seed = new Float32Array(n);
+    for (let i = 0; i < n; i++) {
+      const v = new THREE.Vector3().randomDirection();
+      v.y = Math.abs(v.y) * 0.95 + 0.02;
+      v.normalize().multiplyScalar(30);
+      pos.set([v.x, v.y, v.z], i * 3);
+      seed[i] = Math.random();
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    g.setAttribute('aSeed', new THREE.BufferAttribute(seed, 1));
+    this.lasers = new THREE.Points(g, additive({
+      uniforms: { ...U, uNeb: this.nebula },
+      vertexShader: /* glsl */ `attribute float aSeed; uniform float uTime, uViewH, uTravel; varying float vA; varying float vS;
+        ${POINT_SIZE}
+        void main(){
+          float a = uTime * 0.006 + uTravel * 0.0012;
+          vec3 p = vec3(cos(a)*position.x + sin(a)*position.z, position.y, -sin(a)*position.x + cos(a)*position.z);
+          vec4 mv = modelViewMatrix * vec4(p,1.0);
+          float tw = sin(uTime * (1.5 + aSeed * 4.0) + aSeed * 60.0);
+          vA = smoothstep(0.2, 1.0, tw) ;
+          vS = aSeed;
+          gl_PointSize = max(1.5, pointPx(0.05, mv));
+          gl_Position = projectionMatrix * mv;
+        }`,
+      fragmentShader: /* glsl */ `uniform vec3 uC2; uniform float uNeb; varying float vA; varying float vS;
+        void main(){ float d = length(gl_PointCoord - 0.5) * 2.0; float a = smoothstep(1.0, 0.0, d);
+          vec3 c = vS < 0.55 ? vec3(0.45, 1.0, 0.6) : (vS < 0.8 ? uC2 : vec3(1.0));
+          gl_FragColor = vec4(c * a * vA * (0.4 + uNeb * 0.6), 1.0); }`,
+    }));
+    this.root.add(this.lasers);
+  }
+
+  setNebula(v) { this.nebulaTarget = v; }
+
   _motes() {
     const n = 700;
     const pos = new Float32Array(n * 3);
@@ -121,8 +172,11 @@ export class World {
   }
 
   update(dt, t, head) {
+    this.nebula.value = damp(this.nebula.value, this.nebulaTarget ?? 0.5, 0.6, dt);
+    this.voyage.update(dt);
     this.sky.position.copy(head);
     this.stars.position.copy(head);
+    this.lasers.position.copy(head);
     this.sparks.update(dt, t, head);
   }
 }

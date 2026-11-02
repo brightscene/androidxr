@@ -33,7 +33,12 @@ export class AudioEngine {
     this._freq = new Uint8Array(this.analyser.frequencyBinCount);
     this._time = new Uint8Array(this.analyser.fftSize);
 
-    this.master.connect(this.comp).connect(this.volume).connect(this.analyser).connect(ctx.destination);
+    // master -> duck (lowered while the voice speaks) -> comp; voice joins after the duck
+    this.duckGain = ctx.createGain();
+    this.master.connect(this.duckGain).connect(this.comp).connect(this.volume).connect(this.analyser).connect(ctx.destination);
+    this.voiceBus = ctx.createGain();
+    this.voiceBus.gain.value = 1.1;
+    this.voiceBus.connect(this.comp);
 
     this.reverb = ctx.createConvolver();
     this.reverb.buffer = makeImpulse(ctx, 7, 2.2);
@@ -49,7 +54,11 @@ export class AudioEngine {
     this.headBus = ctx.createGain();
     this.headBus.connect(this.master);
 
-    this.noise = makeNoise(ctx, 4);
+    this.noise = makeNoise(ctx, 6);
+    this.whiteNoise = makeWhite(ctx, 6);
+    this.natureBus = ctx.createGain();
+    this.natureBus.connect(this.duckGain);
+    if (this._pendingNature) this.setNature(this._pendingNature);
     return ctx.resume();
   }
 
@@ -69,6 +78,69 @@ export class AudioEngine {
     g.cancelScheduledValues(t);
     g.setValueAtTime(g.value, t);
     g.linearRampToValueAtTime(to, t + seconds);
+  }
+
+  duck(on) {
+    if (!this.duckGain) return;
+    this.duckGain.gain.setTargetAtTime(on ? 0.5 : 1, this.ctx.currentTime, on ? 0.35 : 1.2);
+  }
+
+  // Ambient nature bed, independent of the track: 'off' | 'rain' | 'ocean'
+  setNature(kind) {
+    this.natureKind = kind;
+    if (!this.ctx) { this._pendingNature = kind; return; }
+    const ctx = this.ctx, t = ctx.currentTime;
+    if (this._nature) {
+      const old = this._nature;
+      old.gain.gain.setTargetAtTime(0, t, 1);
+      setTimeout(() => old.nodes.forEach((n) => { try { n.stop(); } catch (_) {} n.disconnect(); }), 5000);
+      this._nature = null;
+    }
+    if (kind === 'off') return;
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0, t);
+    gain.connect(this.natureBus);
+    const nodes = [];
+    const src = (buf, rate = 1) => { const s = ctx.createBufferSource(); s.buffer = buf; s.loop = true; s.playbackRate.value = rate; s.start(t, Math.random() * 3); nodes.push(s); return s; };
+    if (kind === 'rain') {
+      // bright hiss + soft roof patter + distant rumble
+      const hiss = src(this.whiteNoise);
+      const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 1800;
+      const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 9000;
+      const hg = ctx.createGain(); hg.gain.value = 0.05;
+      hiss.connect(hp).connect(lp).connect(hg).connect(gain);
+      const patter = src(this.noise, 1.3);
+      const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 900; bp.Q.value = 0.6;
+      const pg = ctx.createGain(); pg.gain.value = 0.12;
+      const flutter = ctx.createOscillator(); flutter.frequency.value = 7.3;
+      const fg = ctx.createGain(); fg.gain.value = 0.04;
+      flutter.connect(fg).connect(pg.gain); flutter.start(t); nodes.push(flutter);
+      patter.connect(bp).connect(pg).connect(gain);
+      const rumble = src(this.noise, 0.5);
+      const rl = ctx.createBiquadFilter(); rl.type = 'lowpass'; rl.frequency.value = 160;
+      const rg = ctx.createGain(); rg.gain.value = 0.25;
+      rumble.connect(rl).connect(rg).connect(gain);
+      gain.gain.linearRampToValueAtTime(0.9, t + 6);
+    } else if (kind === 'ocean') {
+      const surf = src(this.noise, 0.8);
+      const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 700; lp.Q.value = 0.3;
+      const swell = ctx.createGain(); swell.gain.value = 0.11;
+      const lfo = ctx.createOscillator(); lfo.frequency.value = 1 / 9;
+      const lg = ctx.createGain(); lg.gain.value = 0.1;
+      const lfoF = ctx.createGain(); lfoF.gain.value = 500;
+      lfo.connect(lg).connect(swell.gain);
+      lfo.connect(lfoF).connect(lp.frequency);
+      lfo.start(t); nodes.push(lfo);
+      surf.connect(lp).connect(swell).connect(gain);
+      const foam = src(this.whiteNoise, 1);
+      const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 3000;
+      const fg = ctx.createGain(); fg.gain.value = 0;
+      const lg2 = ctx.createGain(); lg2.gain.value = 0.012;
+      lfo.connect(lg2).connect(fg.gain);
+      foam.connect(hp).connect(fg).connect(gain);
+      gain.gain.linearRampToValueAtTime(1, t + 6);
+    }
+    this._nature = { gain, nodes };
   }
 
   setVolume(v) {
@@ -155,6 +227,17 @@ function makeImpulse(ctx, seconds, decay) {
       d[i] = lp * Math.pow(1 - t, decay) * (i < rate * 0.02 ? i / (rate * 0.02) : 1);
     }
   }
+  return buf;
+}
+
+function makeWhite(ctx, seconds) {
+  const len = Math.floor(ctx.sampleRate * seconds);
+  const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+  const d = buf.getChannelData(0);
+  for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+  // crossfade the loop seam
+  const x = Math.floor(ctx.sampleRate * 0.05);
+  for (let i = 0; i < x; i++) { const a = i / x; d[len - x + i] = d[len - x + i] * (1 - a) + d[i] * a; }
   return buf;
 }
 

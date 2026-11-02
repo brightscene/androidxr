@@ -7,6 +7,7 @@
 // sound was placed at, so light appears where the sound comes from.
 
 import { SCALES } from './tracks.js';
+import { Entrainment } from './entrainment.js';
 
 export function mulberry32(a) {
   return function () {
@@ -27,10 +28,18 @@ class Sequenced {
     this.events = [];
     this.breathPattern = track.breath || [4, 2, 6, 0];
     this.breathCycle = this.breathPattern.reduce((a, b) => a + b, 0);
-    this.binaural = opts.binaural !== false;
+    this.entrainMode = opts.entrainment || 'binaural';
+    this.profile = opts.profile || track.profile || 'relax';
     this.solfeggioOn = opts.solfeggio !== false;
+    this.divesOn = opts.dives !== false && track.dives !== false;
     this.t0 = 0;
+    let r = track.freq;
+    while (r > 220) r /= 2;
+    while (r < 110) r *= 2;
+    this.root = r; // musical root is an octave of the solfeggio tone, so they agree
   }
+
+  beatHz(now) { return this.ent ? this.ent.beatAt(now) : 0; }
 
   push(e) { this.events.push(e); }
 
@@ -71,44 +80,66 @@ class Sequenced {
     return { phase: 'rest', value: 0, left: rest - p };
   }
 
-  // --- Solfeggio tone: pure sine, optionally binaural (right ear offset).
+  // --- Solfeggio tone (pure sine, both ears) + brainwave entrainment layer.
   _startSolfeggio(t) {
     const ctx = this.e.ctx;
     const f = this.track.freq;
-    const level = this.solfeggioOn ? 0.075 * Math.sqrt(Math.min(1, 300 / f)) : 0;
-    this.solLevel = level;
-    const merger = ctx.createChannelMerger(2);
-    const gL = ctx.createGain(), gR = ctx.createGain();
-    gL.gain.value = gR.gain.value = 1;
-    this.oscL = ctx.createOscillator();
-    this.oscR = ctx.createOscillator();
-    this.oscL.frequency.value = f;
-    this.oscR.frequency.value = f + (this.binaural ? this.track.binaural : 0);
-    this.oscL.connect(gL).connect(merger, 0, 0);
-    this.oscR.connect(gR).connect(merger, 0, 1);
+    const level = this._solLevel(this.solfeggioOn);
+    this.osc = ctx.createOscillator();
+    this.osc.frequency.value = f;
     this.solGain = ctx.createGain();
     this.solGain.gain.setValueAtTime(0, t);
     this.solGain.gain.linearRampToValueAtTime(level, t + 8);
-    // slow swell so the tone breathes
-    const lfo = ctx.createOscillator();
+    const lfo = ctx.createOscillator(); // slow swell so the tone breathes
     lfo.frequency.value = 1 / this.breathCycle;
     const lfoAmt = ctx.createGain();
     lfoAmt.gain.value = level * 0.3;
     lfo.connect(lfoAmt).connect(this.solGain.gain);
-    merger.connect(this.solGain).connect(this.e.headBus);
-    this.oscL.start(t); this.oscR.start(t); lfo.start(t);
-    this._continuous = (this._continuous || []).concat([this.oscL, this.oscR, lfo]);
+    this.osc.connect(this.solGain).connect(this.e.headBus);
+    this.osc.start(t); lfo.start(t);
+    this._continuous = (this._continuous || []).concat([this.osc, lfo]);
+    this.ent = new Entrainment(this.e, { carrier: this.root, profile: this.profile, t0: t, duration: this.duration, mode: this.entrainMode });
   }
 
-  setBinaural(on) {
-    this.binaural = on;
-    if (this.oscR) this.oscR.frequency.setTargetAtTime(this.track.freq + (on ? this.track.binaural : 0), this.e.now, 0.5);
-  }
+  _solLevel(on) { return on ? 0.06 * Math.sqrt(Math.min(1, 300 / this.track.freq)) : 0; }
+
+  setEntrainment(mode) { this.entrainMode = mode; this.ent?.setMode(mode); }
 
   setSolfeggio(on) {
     this.solfeggioOn = on;
-    const level = on ? 0.075 * Math.sqrt(Math.min(1, 300 / this.track.freq)) : 0;
-    if (this.solGain) this.solGain.gain.setTargetAtTime(level, this.e.now, 0.8);
+    if (this.solGain) this.solGain.gain.setTargetAtTime(this._solLevel(on), this.e.now, 0.8);
+  }
+
+  // A "deep dive": whoosh riser + sub drop in the audio, and a timed event the
+  // visuals use to accelerate through the stars.
+  dive(t, duration, intensity = 0.8) {
+    const ctx = this.e.ctx;
+    const rise = 2.6;
+    const src = ctx.createBufferSource();
+    src.buffer = this.e.noise; src.loop = true;
+    const bp = ctx.createBiquadFilter();
+    bp.type = 'bandpass'; bp.Q.value = 1.6;
+    bp.frequency.setValueAtTime(250, t);
+    bp.frequency.exponentialRampToValueAtTime(2600, t + rise);
+    bp.frequency.exponentialRampToValueAtTime(400, t + rise + duration);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(0.09 * intensity, t + rise);
+    g.gain.setTargetAtTime(0.025 * intensity, t + rise, duration * 0.3);
+    g.gain.linearRampToValueAtTime(0, t + rise + duration + 3);
+    src.connect(bp).connect(g).connect(this.e.dry);
+    src.connect(bp); g.connect(this.e.reverbSend);
+    src.start(t); src.stop(t + rise + duration + 3.2);
+    const sub = ctx.createOscillator();
+    sub.frequency.setValueAtTime(this.root / 2, t + rise - 0.1);
+    sub.frequency.exponentialRampToValueAtTime(this.root / 4, t + rise + 2);
+    const sg = ctx.createGain();
+    sg.gain.setValueAtTime(0, t + rise - 0.1);
+    sg.gain.linearRampToValueAtTime(0.18 * intensity, t + rise + 0.05);
+    sg.gain.exponentialRampToValueAtTime(0.0001, t + rise + 3.5);
+    sub.connect(sg).connect(this.e.dry);
+    sub.start(t + rise - 0.1); sub.stop(t + rise + 3.6);
+    this.push({ type: 'dive', time: t, duration: rise + duration, intensity });
   }
 
   // Breath sound: filtered noise swelling on inhale, falling on exhale.
@@ -169,10 +200,6 @@ export class Composer extends Sequenced {
     this.totalBars = acc;
     this.duration = acc * this.bpb * this.spb;
 
-    let r = track.freq;
-    while (r > 220) r /= 2;
-    while (r < 110) r *= 2;
-    this.root = r; // musical root is an octave of the solfeggio tone, so they agree
     this.scale = SCALES[track.scale];
     this.rng = mulberry32(track.seed * 7919 + (opts.variation || 0));
     this.melDeg = this.scale.length * 2;
@@ -205,6 +232,7 @@ export class Composer extends Sequenced {
     clearInterval(this.timer);
     const t = this.e.now;
     if (this.solGain) { this.solGain.gain.cancelScheduledValues(t); this.solGain.gain.setTargetAtTime(0, t, fade / 4); }
+    this.ent?.stop(fade);
     if (this.droneGain) { this.droneGain.gain.cancelScheduledValues(t); this.droneGain.gain.setTargetAtTime(0, t, fade / 4); }
     this._stopContinuous(t + fade + 0.5);
     this.events = [];
@@ -240,6 +268,9 @@ export class Composer extends Sequenced {
       if (bar === sec.startBar) {
         this.push({ type: 'section', time: t, index: sec.index, name: sec.name, energy: sec.energy });
         this._sectionAutomation(sec, t);
+        if (this.divesOn && sec.dive) this.dive(t, sec.dive * this.bpb * this.spb, sec.diveAmt ?? 0.8);
+      } else if (this.divesOn && sec.diveChance && bar % 8 === 4 && rng() < sec.diveChance) {
+        this.dive(t, 2 * this.bpb * this.spb, 0.6);
       }
       const bpc = this.track.barsPerChord;
       if (bar % bpc === 0) {
@@ -264,12 +295,21 @@ export class Composer extends Sequenced {
     if (beat === 0 && sec.shimmer > 0 && rng() < sec.shimmer * 0.6) this._shimmer(t, sec);
   }
 
+  // Lengthen the final section (used so a guided voice is never cut off).
+  extend(seconds) {
+    const bars = Math.ceil(seconds / (this.bpb * this.spb));
+    if (this.ended) return;
+    this.sections[this.sections.length - 1].bars += bars;
+    this.totalBars += bars;
+    this.duration = this.totalBars * this.bpb * this.spb;
+  }
+
   _sectionAutomation(sec, t) {
     const g = this.droneGain.gain;
     g.setTargetAtTime(0.04 + sec.energy * 0.06, t, 3);
     this.droneFilter.frequency.setTargetAtTime(220 + sec.energy * 700, t, 4);
     // breath guide loud at the start, softer as you sink in
-    this.breathGuide = sec.index <= 1 ? 1 : sec.index === 4 ? 0.7 : 0.35;
+    this.breathGuide = this.track.guided ? 0 : sec.index <= 1 ? 1 : sec.index === 4 ? 0.7 : 0.35;
   }
 
   _startDrone(t) {
@@ -470,6 +510,7 @@ export class ImportedPlayer extends Sequenced {
     const t = this.e.now;
     try { this.src.stop(t + fade + 0.2); } catch (_) {}
     if (this.solGain) this.solGain.gain.setTargetAtTime(0, t, fade / 4);
+    this.ent?.stop(fade);
     this._stopContinuous(t + fade + 0.5);
     this.events = [];
   }

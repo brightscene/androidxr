@@ -1,13 +1,13 @@
 {
-  "name": "Stillpoint — XR Meditation",
-  "short_name": "Stillpoint",
-  "description": "Generative solfeggio soundscapes with spatial light for Android XR.",
+  "name": "MindLyte — XR Meditation",
+  "short_name": "MindLyte",
+  "description": "Galaxy voyages, solfeggio soundscapes, brainwave tones and guided voice journeys for Android XR.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
   "orientation": "any",
   "background_color": "#05060d",
-  "theme_color": "#0a0c1c",
+  "theme_color": "#07071a",
   "categories": ["health", "lifestyle", "music"],
   "icons": [
     { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
