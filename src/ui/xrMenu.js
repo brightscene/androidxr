@@ -217,7 +217,7 @@ export class XRMenu {
     this._rebuildCards();
     this.journeyNote = this._btn(page, new Button(1.4, 0.05, textDraw(() => {
       const tr = this.app.selected;
-      if (tr.strobe || tr.stream) return `${tr.title}: light & sound track. Press Begin; lights come on (see the Lights tab to adjust).`;
+      if (tr.strobe || tr.stream) return `${tr.title}: ${(tr.strobe?.format || tr.format) === 'spectrastrobe' ? 'full-colour SpectraStrobe' : 'AudioStrobe'} light & sound. Press Begin; adjust in the Lights tab.`;
       if (tr.guided) return `${tr.title}: guided with voice. Voice options are in the Voice tab.`;
       return `${tr.title}: ${tr.freq} Hz · ${tr.intent}. Import your own tracks on the flat-screen menu.`;
     }, { alpha: 0.6, size: 0.5 })), 0, -0.505);
@@ -250,7 +250,7 @@ export class XRMenu {
         c.font = `600 ${Math.round(h * 0.16)}px ${FONT}`;
         c.fillText(tr.title.slice(0, 22), 28, h * 0.3);
         c.font = `300 ${Math.round(h * 0.24)}px ${FONT}`;
-        const big = tr.strobe || tr.stream ? (tr.strobe?.format === 'spectrastrobe' ? 'SpectraStrobe' : 'AudioStrobe') : tr.guided ? `~${Math.round(tr.estimate / 60)} min` : tr.buffer ? 'Your track' : `${tr.freq} Hz`;
+        const big = tr.strobe || tr.stream ? ((tr.strobe?.format || tr.format) === 'spectrastrobe' ? 'SpectraStrobe' : 'AudioStrobe') : tr.guided ? `~${Math.round(tr.estimate / 60)} min` : tr.buffer ? 'Your track' : `${tr.freq} Hz`;
         c.fillText(big, 28, h * 0.6);
         c.font = `400 ${Math.round(h * 0.1)}px ${FONT}`;
         c.fillStyle = 'rgba(255,255,255,0.88)';

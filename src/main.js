@@ -203,16 +203,23 @@ class App {
         fetch(t.metaUrl).then((r) => r.json()),
         fetch(t.lightsUrl).then((r) => r.arrayBuffer()),
       ]);
+      // AudioStrobe: 2 bytes/frame (left, right brightness)
+      // SpectraStrobe: 6 bytes/frame (left r,g,b, right r,g,b)
       const u8 = new Uint8Array(bin);
       const frames = meta.frames;
+      const mono = meta.format !== 'spectrastrobe';
       const L = new Float32Array(frames * 3), R = new Float32Array(frames * 3);
       for (let i = 0; i < frames; i++) {
-        const l = u8[i * 2] / 255, r = u8[i * 2 + 1] / 255;
-        L[i * 3] = L[i * 3 + 1] = L[i * 3 + 2] = l;
-        R[i * 3] = R[i * 3 + 1] = R[i * 3 + 2] = r;
+        if (mono) {
+          const l = u8[i * 2] / 255, r = u8[i * 2 + 1] / 255;
+          L[i * 3] = L[i * 3 + 1] = L[i * 3 + 2] = l;
+          R[i * 3] = R[i * 3 + 1] = R[i * 3 + 2] = r;
+        } else {
+          for (let k = 0; k < 3; k++) { L[i * 3 + k] = u8[i * 6 + k] / 255; R[i * 3 + k] = u8[i * 6 + 3 + k] / 255; }
+        }
       }
       t.meta = meta;
-      t.strobe = { format: meta.format, carriers: meta.carriers, rate: meta.rate, frames, L, R, mono: true };
+      t.strobe = { format: meta.format, carriers: meta.carriers, rate: meta.rate, frames, L, R, mono };
       this.ui?.refresh();
       this.menu?.refresh();
     } catch (err) {

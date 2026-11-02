@@ -14,7 +14,12 @@ MindLyte is a meditation app for Android XR. You drift slowly through a field of
 | **Abundance**: a manifestation story. You travel toward a golden star doorway and step into a life where money comes easily | ~6 min | deep theta |
 | **It's Going to Be Okay**: comfort and reassurance | ~6 min | alpha → theta |
 
-**Light & sound**: *Oceamniotic*, a built-in AudioStrobe track. Its light signal is a 19.5 kHz carrier that drives the left eye at about 8 Hz and the right at about 4 Hz. The audio streams from `public/tracks/`, and the light data was decoded ahead of time into `oceamniotic.lights`, so the track starts straight away. To add more light tracks, put an entry in `LIGHT_TRACKS` in `src/audio/tracks.js`.
+**Light & sound** (built-in, with the light signals decoded ahead of time):
+- *Oceamniotic*: AudioStrobe on a 19.5 kHz carrier. Left light about 8 Hz, right about 4 Hz. 16 min.
+- *Lost Worlds Discovery 3*: **SpectraStrobe**, full colour (18.2 kHz reference plus R/G/B tones), mostly deep blue and violet. Runs 10 Hz → 5 Hz → 23–37 Hz → back to 10 Hz. 30 min.
+- *Midnight · Level One*: AudioStrobe at 19.2 kHz, a theta meditation going 10 → 6.4 → 4 Hz. 30 min.
+
+ The audio streams from `public/tracks/`, and the light data was decoded ahead of time into `oceamniotic.lights`, so the track starts straight away. To add more light tracks, put an entry in `LIGHT_TRACKS` in `src/audio/tracks.js`.
 
 **Soundscapes**: nine generative tracks, one for each solfeggio frequency from 174 to 963 Hz, each 5–30 minutes long. With *Whispers* switched on, the guide voice says a short, thoughtful line every couple of minutes.
 

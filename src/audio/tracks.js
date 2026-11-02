@@ -131,6 +131,18 @@ export const LIGHT_TRACKS = [
     scene: 'galaxy', seed: 2026, profile: 'relax', dives: false,
     palette: ['#020b18', '#1d6fa8', '#a8ecff'], breath: [4, 2, 6, 0], arc: ARC,
   },
+  {
+    id: 'lost-worlds-3', title: 'Lost Worlds Discovery 3', freq: 432, intent: 'SpectraStrobe full-colour light & sound', format: 'spectrastrobe',
+    stream: 'tracks/lost-worlds-discovery-3.mp3', metaUrl: 'tracks/lost-worlds-discovery-3.json', lightsUrl: 'tracks/lost-worlds-discovery-3.lights',
+    scene: 'galaxy', seed: 3033, profile: 'meditate', dives: false,
+    palette: ['#03041a', '#2d3fbf', '#8fd0ff'], breath: [4, 2, 6, 0], arc: ARC,
+  },
+  {
+    id: 'midnight-level-one', title: 'Midnight · Level One', freq: 396, intent: 'AudioStrobe theta meditation',
+    stream: 'tracks/midnight-level-one.mp3', metaUrl: 'tracks/midnight-level-one.json', lightsUrl: 'tracks/midnight-level-one.lights',
+    scene: 'galaxy', seed: 4001, profile: 'meditate', dives: false,
+    palette: ['#05030f', '#4b2a8a', '#d6b8ff'], breath: [4, 2, 6, 0], arc: ARC,
+  },
 ];
 
 export const SOLFEGGIO = [174, 285, 396, 417, 528, 639, 741, 852, 963];
