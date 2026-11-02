@@ -22,7 +22,7 @@ export class DomUI {
     b.style.setProperty('--a', tr.palette[0]);
     b.style.setProperty('--b', tr.palette[1]);
     b.style.setProperty('--c', tr.palette[2]);
-    const f = tr.guided ? `~${Math.round((tr.estimate + (tr.guided === 'sleep' ? 0 : tr.tail || 0)) / 60)} min` : tr.buffer ? 'Your track' : `${tr.freq} Hz`;
+    const f = tr.stream || tr.strobe ? (tr.strobe?.format === 'spectrastrobe' ? 'SpectraStrobe' : 'AudioStrobe') : tr.guided ? `~${Math.round((tr.estimate + (tr.guided === 'sleep' ? 0 : tr.tail || 0)) / 60)} min` : tr.buffer ? 'Your track' : `${tr.freq} Hz`;
     b.innerHTML = `<span class="t">${escapeHtml(tr.title)}</span><span class="f">${f}</span><span class="i">${escapeHtml(tr.intent)}${tr.guided ? ` · ${tr.freq} Hz` : ''}</span>`;
     b.addEventListener('click', () => this.app.select(tr));
     b._track = tr;
@@ -30,8 +30,9 @@ export class DomUI {
   }
 
   _buildCards() {
-    const g = this.$('#guided'), s = this.$('#tracks');
-    g.innerHTML = ''; s.innerHTML = '';
+    const g = this.$('#guided'), s = this.$('#tracks'), l = this.$('#light-tracks');
+    g.innerHTML = ''; s.innerHTML = ''; l.innerHTML = '';
+    for (const tr of this.app.lightTracks) l.appendChild(this._card(tr));
     for (const tr of this.app.guided) g.appendChild(this._card(tr));
     for (const tr of this.app.tracks) s.appendChild(this._card(tr));
     if (this.app.imported) s.appendChild(this._card(this.app.imported));
@@ -141,7 +142,9 @@ export class DomUI {
     this.$('#lights-generated').checked = app.lightsGenerated;
     const tr = app.selected;
     this.$('#sel-title').textContent = tr.title;
-    this.$('#sel-meta').textContent = tr.guided
+    this.$('#sel-meta').textContent = tr.stream
+      ? `${tr.intent} · lights flash in each eye at the encoded rate · ${tr.scene} scene`
+      : tr.guided
       ? `Guided with voice · ${tr.intent} · ${tr.freq} Hz · ${tr.profile} brainwave journey`
       : tr.buffer
         ? `Your track · ${tr.intent} · ${tr.scene} scene`

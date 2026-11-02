@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { AudioEngine } from './audio/engine.js';
-import { Composer, ImportedPlayer } from './audio/composer.js';
-import { TRACKS, GUIDED } from './audio/tracks.js';
+import { Composer, ImportedPlayer, StreamPlayer } from './audio/composer.js';
+import { TRACKS, GUIDED, LIGHT_TRACKS } from './audio/tracks.js';
 import { SCRIPTS, WHISPERS, WELCOMES, estimateSeconds } from './audio/scripts.js';
 import { Voice, GuideRunner } from './audio/voice.js';
 import { bandName } from './audio/entrainment.js';
@@ -39,9 +39,11 @@ class App {
   constructor() {
     this.tracks = TRACKS;
     this.guided = GUIDED;
+    this.lightTracks = LIGHT_TRACKS;
+    for (const t of LIGHT_TRACKS) t.loading = this._loadLightTrack(t);
     for (const g of GUIDED) g.estimate = estimateSeconds(SCRIPTS[g.guided]);
     const p = loadPrefs();
-    this.selected = [...TRACKS, ...GUIDED].find((t) => t.id === p.selected) || TRACKS.find((t) => t.id === 'intuition');
+    this.selected = [...LIGHT_TRACKS, ...TRACKS, ...GUIDED].find((t) => t.id === p.selected) || TRACKS.find((t) => t.id === 'intuition');
     this.minutes = p.minutes || 10;
     this.entrainment = p.entrainment || 'binaural';
     this.journey = p.journey || 'auto';
@@ -189,8 +191,36 @@ class App {
     return this.start(this.selected);
   }
 
+  // Fetch a built-in light track's pre-decoded light data and beat analysis.
+  async _loadLightTrack(t) {
+    try {
+      const [meta, bin] = await Promise.all([
+        fetch(t.metaUrl).then((r) => r.json()),
+        fetch(t.lightsUrl).then((r) => r.arrayBuffer()),
+      ]);
+      const u8 = new Uint8Array(bin);
+      const frames = meta.frames;
+      const L = new Float32Array(frames * 3), R = new Float32Array(frames * 3);
+      for (let i = 0; i < frames; i++) {
+        const l = u8[i * 2] / 255, r = u8[i * 2 + 1] / 255;
+        L[i * 3] = L[i * 3 + 1] = L[i * 3 + 2] = l;
+        R[i * 3] = R[i * 3 + 1] = R[i * 3 + 2] = r;
+      }
+      t.meta = meta;
+      t.strobe = { format: meta.format, carriers: meta.carriers, rate: meta.rate, frames, L, R, mono: true };
+      this.ui?.refresh();
+      this.menu?.refresh();
+    } catch (err) {
+      t.loadError = err;
+    }
+  }
+
   async start(track) {
     this.voice.unlock();
+    if (track.stream && !track.meta) await track.loading;
+    if (track.stream && !track.meta) { this.ui.toast('Could not load that track. Check your connection.'); return; }
+    // a light track: make sure the viewer sees the safety warning and lights come on
+    if (track.strobe && !this.strobeAccepted) this.setLights(true);
     await this.engine.init();
     this.engine.setVolume(this.volume);
     this._stopGuide();
@@ -205,7 +235,8 @@ class App {
       solfeggio: track.strobe ? false : this.solfeggio,
       dives: this.dives !== 'off',
     };
-    this.player = track.buffer ? new ImportedPlayer(this.engine, track, track.buffer, opts) : new Composer(this.engine, track, opts);
+    this.player = track.stream ? new StreamPlayer(this.engine, track, opts)
+      : track.buffer ? new ImportedPlayer(this.engine, track, track.buffer, opts) : new Composer(this.engine, track, opts);
     this.engine.fadeMaster(1, 3);
     this.player.start();
     this.playing = true;

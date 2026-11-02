@@ -122,6 +122,17 @@ export const GUIDED = [
   },
 ];
 
+// Built-in light & sound tracks (AudioStrobe / SpectraStrobe encoded audio).
+// Audio streams from public/tracks; light signals are pre-decoded.
+export const LIGHT_TRACKS = [
+  {
+    id: 'oceamniotic', title: 'Oceamniotic', freq: 528, intent: 'AudioStrobe light & sound',
+    stream: 'tracks/oceamniotic.mp3', metaUrl: 'tracks/oceamniotic.json', lightsUrl: 'tracks/oceamniotic.lights',
+    scene: 'galaxy', seed: 2026, profile: 'relax', dives: false,
+    palette: ['#020b18', '#1d6fa8', '#a8ecff'], breath: [4, 2, 6, 0], arc: ARC,
+  },
+];
+
 export const SOLFEGGIO = [174, 285, 396, 417, 528, 639, 741, 852, 963];
 
 export const SCENES = ['galaxy', 'ocean', 'orb', 'aurora', 'geometry', 'mandala', 'cymatics'];

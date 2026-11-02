@@ -579,3 +579,87 @@ function analyseBuffer(buffer) {
   }
   return { onsets, partEnergy };
 }
+
+// ---------------------------------------------------------------- streamed
+// A built-in light & sound track: the audio streams from a file (no huge
+// decode in memory) and its light signals + beat analysis were decoded ahead
+// of time, so it starts instantly. Timing follows the audio element's clock.
+export class StreamPlayer extends Sequenced {
+  constructor(engine, track, opts = {}) {
+    super(engine, track, opts);
+    const m = track.meta;
+    this.duration = m.duration;
+    const maxP = Math.max(...m.partEnergy, 1e-6);
+    this.sections = track.arc.map((s, i) => ({ ...s, index: i, startTime: (this.duration * i) / 5, energy: 0.35 + 0.55 * (m.partEnergy[i] / maxP) }));
+    this.cursor = 0;
+    this.secCursor = 0;
+    this.chordT = 0;
+    this.rng = mulberry32(track.seed || 7);
+  }
+
+  elapsed() { return this.audio ? this.audio.currentTime : 0; }
+
+  start() {
+    const ctx = this.e.ctx;
+    this.t0 = ctx.currentTime;
+    this.running = true;
+    const audio = (this.audio = new Audio());
+    audio.src = this.track.stream;
+    audio.preload = 'auto';
+    const src = ctx.createMediaElementSource(audio);
+    let node = src;
+    for (const f of Object.values(this.track.meta.carriers)) {
+      for (let k = 0; k < 2; k++) {
+        const n = ctx.createBiquadFilter();
+        n.type = 'notch'; n.frequency.value = f; n.Q.value = 12;
+        node = node.connect(n);
+      }
+    }
+    const lp = ctx.createBiquadFilter();
+    lp.type = 'lowpass'; lp.frequency.value = 17500; lp.Q.value = 0.5;
+    node = node.connect(lp);
+    this.gain = ctx.createGain();
+    this.gain.gain.value = 0.95;
+    const send = ctx.createGain(); send.gain.value = 0.1;
+    node.connect(this.gain).connect(this.e.dry);
+    node.connect(send).connect(this.e.reverbSend);
+    this._startSolfeggio(this.t0);
+    audio.addEventListener('ended', () => { this.finished = true; });
+    this.playPromise = audio.play().catch((err) => { this.error = err; });
+  }
+
+  // Emit analysed events as the audio reaches them.
+  pollEvents(_now, out = []) {
+    if (!this.audio) return out;
+    const t = this.audio.currentTime;
+    const on = this.track.meta.onsets;
+    while (this.secCursor < this.sections.length && this.sections[this.secCursor].startTime <= t) {
+      const s = this.sections[this.secCursor++];
+      out.push({ type: 'section', index: s.index, name: s.name, energy: s.energy });
+    }
+    while (this.cursor < on.length && on[this.cursor][0] <= t) {
+      const [time, strength, strong] = on[this.cursor++];
+      if (t - time > 1) continue; // skip a backlog (e.g. after buffering)
+      out.push({ type: 'beat', beat: strong ? 0 : 1, accent: !!strong });
+      if (strong) {
+        const az = (this.rng() - 0.5) * 2.4, r = 2.4 + this.rng() * 0.8, u = this.rng();
+        out.push({ type: 'bar' });
+        out.push({ type: 'note', freq: 440, u, vel: 0.4 + strength * 0.6, pos: [Math.sin(az) * r, 0.9 + u * 1.9, -Math.cos(az) * r] });
+      }
+    }
+    if (t - this.chordT >= 8) { this.chordT = t; out.push({ type: 'chord', index: Math.floor(t / 8) % 4 }); }
+    if (this.finished && !this.endSent) { this.endSent = true; out.push({ type: 'end' }); }
+    return out;
+  }
+
+  stop(fade = 3) {
+    this.running = false;
+    const t = this.e.now;
+    if (this.gain) { this.gain.gain.cancelScheduledValues(t); this.gain.gain.setTargetAtTime(0, t, fade / 4); }
+    if (this.solGain) this.solGain.gain.setTargetAtTime(0, t, fade / 4);
+    this.ent?.stop(fade);
+    this._stopContinuous(t + fade + 0.5);
+    const a = this.audio;
+    setTimeout(() => { a?.pause(); if (a) a.src = ''; }, fade * 1000 + 300);
+  }
+}

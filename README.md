@@ -14,6 +14,8 @@ MindLyte is a meditation app for Android XR. You drift slowly through a field of
 | **Abundance**: a manifestation story. You travel toward a golden star doorway and step into a life where money comes easily | ~6 min | deep theta |
 | **It's Going to Be Okay**: comfort and reassurance | ~6 min | alpha → theta |
 
+**Light & sound**: *Oceamniotic*, a built-in AudioStrobe track. Its light signal is a 19.5 kHz carrier that drives the left eye at about 8 Hz and the right at about 4 Hz. The audio streams from `public/tracks/`, and the light data was decoded ahead of time into `oceamniotic.lights`, so the track starts straight away. To add more light tracks, put an entry in `LIGHT_TRACKS` in `src/audio/tracks.js`.
+
 **Soundscapes**: nine generative tracks, one for each solfeggio frequency from 174 to 963 Hz, each 5–30 minutes long. With *Whispers* switched on, the guide voice says a short, thoughtful line every couple of minutes.
 
 ## What makes it tick

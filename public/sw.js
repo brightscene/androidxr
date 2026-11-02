@@ -1,7 +1,7 @@
 // Network-first with offline fallback: you always get the newest version
 // (and any newly recorded voice clips) when online, and MindLyte still works
 // with no connection because everything it plays is generated on-device.
-const CACHE = 'mindlyte-v2';
+const CACHE = 'mindlyte-v3';
 const SHELL = ['./', './index.html', './app.js', './styles.css', './manifest.webmanifest', './icons/icon-192.png', './icons/icon-512.png'];
 
 self.addEventListener('install', (e) => {
@@ -16,6 +16,8 @@ self.addEventListener('activate', (e) => {
 
 self.addEventListener('fetch', (e) => {
   if (e.request.method !== 'GET' || new URL(e.request.url).origin !== location.origin) return;
+  // let the browser stream large audio (range requests) directly
+  if (e.request.headers.has('range') || /\.mp3$/.test(new URL(e.request.url).pathname)) return;
   e.respondWith(
     fetch(e.request)
       .then((res) => {
