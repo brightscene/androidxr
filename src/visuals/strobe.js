@@ -74,13 +74,20 @@ const FRAG = /* glsl */ `
     float da = symbol(p, uSym), db = symbol(p, uSymB);
     float line = mix(exp(-da * 90.0) + 0.35 * exp(-da * 18.0), exp(-db * 90.0) + 0.35 * exp(-db * 18.0), uMix);
     line *= smoothstep(0.58, 0.48, length(p));
-    float k = uStyle < 0.5 ? line : (uStyle < 1.5 ? field : line + field * 0.6);
-    gl_FragColor = vec4(uCol * k * b, 1.0);
+    // saturated colour glow, with a slightly hotter core on the symbol lines so it reads crisply
+    float core = mix(exp(-da * 260.0), exp(-db * 260.0), uMix);
+    float k = uStyle < 0.5 ? line * 1.5 : (uStyle < 1.5 ? field * 1.2 : line * 1.5 + field * 0.55);
+    vec3 col = uCol * k + mix(uCol, vec3(1.0), 0.45) * core * (uStyle < 1.5 && uStyle > 0.5 ? 0.0 : 0.9);
+    gl_FragColor = vec4(col * b, 1.0);
   }`;
+
+const DIST = 2.6; // metres in front of you
+const SEP = 0.62; // half the gap between the left and right symbols
 
 export class StrobeLayer {
   constructor(camera) {
     this.camera = camera;
+    this.layout = 'sides';
     this.meshes = [0, 1].map((side) => {
       const m = new THREE.Mesh(
         new THREE.PlaneGeometry(3.4, 3.4),
@@ -94,23 +101,45 @@ export class StrobeLayer {
           fragmentShader: FRAG,
         })
       );
-      m.position.set(0, 0, -1.1);
       m.renderOrder = 950;
       m.frustumCulled = false;
-      m.layers.set(side + 1); // 1 = left eye only, 2 = right eye only
       m.visible = false;
       camera.add(m);
       return m;
     });
+
+    // Dims the scene behind the lights (darker still right behind each symbol) so colours stand out.
+    this.dim = new THREE.Mesh(
+      new THREE.PlaneGeometry(14, 14),
+      new THREE.ShaderMaterial({
+        transparent: true, depthTest: false, depthWrite: false,
+        uniforms: { uDim: { value: 0 }, uSep: { value: SEP / 14 }, uSides: { value: 1 } },
+        vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
+        fragmentShader: /* glsl */ `uniform float uDim, uSep, uSides; varying vec2 vUv;
+          void main(){
+            vec2 p = vUv - 0.5;
+            float halo = uSides > 0.5
+              ? max(exp(-dot(p - vec2(-uSep, 0.0), p - vec2(-uSep, 0.0)) * 900.0), exp(-dot(p - vec2(uSep, 0.0), p - vec2(uSep, 0.0)) * 900.0))
+              : exp(-dot(p, p) * 500.0);
+            gl_FragColor = vec4(0.0, 0.0, 0.01, uDim * (0.75 + 0.25 * halo));
+          }`,
+      })
+    );
+    this.dim.position.z = -DIST - 0.2;
+    this.dim.renderOrder = 940;
+    this.dim.frustumCulled = false;
+    this.dim.visible = false;
+    camera.add(this.dim);
+    this.dimLevel = 0;
+
     camera.layers.enable(1);
     camera.layers.enable(2);
     this.symbol = 0;
     this.symbolTimer = 0;
     this.auto = true;
-    this.cur = [new THREE.Color(), new THREE.Color()];
   }
 
-  // In XR each eye must only see its own overlay; on a flat screen show both.
+  // Layer 1/2 are seen only by the left/right eye in a headset.
   setXR(on) {
     if (on) { this.camera.layers.disable(1); this.camera.layers.disable(2); }
     else { this.camera.layers.enable(1); this.camera.layers.enable(2); }
@@ -128,9 +157,12 @@ export class StrobeLayer {
     this.symbol = i;
   }
 
-  // rgbL/rgbR: [r,g,b] 0..1 brightness per eye (null hides the layer)
+  // rgbL/rgbR: [r,g,b] 0..1 brightness per eye channel (null hides the layer)
+  // opts: { style, max, layout: 'sides' | 'eyes', dim: 0..1 }
   update(dt, t, rgbL, rgbR, opts) {
     const show = !!(rgbL && rgbR);
+    // "eyes" (one symbol per eye, fused into one in the centre) only means something in a headset
+    const perEye = this.xr && opts.layout === 'eyes';
     this.meshes.forEach((m, side) => {
       m.visible = show;
       if (!show) return;
@@ -146,9 +178,14 @@ export class StrobeLayer {
         u.uMix.value = Math.min(1, u.uMix.value + dt / 2.5);
         if (u.uMix.value >= 1) { u.uSym.value = u.uSymB.value; u.uMix.value = 0; }
       }
-      m.position.x = this.xr ? 0 : (side ? 0.6 : -0.6);
-      m.scale.setScalar(this.xr ? 1 : 0.42);
+      m.layers.set(perEye ? side + 1 : 0);
+      m.position.set(perEye ? 0 : side ? SEP : -SEP, 0, -DIST);
+      m.scale.setScalar(perEye ? 0.95 : 0.7);
     });
+    this.dimLevel += ((show ? opts.dim ?? 0.5 : 0) - this.dimLevel) * (1 - Math.exp(-dt * 2));
+    this.dim.visible = this.dimLevel > 0.005;
+    this.dim.material.uniforms.uDim.value = this.dimLevel;
+    this.dim.material.uniforms.uSides.value = perEye ? 0 : 1;
     if (show && this.auto) {
       this.symbolTimer += dt;
       if (this.symbolTimer > 24) { this.symbolTimer = 0; this._go((this.symbol + 1) % SYMBOLS.length); }

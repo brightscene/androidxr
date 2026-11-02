@@ -73,6 +73,8 @@ export class DomUI {
     on('#light-symbol', 'change', (e) => app.setLightOpt('lightSymbol', Number(e.target.value)));
     on('#light-colour', 'change', (e) => app.setLightOpt('lightColour', e.target.value));
     on('#light-mode', 'change', (e) => app.setLightOpt('lightMode', e.target.value));
+    on('#light-layout', 'change', (e) => app.setLightOpt('lightLayout', e.target.value));
+    on('#light-dim', 'change', (e) => app.setLightOpt('lightDim', Number(e.target.value)));
     on('#light-max', 'input', (e) => app.setLightOpt('lightMax', Number(e.target.value)));
     on('#lights-generated', 'change', (e) => app.setLightOpt('lightsGenerated', e.target.checked));
     on('#sw-accept', 'click', () => app.acceptStrobe());
@@ -138,6 +140,8 @@ export class DomUI {
     this.$('#light-symbol').value = String(app.lightSymbol);
     this.$('#light-colour').value = app.lightColour;
     this.$('#light-mode').value = app.lightMode;
+    this.$('#light-layout').value = app.lightLayout;
+    this.$('#light-dim').value = String(app.lightDim);
     this.$('#light-max').value = app.lightMax;
     this.$('#lights-generated').checked = app.lightsGenerated;
     const tr = app.selected;

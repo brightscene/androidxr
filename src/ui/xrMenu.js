@@ -280,11 +280,13 @@ export class XRMenu {
       if (tr.strobe) return `${tr.title}: ${tr.strobe.format === 'spectrastrobe' ? 'SpectraStrobe (full colour)' : 'AudioStrobe'} light encoding. Lights will follow the track.`;
       return app.lightsGenerated ? `${tr.title} has no light encoding. Lights will pulse with the brainwave tones.` : `${tr.title} has no light encoding. Turn on "Pulse with tones", or import an encoded track.`;
     }, { alpha: 0.75, size: 0.46 })), 0, ROW0 + 0.01);
-    const r = (i, ...a) => this._row(p, i + 0.75, ...a);
+    const r = (i, ...a) => this._row(p, i * 0.87 + 0.75, ...a);
     r(0, 'Lights', [['On', true], ['Off', false]], () => app.lights, (v) => app.setLights(v));
+    r(7, 'Layout', [['Side by side', 'sides'], ['One per eye', 'eyes']], () => app.lightLayout, (v) => app.setLightOpt('lightLayout', v), [0.22, 0.22]);
+    r(8, 'Dim background', [['Off', 0], ['30%', 0.3], ['50%', 0.5], ['70%', 0.7], ['85%', 0.85]], () => app.lightDim, (v) => app.setLightOpt('lightDim', v), [0.12, 0.12, 0.12, 0.12, 0.12]);
     r(1, 'Show', [['Symbol + glow', 'both'], ['Symbol', 'symbol'], ['Glow', 'field']], () => app.lightStyle, (v) => app.setLightOpt('lightStyle', v), [0.24, 0.17, 0.17]);
     r(2, 'Symbol', [['Cycle', -1], ...SYMBOLS.map((n, i) => [n.replace(' of ', ' '), i])], () => app.lightSymbol, (v) => app.setLightOpt('lightSymbol', v), [0.12, 0.15, 0.15, 0.12, 0.14, 0.13, 0.14]);
-    r(3, 'Colours', [['Palette', 'palette'], ['White', 'white'], ['Amber', 'amber'], ['Violet', 'violet'], ['Rainbow', 'rainbow']], () => app.lightColour, (v) => app.setLightOpt('lightColour', v));
+    r(3, 'Colours', [['Vivid', 'vivid'], ['Palette', 'palette'], ['White', 'white'], ['Amber', 'amber'], ['Violet', 'violet'], ['Rainbow', 'rainbow']], () => app.lightColour, (v) => app.setLightOpt('lightColour', v), [0.14, 0.14, 0.14, 0.14, 0.14, 0.15]);
     r(4, 'Flashing', [['Exact', 'exact'], ['Softened', 'soft']], () => app.lightMode, (v) => app.setLightOpt('lightMode', v));
     r(5, 'Brightness', [['−', 'down'], [() => `${Math.round(app.lightMax * 100)}%`, 'x'], ['+', 'up']], () => null,
       (v) => { if (v !== 'x') app.setLightOpt('lightMax', Math.min(1, Math.max(0.1, Math.round((app.lightMax + (v === 'up' ? 0.1 : -0.1)) * 10) / 10))); }, [0.1, 0.14, 0.1]);

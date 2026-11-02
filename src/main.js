@@ -58,7 +58,11 @@ class App {
     this.strobeAccepted = p.strobeAccepted ?? false;
     this.lights = this.strobeAccepted ? p.lights ?? true : false;
     this.lightStyle = p.lightStyle || 'both';
-    this.lightColour = p.lightColour || 'palette';
+    // v2 defaults: vivid colours, symbols side by side, dimmed background
+    const v2 = p.v === 2;
+    this.lightColour = v2 ? p.lightColour || 'vivid' : 'vivid';
+    this.lightLayout = p.lightLayout || 'sides';
+    this.lightDim = p.lightDim ?? 0.5;
     this.lightMax = p.lightMax ?? 0.6;
     this.lightMode = p.lightMode || 'exact';
     this.lightsGenerated = p.lightsGenerated ?? false;
@@ -124,6 +128,7 @@ class App {
         journey: this.journey, solfeggio: this.solfeggio, whispers: this.whispers, captions: this.captions,
         dives: this.dives, nature: this.nature, voice: this.voiceChoice, volume: this.volume,
         strobeAccepted: this.strobeAccepted, lights: this.lights, lightStyle: this.lightStyle, lightColour: this.lightColour,
+        v: 2, lightLayout: this.lightLayout, lightDim: this.lightDim,
         lightMax: this.lightMax, lightMode: this.lightMode, lightsGenerated: this.lightsGenerated, lightSymbol: this.lightSymbol,
       }));
     } catch (_) {}
@@ -514,17 +519,23 @@ class App {
     if (!target) { this.lightRates = null; this.strobe.update(dt, t, null, null, {}); return; }
     const k = this.lightMode === 'soft' ? 1 - Math.exp(-dt * 7) : 1;
     for (let s = 0; s < 2; s++) for (let c = 0; c < 3; c++) this.rgb[s][c] += (target[s][c] - this.rgb[s][c]) * k;
-    this.strobe.update(dt, t, this.rgb[0], this.rgb[1], { style: this.lightStyle, max: this.lightMax });
+    this.strobe.update(dt, t, this.rgb[0], this.rgb[1], { style: this.lightStyle, max: this.lightMax, layout: this.lightLayout, dim: this.lightDim });
   }
 
   _colourSet(side, t) {
     const c = (this._lc ||= [new THREE.Color(), new THREE.Color()])[side];
+    // fully saturated sets so the lights stand out against the stars and nebula
     switch (this.lightColour) {
-      case 'white': return c.setRGB(1, 0.93, 0.85);
-      case 'amber': return c.setRGB(1, 0.5, 0.12);
-      case 'violet': return side ? c.setRGB(0.2, 0.9, 0.8) : c.setRGB(0.62, 0.3, 1);
-      case 'rainbow': return c.setHSL((t * 0.012 + side * 0.18) % 1, 0.85, 0.55);
-      default: return c.copy(side ? U.uC1.value : U.uC2.value).lerp(new THREE.Color(1, 1, 1), 0.15);
+      case 'vivid': return side ? c.setRGB(0, 0.85, 1) : c.setRGB(1, 0.08, 0.62);
+      case 'white': return c.setRGB(1, 0.94, 0.86);
+      case 'amber': return side ? c.setRGB(1, 0.72, 0.05) : c.setRGB(1, 0.36, 0);
+      case 'violet': return side ? c.setRGB(0, 1, 0.75) : c.setRGB(0.6, 0.1, 1);
+      case 'rainbow': return c.setHSL((t * 0.012 + side * 0.5) % 1, 1, 0.5);
+      default: { // track palette, pushed to full saturation, with left/right in different hues
+        const hsl = {};
+        c.copy(side ? U.uC1.value : U.uC2.value).getHSL(hsl);
+        return c.setHSL((hsl.h + (side ? 0.08 : 0)) % 1, 1, 0.55);
+      }
     }
   }
 
