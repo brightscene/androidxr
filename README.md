@@ -66,7 +66,15 @@ npm run serve        # http://localhost:8080
 
 Every push to `main` builds the app and publishes it to GitHub Pages, using `.github/workflows/pages.yml`.
 
-To use it on the headset, open the live link in **Chrome**, then choose **⋮ → Install app**. Inside the app, choose **Enter immersive** for full VR or **Enter passthrough** to see it in your room. Point and pinch to make selections. During a session, a small ☰ orb below your view brings the menu back.
+To use it on the headset, open the live link in **Chrome**, then choose **⋮ → Install app**. Inside the app, choose **Enter immersive** for full VR or **Enter passthrough** to see it in your room.
+
+**In immersive mode**, point and pinch to make selections. The headset menu has four tabs:
+- **Journeys**: every guided journey and soundscape, plus any track you imported before going immersive.
+- **Sound**: length, brainwave tones, brainwave journey, nature bed, deep dives, solfeggio tone and volume.
+- **Lights**: lights on/off (with the safety warning the first time), symbol or glow, which symbol, colours, exact or softened flashing, brightness, and pulsing with the brainwave tones.
+- **Voice**: whispers, captions, choice of guide voice and a voice preview.
+
+During a session, **pinch on empty space** (or pinch the ☰ Menu orb below your view) to bring the menu back.
 
 Your settings are remembered on the device.
 
