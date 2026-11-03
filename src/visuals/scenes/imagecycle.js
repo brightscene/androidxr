@@ -311,7 +311,7 @@ function makeObstacle(U) {
   return grp;
 }
 
-function textPlane(U, w, h) {
+export function textPlane(U, w, h) {
   const cv = document.createElement('canvas');
   cv.width = 2048; cv.height = Math.round(2048 * h / w);
   const tex = new THREE.CanvasTexture(cv);

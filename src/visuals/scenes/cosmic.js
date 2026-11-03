@@ -1,5 +1,6 @@
 import * as THREE from 'three';
-import { BaseScene, NOISE, GRADE, STARS, POINT_SIZE, additive, damp } from '../common.js';
+import { BaseScene, NOISE, GRADE, STARS, POINT_SIZE, SFX, additive, damp } from '../common.js';
+import { textPlane } from './imagecycle.js';
 import { sky, terrain, particles, solidMat, noise2, rng, mix3, hex, clamp01 } from './kit.js';
 import { mergeGeos } from './nature.js';
 import { galaxyGeometry } from './galaxy.js';
@@ -295,6 +296,9 @@ export class BlackHoleScene extends BaseScene {
     super();
     const U = this.uniforms;
     const C = new THREE.Vector3(0, 7, -58);
+    // everything that belongs to the black hole moves together as you fall in
+    this.sys = new THREE.Group();
+    this.group.add(this.sys);
     const diskFrag = /* glsl */ `uniform float uTime, uFade, uBeat, uEnergy; uniform float uIn, uOut, uHalo; varying vec2 vP; ${NOISE}
       void main(){ float r = length(vP); float a = atan(vP.y, vP.x);
         float t = (r - uIn) / (uOut - uIn);
@@ -313,29 +317,75 @@ export class BlackHoleScene extends BaseScene {
     const d1 = disk(10, 48, 0);
     d1.position.copy(C);
     d1.rotation.set(-1.38, 0, 0.12);
-    this.group.add(d1);
+    this.sys.add(d1);
     this.disk = d1;
     const halo = disk(8.2, 19, 1); // the far side of the disk, lensed up and over the hole
     halo.position.copy(C).add(new THREE.Vector3(0, 0, -2));
-    this.group.add(halo);
+    this.sys.add(halo);
     this.halo = halo;
     const hole = new THREE.Mesh(new THREE.SphereGeometry(8, 48, 32), new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 1 }));
     hole.position.copy(C);
     hole.renderOrder = 5;
-    this.group.add(hole);
+    this.sys.add(hole);
     this.hole = hole;
     const ring = new THREE.Mesh(new THREE.RingGeometry(8.0, 8.7, 128), new THREE.MeshBasicMaterial({ color: 0xfff1d0, transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending, depthWrite: false }));
     ring.position.copy(C).add(new THREE.Vector3(0, 0, 0.5));
     ring.renderOrder = 6;
-    this.group.add(ring);
+    this.sys.add(ring);
     this.ring = ring;
-    this.group.add(particles(U, { count: 900, min: [-60, -10, -110], max: [60, 25, -30], vel: [0.4, 0, 0.6], sway: 2, size: [0.08, 0.2], colors: ['#ffcf8a', '#ff9a5a', '#ffffff'], alpha: 0.6 }));
+    this.sys.add(particles(U, { count: 900, min: [-60, -10, -110], max: [60, 25, -30], vel: [0.4, 0, 0.6], sway: 2, size: [0.08, 0.2], colors: ['#ffcf8a', '#ff9a5a', '#ffffff'], alpha: 0.6 }));
+    // total darkness once you cross the horizon, with a quiet "Let it go"
+    this.black = new THREE.Mesh(new THREE.SphereGeometry(4, 32, 16), new THREE.MeshBasicMaterial({ color: 0x000000, side: THREE.BackSide, transparent: true, opacity: 0, depthTest: false, depthWrite: false }));
+    this.black.renderOrder = 100;
+    this.black.frustumCulled = false;
+    this.group.add(this.black);
+    this.words = textPlane(U, 4.2, 0.62);
+    this.words.renderOrder = 101;
+    this.words.userData.set('Let it go');
+    this.words.position.set(0, 1.6, -3);
+    this.group.add(this.words);
+    this.st = { phase: 'approach', t: 0, p: 0, rate: 0.012, target: 0.012, next: 8 };
   }
+  // You drift toward the black hole at changing speeds (sometimes barely
+  // moving, sometimes surging), then plunge through the horizon into total
+  // darkness for 10 seconds with the words "Let it go", then emerge far away
+  // and begin again.
   update(dt) {
     this.disk.rotation.z += dt * 0.05;
-    this.hole.material.opacity = this.fade;
-    this.ring.material.opacity = 0.8 * this.fade;
     this.halo.rotation.z -= dt * 0.04;
+    const st = this.st;
+    st.t += dt;
+    let black = 0, words = 0;
+    if (st.phase === 'approach') {
+      st.next -= dt;
+      if (st.next <= 0 && st.p < 0.6) {
+        const speeds = [0.004, 0.011, 0.026];
+        let n; do { n = speeds[Math.floor(Math.random() * speeds.length)]; } while (n === st.target);
+        st.target = n; st.next = 7 + Math.random() * 6;
+      }
+      if (st.p >= 0.6) st.target = 0.09;                       // the final plunge
+      if (st.p >= 0.6 && !st.whoosh) { st.whoosh = true; if (this.fade > 0.5) SFX.play('whoosh', { pan: 0, dur: 5, gain: 0.7 }); }
+      st.rate = damp(st.rate, st.target, st.p >= 0.6 ? 0.8 : 0.5, dt);
+      st.p = Math.min(1, st.p + st.rate * dt);
+      black = THREE.MathUtils.smoothstep(st.p, 0.74, 0.8);
+      if (st.p >= 0.8) { st.phase = 'dark'; st.t = 0; }
+    } else if (st.phase === 'dark') {
+      black = 1;
+      words = Math.min(1, st.t / 2.5) * (1 - Math.max(0, st.t - 7.5) / 2.5);
+      if (st.t >= 10) { st.phase = 'emerge'; st.t = 0; st.p = 0; st.rate = 0.01; st.target = 0.01; st.next = 10; st.whoosh = false; }
+    } else {
+      black = 1 - Math.min(1, st.t / 4);
+      st.p = Math.min(1, st.p + st.rate * dt);
+      if (st.t >= 4) { st.phase = 'approach'; st.t = 0; }
+    }
+    const e = st.p;
+    this.sys.position.set(0, -5.4 * e, 66 * e);
+    this.hole.material.opacity = this.fade;
+    this.ring.material.opacity = 0.8 * this.fade * (1 - black);
+    this.black.material.opacity = black * this.fade;
+    this.black.visible = black > 0.001;
+    this.words.material.uniforms.uA.value = words;
+    this.words.visible = words > 0.001;
   }
 }
 

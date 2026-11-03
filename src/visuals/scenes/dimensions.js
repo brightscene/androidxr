@@ -132,6 +132,18 @@ export class KaleidosphereScene extends BaseScene {
     this.group.add(dome(U, /* glsl */ `
       uniform vec3 uC1, uC2; uniform float uTime, uFade, uBreath, uEnergy, uPulse, uMorph, uHue;
       varying vec3 vDir; ${NOISE} ${GRADE} ${NEBULA}
+      // coloured glass, like the pieces in a child's kaleidoscope
+      vec3 gem(float i){
+        i = mod(floor(i), 8.0);
+        if (i < 1.0) return vec3(0.9, 0.08, 0.16);   // ruby
+        if (i < 2.0) return vec3(1.0, 0.5, 0.04);    // amber
+        if (i < 3.0) return vec3(1.0, 0.84, 0.18);   // gold
+        if (i < 4.0) return vec3(0.08, 0.72, 0.3);   // emerald
+        if (i < 5.0) return vec3(0.04, 0.72, 0.78);  // turquoise
+        if (i < 6.0) return vec3(0.1, 0.24, 0.95);   // sapphire
+        if (i < 7.0) return vec3(0.56, 0.14, 0.88);  // amethyst
+        return vec3(0.95, 0.16, 0.55);               // magenta
+      }
       vec3 rotY(vec3 p, float a){ float c = cos(a), s = sin(a); return vec3(c * p.x + s * p.z, p.y, -s * p.x + c * p.z); }
       vec3 rotX(vec3 p, float a){ float c = cos(a), s = sin(a); return vec3(p.x, c * p.y - s * p.z, s * p.y + c * p.z); }
       void main(){
@@ -155,10 +167,15 @@ export class KaleidosphereScene extends BaseScene {
           trap2 = min(trap2, length(q.xy - vec2(0.3, 0.1)));
         }
         acc = smoothstep(0.05, 0.95, acc / 8.0);
-        vec3 col = nebula(acc * 0.95 + sin(uHue * 6.28318) * 0.06);
-        col += vec3(0.45, 0.85, 0.95) * exp(-trap * 16.0) * (0.22 + uPulse * 0.5);       // turquoise glow lines
-        col += vec3(1.0, 0.72, 0.4) * exp(-trap2 * 14.0) * 0.18;                          // warm star-gold accents
-        col += nebula(acc * 0.8) * 0.35;                                                  // soft bloom
+        // each fold region becomes a piece of coloured glass; chords turn the barrel
+        float pid = trap2 * 3.0 + acc * 3.0 + (p.x - p.z) * 7.0 + uHue * 8.0;
+        float f = fract(pid);
+        vec3 glass = mix(gem(pid), gem(pid + 1.0), smoothstep(0.9, 1.0, f));
+        float lit = 0.18 + acc * 0.95;
+        vec3 col = glass * lit;
+        col += vec3(1.0, 0.97, 0.9) * exp(-trap * 22.0) * (0.2 + uPulse * 0.35);     // bright edges where the glass pieces meet
+        col *= 1.0 - 0.55 * smoothstep(0.82, 1.0, f) * smoothstep(1.0, 0.9, f);       // dark lead lines between pieces
+        col *= 0.85;
         col += vec3(stars(d0)) * 0.9;
         col *= 0.85 + uEnergy * 0.3;
         gl_FragColor = vec4(grade(col), uFade);
@@ -194,9 +211,9 @@ export class NebulaFlightScene extends BaseScene {
         vec3 d = normalize(vDir);
         vec3 ro = vec3(sin(uTime * 0.02) * 0.6, 0.0, -uTravel * 0.07);
         vec3 acc = vec3(0.0); float T = 1.0;
-        float jit = hash3(vec3(gl_FragCoord.xy, 1.0)) * 0.45;
-        for (int i = 0; i < 12; i++) {
-          float t = 0.5 + (float(i) + jit) * 0.48;
+        // even steps (no per-pixel jitter: that left a fixed grain over your view)
+        for (int i = 0; i < 16; i++) {
+          float t = 0.5 + float(i) * 0.36;
           vec3 p = ro + d * t;
           float n = fbm(p * 0.38);
           float den = smoothstep(0.5, 0.8, n);
@@ -205,8 +222,8 @@ export class NebulaFlightScene extends BaseScene {
           vec3 base = mix(vec3(0.03, 0.03, 0.15), vec3(0.2, 0.32, 0.78), smoothstep(0.5, 0.85, n)) * mix(vec3(1.0), uC1 * 2.0 + 0.3, 0.15);
           float amber = smoothstep(0.66, 0.86, vnoise(p * 0.22 + 9.0));
           vec3 col = base * den * 0.9 + vec3(0.3, 0.9, 0.95) * fil * (1.1 + uGlow) + vec3(1.0, 0.55, 0.22) * amber * den * 0.8;
-          acc += col * T * 0.26;
-          T *= 1.0 - den * 0.2;
+          acc += col * T * 0.195;
+          T *= 1.0 - den * 0.15;
         }
         vec3 c = vec3(0.008, 0.008, 0.035) + acc * (0.95 + uEnergy * 0.3 + uBreath * 0.1);
         vec2 st = starDot(d, 320.0, 0.996);

@@ -206,8 +206,11 @@ export class BeachScene extends BaseScene {
 }
 
 // ===================================================================== Underwater
-// A sunlit kelp forest: rippling light from the surface, swaying kelp, rising
-// bubbles, drifting plankton and a slow school of fish.
+// A dark, quiet reef. Deep blue water with a faint sunlit surface far above,
+// coral all around you: rounded brain corals, branching corals and lacy sea
+// fans swaying, with soft glowing plankton and small fish drifting past.
+// Notes release bubbles; chords send a shimmer of light down through the water.
+const REEF_FOG = 'vec3(0.0, 0.035, 0.07)';
 export class UnderwaterScene extends BaseScene {
   constructor() {
     super();
@@ -218,71 +221,200 @@ export class UnderwaterScene extends BaseScene {
       vertexShader: 'varying vec3 vDir; void main(){ vDir = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
       fragmentShader: /* glsl */ `uniform float uTime, uFade, uFlare, uBreath; varying vec3 vDir; ${NOISE} ${GRADE}
         void main(){ vec3 d = normalize(vDir);
-          vec3 c = mix(vec3(0.0, 0.09, 0.16), vec3(0.08, 0.55, 0.68), smoothstep(-0.4, 0.9, d.y));
-          float win = smoothstep(0.82, 0.92, d.y);
+          vec3 c = mix(${REEF_FOG}, vec3(0.01, 0.13, 0.22), smoothstep(-0.2, 0.95, d.y));
+          float win = smoothstep(0.86, 0.96, d.y);
           float rip = fbm(vec3(d.xz * 9.0 / (d.y + 0.2), uTime * 0.4));
-          c += vec3(0.7, 0.95, 1.0) * win * (0.5 + rip * 0.8);
-          float rays = pow(fbm(vec3(atan(d.z, d.x) * 6.0, uTime * 0.15, 0.0)), 3.0) * smoothstep(0.0, 0.8, d.y);
-          c += vec3(0.4, 0.8, 0.9) * rays * (0.6 + uFlare + uBreath * 0.2);
+          c += vec3(0.35, 0.6, 0.7) * win * (0.25 + rip * 0.45);
+          float rays = pow(fbm(vec3(atan(d.z, d.x) * 6.0, uTime * 0.15, 0.0)), 3.0) * smoothstep(0.1, 0.85, d.y);
+          c += vec3(0.2, 0.45, 0.55) * rays * (0.35 + uFlare * 0.8 + uBreath * 0.1);
           gl_FragColor = vec4(grade(c), uFade); }`,
     }));
     dome.renderOrder = -5;
     this.group.add(dome);
+
     const n = noise2(23);
-    const floorH = (x, z) => -1.2 + n.fbm(x * 0.05, z * 0.05) * 3 * THREE.MathUtils.smoothstep(Math.hypot(x, z), 4, 40);
+    const floorH = (x, z) => -1.6 + n.fbm(x * 0.05, z * 0.05) * 2.2 * THREE.MathUtils.smoothstep(Math.hypot(x, z), 4, 40);
     const floor = new THREE.Mesh(new THREE.PlaneGeometry(200, 200, 140, 140).rotateX(-Math.PI / 2), new THREE.ShaderMaterial({
       transparent: true, uniforms: U,
       vertexShader: 'varying vec3 vW; void main(){ vW = (modelMatrix * vec4(position,1.0)).xyz; gl_Position = projectionMatrix * viewMatrix * vec4(vW,1.0); }',
-      fragmentShader: /* glsl */ `uniform float uTime, uFade; varying vec3 vW; ${NOISE} ${GRADE}
+      fragmentShader: /* glsl */ `uniform float uTime, uFade, uFlare; varying vec3 vW; ${NOISE} ${GRADE}
         void main(){
           vec2 p = vW.xz * 0.9;
           float c1 = abs(sin(fbm(vec3(p, uTime * 0.35)) * 12.0));
           float c2 = abs(sin(fbm(vec3(p * 1.3 + 4.0, uTime * 0.3)) * 12.0));
           float caustic = pow(1.0 - min(c1, c2), 6.0);
-          vec3 sand = mix(vec3(0.55, 0.52, 0.4), vec3(0.75, 0.7, 0.55), fbm(vec3(vW.xz * 2.0, 0.0)));
-          vec3 c = sand * 0.5 + vec3(0.6, 0.95, 1.0) * caustic * 0.6;
+          vec3 sand = mix(vec3(0.22, 0.24, 0.26), vec3(0.34, 0.33, 0.3), fbm(vec3(vW.xz * 2.0, 0.0)));
+          vec3 c = sand * 0.35 + vec3(0.3, 0.6, 0.7) * caustic * (0.22 + uFlare * 0.2);
           float dist = length(vW - cameraPosition);
-          c = mix(c, vec3(0.0, 0.18, 0.26), smoothstep(6.0, 45.0, dist));
+          c = mix(c, ${REEF_FOG}, smoothstep(4.0, 38.0, dist));
           gl_FragColor = vec4(grade(c), uFade);
         }`,
     }));
     floor.geometry.attributes.position.array.forEach((_, i, a) => { if (i % 3 === 1) a[i] = floorH(a[i - 1], a[i + 1]); });
     floor.renderOrder = -4;
     this.group.add(floor);
-    // kelp
-    const r = rng(5);
-    const kelpMat = new THREE.ShaderMaterial({
-      transparent: true, side: THREE.DoubleSide, depthWrite: false, uniforms: U,
-      vertexShader: /* glsl */ `attribute float aSeed; uniform float uTime, uBreath; varying float vY; varying float vS; varying float vD;
-        void main(){ vec3 p = position; vY = uv.y; vS = aSeed;
-          float sway = pow(uv.y, 1.5) * (0.8 + uBreath * 0.3);
-          p.x += sin(uTime * 0.6 + aSeed * 20.0 + uv.y * 3.0) * sway; p.z += cos(uTime * 0.45 + aSeed * 13.0 + uv.y * 2.0) * sway * 0.6;
-          vec4 mv = modelViewMatrix * vec4(p, 1.0); vD = -mv.z; gl_Position = projectionMatrix * mv; }`,
-      fragmentShader: /* glsl */ `uniform float uFade; varying float vY; varying float vS; varying float vD;
-        void main(){ vec3 c = mix(vec3(0.12, 0.22, 0.06), vec3(0.45, 0.6, 0.2), vY) * (0.7 + vS * 0.4);
-          c = mix(c, vec3(0.0, 0.18, 0.26), smoothstep(6.0, 40.0, vD));
-          gl_FragColor = vec4(c, 0.92 * uFade); }`,
-    });
-    const kelpGeo = [];
-    for (let i = 0; i < 70; i++) {
-      const a = r() * Math.PI * 2, d = 2.5 + Math.pow(r(), 0.7) * 35, h = 6 + r() * 10;
-      const pg = new THREE.PlaneGeometry(0.35 + r() * 0.3, h, 1, 24);
-      pg.translate(0, h / 2, 0);
-      pg.rotateY(r() * Math.PI);
+
+    // --- coral: one merged mesh with per-vertex colour and a glow amount
+    const r = rng(11);
+    const PAL = [[0.85, 0.32, 0.42], [0.95, 0.5, 0.3], [0.62, 0.3, 0.75], [0.95, 0.72, 0.35], [0.3, 0.62, 0.7], [0.9, 0.45, 0.62]];
+    const parts = [];
+    const add = (g, col, glow) => {
+      g = g.index ? g.toNonIndexed() : g;
+      const cnt = g.attributes.position.count, ca = new Float32Array(cnt * 4);
+      for (let i = 0; i < cnt; i++) ca.set([col[0], col[1], col[2], glow], i * 4);
+      g.setAttribute('aCol', new THREE.BufferAttribute(ca, 4));
+      g.deleteAttribute('uv');
+      parts.push(g);
+    };
+    const spot = (minD, maxD) => {
+      const a = r() * Math.PI * 2, d = minD + Math.pow(r(), 0.8) * (maxD - minD);
       const x = Math.cos(a) * d, z = Math.sin(a) * d;
-      pg.translate(x, floorH(x, z), z);
-      const s = new Float32Array(pg.attributes.position.count).fill(r());
-      pg.setAttribute('aSeed', new THREE.BufferAttribute(s, 1));
-      kelpGeo.push(pg);
+      return [x, floorH(x, z), z];
+    };
+    // brain and boulder corals: lumpy rounded mounds (grooved in the shader)
+    const mound = (x, y, z, s, col, seed) => {
+      const g = new THREE.IcosahedronGeometry(1, 4);
+      const pa = g.attributes.position;
+      for (let k = 0; k < pa.count; k++) {
+        const vx = pa.getX(k), vy = pa.getY(k), vz = pa.getZ(k);
+        const bump = 1 + 0.08 * Math.sin(vx * 9 + vz * 7 + seed) * Math.sin(vy * 8) + n.fbm(vx * 2 + seed, vz * 2) * 0.22;
+        pa.setXYZ(k, vx * bump, Math.max(-0.3, vy) * 0.62 * bump, vz * bump);
+      }
+      g.computeVertexNormals();
+      g.scale(s, s, s); g.translate(x, y + 0.05, z);
+      add(g, col, 0.1);
+    };
+    for (let i = 0; i < 46; i++) { const [x, y, z] = spot(3, 34); mound(x, y, z, 0.5 + r() * 1.4, PAL[Math.floor(r() * PAL.length)], i); }
+    // rocky outcrops rising from the sand, so the reef surrounds you at eye level
+    const tops = [];
+    for (let i = 0; i < 9; i++) {
+      const [x, y, z] = spot(9, 30), s = 2.2 + r() * 2.8;
+      const g = new THREE.IcosahedronGeometry(1, 3);
+      const pa = g.attributes.position;
+      for (let k = 0; k < pa.count; k++) {
+        const vx = pa.getX(k), vy = pa.getY(k), vz = pa.getZ(k);
+        const bump = 1 + n.fbm(vx * 1.5 + i * 3, vz * 1.5 + vy) * 0.45;
+        pa.setXYZ(k, vx * bump * 0.9, (vy + 0.35) * 1.15 * bump, vz * bump * 0.9);
+      }
+      g.computeVertexNormals();
+      g.scale(s, s, s); g.translate(x, y - s * 0.2, z);
+      add(g, [0.2, 0.2, 0.26], 0.0);
+      tops.push([x, y - s * 0.2 + s * 1.45 * 1.15, z, s]);
     }
-    const merged = mergeGeos(kelpGeo);
-    const kelp = new THREE.Mesh(merged, kelpMat);
-    kelp.frustumCulled = false;
-    this.group.add(kelp);
-    this.bubbles = particles(U, { count: 600, min: [-15, -1, -15], max: [15, 14, 15], vel: [0, 0.9, 0], sway: 0.15, size: [0.03, 0.09], shape: 'bubble', colors: ['#cfefff'], alpha: 0.7 });
+    for (const [x, y, z, s] of tops) {
+      for (let k = 0; k < 3; k++) mound(x + (r() - 0.5) * s * 0.9, y - 0.4 - r() * 0.4, z + (r() - 0.5) * s * 0.9, 0.4 + r() * 0.6, PAL[Math.floor(r() * PAL.length)], k + x);
+    }
+    // branching corals: little trees of tapering branches with glowing tips
+    const branch = (x0, y0, z0, dir, len, rad, depth, col) => {
+      const end = new THREE.Vector3(x0, y0, z0).addScaledVector(dir, len);
+      const g = new THREE.CylinderGeometry(rad * 0.65, rad, len, 6, 1);
+      g.translate(0, len / 2, 0);
+      g.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir));
+      g.translate(x0, y0, z0);
+      add(g, col, depth === 0 ? 0.9 : 0.15);
+      if (depth > 0) {
+        const kids = 2 + (r() < 0.4 ? 1 : 0);
+        for (let k = 0; k < kids; k++) {
+          const nd = dir.clone().add(new THREE.Vector3((r() - 0.5) * 1.2, 0.35 + r() * 0.4, (r() - 0.5) * 1.2)).normalize();
+          branch(end.x, end.y, end.z, nd, len * (0.62 + r() * 0.2), rad * 0.65, depth - 1, col);
+        }
+      } else {
+        const tip = new THREE.SphereGeometry(rad * 1.1, 6, 4); tip.translate(end.x, end.y, end.z);
+        add(tip, col, 1.0);
+      }
+    };
+    const sites = [...Array.from({ length: 38 }, () => spot(3, 30)), ...tops.flatMap(([x, y, z, s]) => [0, 1].map(() => [x + (r() - 0.5) * s * 0.8, y - 0.5, z + (r() - 0.5) * s * 0.8]))];
+    for (const [x, y, z] of sites) {
+      const col = PAL[Math.floor(r() * PAL.length)];
+      const trunks = 2 + Math.floor(r() * 3);
+      for (let t = 0; t < trunks; t++) {
+        const d = new THREE.Vector3((r() - 0.5) * 0.6, 1, (r() - 0.5) * 0.6).normalize();
+        branch(x + (r() - 0.5) * 0.5, y, z + (r() - 0.5) * 0.5, d, 0.5 + r() * 0.5, 0.07 + r() * 0.05, 3, col);
+      }
+    }
+    // tube corals: clusters of short open tubes
+    for (let i = 0; i < 24; i++) {
+      const [x, y, z] = spot(4, 30), col = PAL[Math.floor(r() * PAL.length)];
+      for (let k = 0; k < 6; k++) {
+        const h = 0.4 + r() * 0.9, rad = 0.08 + r() * 0.06;
+        const g = new THREE.CylinderGeometry(rad, rad * 0.8, h, 8, 1, true);
+        g.translate(x + (r() - 0.5) * 0.7, y + h / 2, z + (r() - 0.5) * 0.7);
+        add(g, col, 0.5);
+      }
+    }
+    const coral = new THREE.Mesh(mergeGeos(parts), new THREE.ShaderMaterial({
+      transparent: true, side: THREE.DoubleSide, uniforms: U,
+      vertexShader: /* glsl */ `attribute vec4 aCol; uniform float uTime, uBreath; varying vec4 vCol; varying vec3 vN; varying vec3 vW;
+        void main(){ vCol = aCol; vN = normal; vec3 p = position;
+          p.x += sin(uTime * 0.7 + p.z * 0.8) * 0.02 * aCol.w; p.z += cos(uTime * 0.6 + p.x * 0.8) * 0.02 * aCol.w;
+          vW = (modelMatrix * vec4(p, 1.0)).xyz; gl_Position = projectionMatrix * viewMatrix * vec4(vW, 1.0); }`,
+      fragmentShader: /* glsl */ `uniform float uTime, uFade, uFlare, uBreath; varying vec4 vCol; varying vec3 vN; varying vec3 vW; ${NOISE} ${GRADE}
+        void main(){
+          vec3 nrm = normalize(vN);
+          float light = 0.25 + 0.75 * clamp(nrm.y * 0.6 + 0.4, 0.0, 1.0);
+          float c1 = abs(sin(fbm(vec3(vW.xz * 0.9, uTime * 0.35)) * 12.0));
+          float caustic = pow(1.0 - c1, 6.0) * clamp(nrm.y, 0.0, 1.0);
+          float tex = 0.75 + 0.35 * fbm(vW * 6.0);
+          if (vCol.w > 0.05 && vCol.w < 0.15) tex *= 0.55 + 0.45 * abs(sin(fbm(vW * 2.5) * 22.0));   // brain-coral grooves
+          if (vCol.w < 0.01) tex *= 0.6 + 0.6 * fbm(vW * 3.0);                                    // bare rock
+          vec3 c = vCol.rgb * light * tex * 0.55 + vec3(0.3, 0.6, 0.7) * caustic * 0.18;
+          // glowing tips, gently pulsing with the breath, like bioluminescence in the dark
+          c += vCol.rgb * vCol.w * (0.25 + 0.2 * uBreath + uFlare * 0.25);
+          float dist = length(vW - cameraPosition);
+          c = mix(c, ${REEF_FOG}, smoothstep(5.0, 36.0, dist) * (1.0 - vCol.w * 0.35));
+          gl_FragColor = vec4(grade(c), uFade);
+        }`,
+    }));
+    coral.frustumCulled = false;
+    this.group.add(coral);
+
+    // --- sea fans: lacy flat fans that sway
+    const fans = [];
+    for (let i = 0; i < 26; i++) {
+      const [x, y, z] = spot(4, 30), w = 1.2 + r() * 1.6, h = w * (0.8 + r() * 0.5);
+      const g = new THREE.PlaneGeometry(w, h, 6, 6);
+      g.translate(0, h / 2, 0);
+      g.rotateY(r() * Math.PI);
+      g.translate(x, y, z);
+      const col = PAL[[0, 2, 5][Math.floor(r() * 3)]];
+      const cnt = g.attributes.position.count, ca = new Float32Array(cnt * 4);
+      for (let k = 0; k < cnt; k++) ca.set([col[0], col[1], col[2], r()], k * 4);
+      g.setAttribute('aCol', new THREE.BufferAttribute(ca, 4));
+      fans.push(g);
+    }
+    const fan = new THREE.Mesh(mergeGeos(fans), new THREE.ShaderMaterial({
+      transparent: true, side: THREE.DoubleSide, depthWrite: false, uniforms: U,
+      vertexShader: /* glsl */ `attribute vec4 aCol; uniform float uTime, uBreath; varying vec4 vCol; varying vec2 vUv; varying vec3 vW;
+        void main(){ vCol = aCol; vUv = uv; vec3 p = position;
+          float sway = uv.y * uv.y * (0.25 + uBreath * 0.08);
+          p.x += sin(uTime * 0.5 + aCol.w * 20.0) * sway; p.z += cos(uTime * 0.4 + aCol.w * 13.0) * sway;
+          vW = (modelMatrix * vec4(p, 1.0)).xyz; gl_Position = projectionMatrix * viewMatrix * vec4(vW, 1.0); }`,
+      fragmentShader: /* glsl */ `uniform float uFade, uFlare; varying vec4 vCol; varying vec2 vUv; varying vec3 vW; ${NOISE}
+        void main(){
+          vec2 q = vec2((vUv.x - 0.5) * 2.0, vUv.y);
+          float shape = smoothstep(1.0, 0.92, length(vec2(q.x, (q.y - 0.55) * 1.6)) ) * step(0.02, q.y);
+          // a lattice of branching veins radiating from the base
+          float ang = atan(q.x, q.y + 0.05) * 14.0;
+          float veins = smoothstep(0.82, 1.0, abs(sin(ang + fbm(vec3(q * 3.0, vCol.w * 9.0)) * 3.0)));
+          float cross = smoothstep(0.85, 1.0, abs(sin(length(q) * 40.0 + fbm(vec3(q * 5.0, 1.0)) * 4.0)));
+          float lace = max(veins, cross * 0.7);
+          float a = shape * lace;
+          vec3 c = vCol.rgb * (0.4 + uFlare * 0.2);
+          float dist = length(vW - cameraPosition);
+          c = mix(c, ${REEF_FOG}, smoothstep(5.0, 34.0, dist));
+          gl_FragColor = vec4(c, a * 0.9 * uFade);
+        }`,
+    }));
+    fan.frustumCulled = false;
+    fan.renderOrder = 2;
+    this.group.add(fan);
+
+    this.bubbles = particles(U, { count: 500, min: [-15, -1, -15], max: [15, 14, 15], vel: [0, 0.9, 0], sway: 0.15, size: [0.03, 0.08], shape: 'bubble', colors: ['#9fd8ef'], alpha: 0.5 });
     this.group.add(this.bubbles);
-    this.group.add(particles(U, { count: 1200, min: [-20, -1, -20], max: [20, 12, 20], vel: [0.05, 0.02, 0.08], sway: 0.4, size: [0.01, 0.025], colors: ['#bff7ff', '#9ff0d0'], alpha: 0.6 }));
-    this.group.add(particles(U, { count: 90, min: [-40, 2, -30], max: [40, 5, -10], vel: [1.6, 0, 0], sway: 0.5, size: [0.12, 0.2], shape: 'leaf', colors: ['#cfe8f0', '#a8c8d8'], normal: true, alpha: 0.85 }));
+    // glowing plankton
+    this.group.add(particles(U, { count: 1400, min: [-22, -1, -22], max: [22, 12, 22], vel: [0.04, 0.02, 0.06], sway: 0.4, size: [0.01, 0.03], colors: ['#7ff3ff', '#a8ffd8', '#c9b6ff'], alpha: 0.75 }));
+    // small fish drifting past in the distance
+    this.group.add(particles(U, { count: 80, min: [-40, 1, -30], max: [40, 4.5, -10], vel: [1.3, 0, 0], sway: 0.5, size: [0.1, 0.16], shape: 'leaf', colors: ['#5f8fa8', '#7aa0b8', '#d88a6a'], normal: true, alpha: 0.6 }));
   }
   onEvent(e) {
     if (e.type === 'note') this.bubbles.userData.u.uBoost.value = 1;
