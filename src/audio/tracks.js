@@ -47,7 +47,7 @@ export const TRACKS = [
   {
     id: 'ground', title: 'Ground', freq: 174, intent: 'Foundation · ease',
     bpm: 52, scale: 'minorPent', progression: [0, 3, 1, 4], barsPerChord: 2,
-    profile: 'relax', scene: 'ocean', seed: 174,
+    profile: 'relax', scene: 'meadow', seed: 174,
     palette: ['#0b1d3a', '#1f6f8b', '#99e1d9'], breath: [4, 2, 6, 1], arc: ARC,
   },
   {
@@ -65,7 +65,7 @@ export const TRACKS = [
   {
     id: 'undo', title: 'Undo', freq: 417, intent: 'Facilitating change',
     bpm: 60, scale: 'dorian', progression: [0, 3, 4, 6], barsPerChord: 2,
-    profile: 'meditate', scene: 'geometry', seed: 417,
+    profile: 'meditate', scene: 'zen', seed: 417,
     palette: ['#120a1f', '#d4a373', '#fefae0'], breath: [5, 0, 5, 0], arc: ARC,
   },
   {
@@ -77,7 +77,7 @@ export const TRACKS = [
   {
     id: 'connect', title: 'Connect', freq: 639, intent: 'Harmony · relationships',
     bpm: 62, scale: 'majorPent', progression: [0, 3, 2, 4], barsPerChord: 2,
-    profile: 'relax', scene: 'orb', seed: 639,
+    profile: 'relax', scene: 'lotus', seed: 639,
     palette: ['#071a1a', '#3a9d8f', '#f2e3bc'], breath: [5, 2, 5, 2], arc: ARC,
   },
   {
@@ -95,7 +95,7 @@ export const TRACKS = [
   {
     id: 'crown', title: 'Crown', freq: 963, intent: 'Oneness · stillness',
     bpm: 50, scale: 'majorPent', progression: [0, 4, 2, 3], barsPerChord: 4,
-    profile: 'meditate', scene: 'galaxy', seed: 963,
+    profile: 'meditate', scene: 'moon', seed: 963,
     palette: ['#05050f', '#c9a227', '#ffffff'], breath: [6, 2, 8, 2], arc: ARC,
   },
 ];
@@ -117,7 +117,7 @@ export const GUIDED = [
   {
     id: 'okay', title: "It's Going to Be Okay", freq: 639, intent: 'Comfort & reassurance',
     guided: 'okay', tail: 40, bpm: 54, scale: 'majorPent', progression: [0, 3, 1, 2], barsPerChord: 2,
-    profile: 'relax', scene: 'orb', seed: 1639,
+    profile: 'relax', scene: 'beach', seed: 1639,
     palette: ['#060f17', '#3a8fb7', '#ffd9c2'], breath: [4, 2, 6, 0], arc: GUIDED_ARC,
   },
 ];

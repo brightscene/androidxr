@@ -31,10 +31,12 @@ export class World {
 
   _apply() {
     const m = this.mode || 'full';
-    this.sky.visible = !this.passthrough && m !== 'off';
-    this.stars.visible = m !== 'off';
-    for (const o of [this.lasers, this.motes, this.voyage.stars, this.voyage.streaks, this.sparks.points]) o.visible = m === 'full';
-    if (m !== 'full') for (const r of this.sparks.rings) r.visible = false;
+    const space = m === 'full' || m === 'stars';
+    this.sky.visible = !this.passthrough && space;
+    this.stars.visible = space;
+    for (const o of [this.lasers, this.motes, this.voyage.stars, this.voyage.streaks]) o.visible = m === 'full';
+    this.sparks.points.visible = m === 'full' || m === 'bare';
+    if (!this.sparks.points.visible) for (const r of this.sparks.rings) r.visible = false;
   }
 
   _sky() {

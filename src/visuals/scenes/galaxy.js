@@ -5,7 +5,7 @@ import { BaseScene, POINT_SIZE, additive } from '../common.js';
 // slowly overhead like a projection on the ceiling. Chords send a glow out
 // along the spiral arms; beats pulse the cores; dives rush them past you.
 
-function galaxyGeometry(n, arms, twist, seedOff = 0) {
+export function galaxyGeometry(n, arms, twist, seedOff = 0) {
   const pos = new Float32Array(n * 3), aR = new Float32Array(n), aSeed = new Float32Array(n);
   const gauss = () => (Math.random() + Math.random() + Math.random() - 1.5) / 1.5;
   for (let i = 0; i < n; i++) {

@@ -65,6 +65,15 @@ MindLyte is a meditation app for Android XR. You drift slowly through a field of
 
 **Background** (on the *Scene* tab in the headset, or *Scene, sound & journey* on the flat screen): *Auto* uses each track's own scene. You can also force any scene for every track (Galaxy voyage, Light ocean, Breathing orb, Aurora, Sacred geometry, Lotus mandala, Cymatics), choose **Stars only** for a still, quiet sky, or choose **Off** for pure black (in passthrough, just your room), leaving only the lights.
 
+**27 scenes** (`src/visuals/scenes/`, registered in `scenes/index.js`). Ideas were drawn from the best VR meditation apps: nature places that react to the audio, dreamlike abstract worlds that follow your breath, and a world that grows as you practise. Everything is written from scratch and generated procedurally.
+- **Nature:** Meadow (wind waves through the grass, gusts on chord changes, drifting clouds), White beach (waves roll in, break into foam and wash up the sand), Underwater kelp forest, Zen garden (raked sand, cherry blossom, lanterns; the blossom fills out as the session deepens), Glowing forest, Bamboo grove, Snowy peaks, Desert night (shooting stars on some notes).
+- **Sky & water:** Cloud flight (fly through cumulus, towers, layers and wisps, with a soft white-out inside a cloud), Floating islands, Lantern lake, Rain on the lake (from a wooden jetty), Lotus pond (flowers open as you breathe in, and more bloom each section), Light ocean.
+- **Space:** Galaxy voyage, Moon view (ringed gas giant, a blue world, a red planet and a spiral galaxy), Black hole, Nebula drift, Light ribbons, Aurora.
+- **Mind:** Fractal tunnel, Crystal cave, Chakras (the seven chakras light in turn, one per bar), Breathing orb, Lotus mandala, Sacred geometry, Cymatics.
+- **Simple:** Stars only, Off.
+
+Each soundscape has its own default scene, for example Ground → Meadow, Undo → Zen garden, Connect → Lotus pond and Crown → Moon view. *It's Going to Be Okay* uses the beach.
+
 **The other scenes** (light ocean, breathing orb, aurora, sacred geometry, lotus mandala, cymatics) are all still included. The voyage now runs behind every one of them.
 
 ## Run locally

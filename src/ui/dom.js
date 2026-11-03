@@ -1,4 +1,5 @@
 import { SYMBOLS } from '../visuals/strobe.js';
+import { SCENES } from '../visuals/scenes/index.js';
 
 // Flat-screen UI: the launcher you see in a browser panel on Android XR
 // (and on phones/desktops), plus the in-session bar.
@@ -64,6 +65,11 @@ export class DomUI {
     on('#journey', 'change', (e) => app.setJourney(e.target.value));
     on('#nature', 'change', (e) => { app.engine.init().then(() => app.setNature(e.target.value)); });
     on('#dives', 'change', (e) => app.setDives(e.target.value));
+    {
+      const groups = {};
+      for (const [k, v] of Object.entries(SCENES)) (groups[v.group] ||= []).push(`<option value="${k}">${v.label}</option>`);
+      this.$('#background').innerHTML = '<option value="auto">Auto (per track)</option>' + Object.entries(groups).map(([g, o]) => `<optgroup label="${g}">${o.join('')}</optgroup>`).join('');
+    }
     on('#background', 'change', (e) => app.setBackground(e.target.value));
     on('#voice', 'change', (e) => { app.setVoice(e.target.value); this.refreshVoices(); });
     on('#whispers', 'change', (e) => app.setWhispers(e.target.checked));

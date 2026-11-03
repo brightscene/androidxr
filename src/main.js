@@ -9,33 +9,10 @@ import { decodeStrobe, flashRateAt } from './audio/strobe.js';
 import { StrobeLayer } from './visuals/strobe.js';
 import { U, damp } from './visuals/common.js';
 import { World } from './visuals/world.js';
-import { GalaxyScene } from './visuals/scenes/galaxy.js';
-import { OceanScene } from './visuals/scenes/ocean.js';
-import { OrbScene } from './visuals/scenes/orb.js';
-import { AuroraScene } from './visuals/scenes/aurora.js';
-import { GeometryScene } from './visuals/scenes/geometry.js';
-import { MandalaScene } from './visuals/scenes/mandala.js';
-import { CymaticsScene } from './visuals/scenes/cymatics.js';
-import { BaseScene } from './visuals/common.js';
+import { SCENES } from './visuals/scenes/index.js';
 import { XRMenu } from './ui/xrMenu.js';
 import { DomUI } from './ui/dom.js';
 
-const SCENE_TYPES = {
-  galaxy: GalaxyScene, ocean: OceanScene, orb: OrbScene, aurora: AuroraScene,
-  geometry: GeometryScene, mandala: MandalaScene, cymatics: CymaticsScene,
-  stars: BaseScene, off: BaseScene, // no foreground scene
-};
-export const BACKGROUNDS = [
-  ['auto', 'Auto (per track)'], ['galaxy', 'Galaxy voyage'], ['ocean', 'Light ocean'], ['orb', 'Breathing orb'],
-  ['aurora', 'Aurora'], ['geometry', 'Sacred geometry'], ['mandala', 'Lotus mandala'], ['cymatics', 'Cymatics'],
-  ['stars', 'Stars only'], ['off', 'Off (black)'],
-];
-// how fast you drift through space, and how vivid the projected nebula is, per scene
-const SCENE_FEEL = {
-  galaxy: { cruise: 1.2, nebula: 1 }, aurora: { cruise: 0.3, nebula: 0.5 }, ocean: { cruise: 0.25, nebula: 0.55 },
-  orb: { cruise: 0.5, nebula: 0.8 }, geometry: { cruise: 0.45, nebula: 0.7 }, mandala: { cruise: 0.4, nebula: 0.7 },
-  cymatics: { cruise: 0.4, nebula: 0.7 }, stars: { cruise: 0, nebula: 0 }, off: { cruise: 0, nebula: 0 },
-};
 const PHASE_TEXT = { in: 'Breathe in', hold: 'Hold', out: 'Breathe out', rest: 'Rest' };
 const COMFORT = { off: 0, gentle: 0.5, full: 1 };
 const shuffle = (a) => { a = [...a]; for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
@@ -193,13 +170,14 @@ class App {
   }
 
   setScene(name) {
-    this.world.setMode(name === 'off' ? 'off' : name === 'stars' ? 'stars' : 'full');
-    const feel = SCENE_FEEL[name] || SCENE_FEEL.galaxy;
+    if (!SCENES[name]) name = 'galaxy';
+    const feel = SCENES[name];
+    this.world.setMode(feel.world);
     this.world.voyage.cruise = feel.cruise;
     this.world.setNebula(feel.nebula);
     if (this.active && this.active.name === name) return;
     if (this.active) this.outgoing.push(this.active);
-    const s = new SCENE_TYPES[name]();
+    const s = new feel.type();
     s.name = name;
     s.setFade(0);
     this.scene.add(s.group);
@@ -479,7 +457,7 @@ class App {
     for (const e of events) {
       if (e.type === 'section') this.sectionEnergy = e.energy;
       if (e.type === 'beat') U.uBeat.value = Math.min(1, U.uBeat.value + (e.accent ? 0.7 : 0.3));
-      if (e.type === 'note' && this.world.mode === 'full') this.world.sparks.emit(e.pos, e.vel);
+      if (e.type === 'note' && (this.world.mode === 'full' || this.world.mode === 'bare')) this.world.sparks.emit(e.pos, e.vel);
       if (e.type === 'dive') this.world.voyage.startDive(e.duration, e.intensity);
       if (e.type === 'end') {
         if (this.guide && !this.guide.done) continue;
