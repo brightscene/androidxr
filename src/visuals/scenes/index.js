@@ -27,6 +27,7 @@ import { SkiScene } from './ski.js';
 import { RainbowRoadScene } from './rainbow.js';
 import { SleepScene } from './sleep.js';
 import { StarsScene } from './stars.js';
+import { FinalFrontierScene } from './frontier.js';
 import { DrumJourneyScene, IllusionScene, MindsEyeScene } from './lighttracks.js';
 import { TimePortalScene, KaleidosphereScene, NebulaFlightScene, WarpGateScene, MandalaBloomScene, SilkVortexScene } from './dimensions.js';
 import { MoonViewScene, FractalTunnelScene, CrystalCaveScene, NebulaScene, LightRibbonsScene, BlackHoleScene, ChakraScene } from './cosmic.js';
@@ -52,6 +53,7 @@ export const SCENES = {
   sleep: { type: SleepScene, label: 'Sleep', group: 'Mind', cruise: 0, nebula: 0, world: 'off' },
   hope: { type: HopeScene, label: 'Hope', group: 'Mind', cruise: 0, nebula: 0, world: 'off' },
   bliss: { type: BlissScene, label: 'Bliss', group: 'Mind', cruise: 0, nebula: 0, world: 'off' },
+  frontier: { type: FinalFrontierScene, label: 'Final frontier', group: 'Space', cruise: 0, nebula: 0, world: 'off' },
   rainbow: { type: RainbowRoadScene, label: 'Rainbow road', group: 'Space', cruise: 0, nebula: 0, world: 'off' },
   puffroad: { type: class extends RainbowRoadScene { constructor() { super({ puff: true }); } }, label: 'Sweetie road', group: 'Space', cruise: 0, nebula: 0, world: 'off' },
   neoncity: { type: NeonCityScene, label: 'Neon Tokyo flight', group: 'Dimensions', cruise: 0, nebula: 0, world: 'off' },

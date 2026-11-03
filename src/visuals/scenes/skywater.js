@@ -205,7 +205,7 @@ export class CloudFlightScene extends BaseScene {
     super();
     const U = this.uniforms;
     const sun = [0.5, 0.45, -0.75];
-    this.group.add(sky(U, { top: '#3f6ea8', horizon: '#d6e1ec', ground: '#e8eef5', sunDir: sun, sunCol: '#fff2d8', clouds: 0.1, cloudCol: '#f4f6fa', cloudSpeed: 0.002, sunSize: 1.1, radius: 300 }));
+    this.group.add(sky(U, { top: '#2e6cc6', horizon: '#cfe0f2', ground: '#e8eef5', sunDir: sun, sunCol: '#fff2d8', clouds: 0.1, cloudCol: '#f4f6fa', cloudSpeed: 0.002, sunSize: 1.1, radius: 300 }));
     // flat cloud layer far below, and thin stratus overhead
     const layer = (y, scale, cov, alpha) => {
       const m = new THREE.Mesh(new THREE.PlaneGeometry(600, 600).rotateX(-Math.PI / 2), new THREE.ShaderMaterial({
@@ -243,9 +243,9 @@ export class CloudFlightScene extends BaseScene {
     }
     // big billowing cumulus far off to the sides: broad clusters, not stacked columns
     for (let i = 0; i < 6; i++) { const x = (r() < 0.5 ? -1 : 1) * (100 + r() * 60), z = -r() * L; for (let k = 0; k < 4; k++) put(x + (k - 1.5) * 26 + (r() - 0.5) * 10, -12 + r() * 10, z + (r() - 0.5) * 24, 34 + r() * 14, k === 1 || k === 2 ? 3 : Math.floor(r() * 3)); }
-    for (let i = 0; i < 9; i++) put((r() - 0.5) * 260, -18 + r() * 8, -r() * L, 34 + r() * 18, 4);          // stratocumulus banks below
-    for (let i = 0; i < 10; i++) put((r() - 0.5) * 240, 45 + r() * 15, -r() * L, 35 + r() * 20, 5);           // altocumulus patches above
-    for (let i = 0; i < 9; i++) put((r() - 0.5) * 300, 85 + r() * 25, -r() * L, 70 + r() * 40, 6);            // high cirrus
+    for (let i = 0; i < 6; i++) put((r() - 0.5) * 260, -20 + r() * 6, -r() * L, 30 + r() * 14, 4);          // stratocumulus banks below
+    for (let i = 0; i < 4; i++) put((r() < 0.5 ? -1 : 1) * (60 + r() * 100), 50 + r() * 15, -r() * L, 28 + r() * 14, 5);   // a few altocumulus patches, off to the sides
+    for (let i = 0; i < 4; i++) put((r() - 0.5) * 300, 95 + r() * 25, -r() * L, 60 + r() * 30, 6);            // thin high cirrus
     this.puffs = puffs;
     const g = new THREE.InstancedBufferGeometry();
     g.setAttribute('position', new THREE.Float32BufferAttribute([-0.5, -0.5, 0, 0.5, -0.5, 0, 0.5, 0.5, 0, -0.5, 0.5, 0], 3));
