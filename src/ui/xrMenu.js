@@ -83,6 +83,7 @@ function textDraw(text, { size = 0.42, weight = 400, alpha = 0.7, align = 'left'
 }
 
 const TABS = ['Journeys', 'Scene', 'Sound', 'Lights', 'Voice'];
+const MARK = typeof Image !== 'undefined' ? Object.assign(new Image(), { src: 'icons/mark.svg' }) : {};
 const W = 1.56, H = 1.34;
 const ROW0 = 0.33, ROWH = 0.1, LX = -0.74, PX = -0.4;
 
@@ -124,21 +125,38 @@ export class XRMenu {
     this.group.add(this.panel);
 
     const bg = new Button(W, H, (c, w, h) => {
-      roundRect(c, 0, 0, w, h, 56);
+      const k = w / 650;
+      roundRect(c, 0, 0, w, h, 56 * k);
       const g = c.createLinearGradient(0, 0, 0, h);
       g.addColorStop(0, 'rgba(10,10,28,0.93)');
       g.addColorStop(1, 'rgba(10,10,28,0.86)');
       c.fillStyle = g;
       c.fill();
       c.strokeStyle = 'rgba(255,255,255,0.18)';
-      c.lineWidth = 4;
+      c.lineWidth = 4 * k;
       c.stroke();
-      c.fillStyle = '#fff';
-      c.font = `300 60px ${FONT}`;
+      // the brand: light-tunnel mark, then "mind" + gradient "lyte", version beneath
+      if (MARK.complete && MARK.naturalWidth) c.drawImage(MARK, 22 * k, 20 * k, 56 * k, 56 * k);
       c.textAlign = 'left';
-      c.fillText('MindLyte', 52, 88);
-      c.font = `400 22px ${FONT}`; c.fillStyle = 'rgba(255,255,255,0.35)'; c.fillText(`v${__BUILD__}`, 54, 122);
-    }, null, 650);
+      c.textBaseline = 'alphabetic';
+      c.font = `300 ${28 * k}px Comfortaa, Jost, system-ui, sans-serif`;
+      c.fillStyle = '#e9e4ff';
+      const x0 = 86 * k, yb = 54 * k;
+      c.fillText('mind', x0, yb);
+      const mw = c.measureText('mind').width;
+      c.font = `500 ${28 * k}px Comfortaa, Jost, system-ui, sans-serif`;
+      const lw = c.measureText('lyte').width;
+      const lg = c.createLinearGradient(x0 + mw, 0, x0 + mw + lw, 0);
+      lg.addColorStop(0, '#5ED6D0'); lg.addColorStop(0.55, '#A493FF'); lg.addColorStop(1, '#F29BD0');
+      c.fillStyle = lg;
+      c.fillText('lyte', x0 + mw, yb);
+      c.font = `400 ${11 * k}px ${FONT}`; c.fillStyle = 'rgba(255,255,255,0.4)'; c.fillText(`v${__BUILD__}`, x0 + 2 * k, yb + 18 * k);
+    }, null, 1300);
+    // redraw once the logo and brand font have loaded
+    const again = () => bg.redraw();
+    if (!MARK.complete) MARK.addEventListener('load', again, { once: true });
+    document.fonts?.load('500 40px Comfortaa').then(again, () => {});
+    document.fonts?.load('300 40px Comfortaa').then(again, () => {});
     bg.mesh.position.set(0, -0.02, -0.01);
     bg.mesh.renderOrder = 999;
     this.panel.add(bg.mesh);
@@ -349,6 +367,21 @@ export class XRMenu {
     this._btn(p, new Button(0.1, 0.07, pill('›'), () => step(1)), PX + 0.94 + 0.05, ROW0 - 2 * ROWH);
     this._btn(p, new Button(0.32, 0.07, pill('Hear the voice'), () => app.previewVoice()), PX + 0.16, ROW0 - 3 * ROWH);
     this._row(p, 5, 'My affirmations', [['Off', false], ['On', true]], () => app.mineOn, (v) => app.setMine(v));
+    // record a new affirmation right here in the headset (the mic is only used while recording)
+    this.recMsg = '';
+    this._btn(p, new Button(0.42, 0.07, pill(() => (app.mine.recording ? `■ Stop  ${Math.floor(this.recS || 0)} s` : this.recMsg || '● Record a new one'), () => app.mine.recording), async () => {
+      if (app.mine.recording) { app.mine.stop(); return; }
+      this.recS = 0; this.recMsg = '';
+      try {
+        const clip = await app.mine.record((sec) => { this.recS = sec; this.refresh(); });
+        this.recMsg = clip ? 'Saved ✓  Record another' : 'Too short, try again';
+        if (clip && !app.mineOn) app.setMine(true);
+      } catch (_) {
+        this.recMsg = 'Mic blocked: allow it outside VR';
+      }
+      app.ui.drawMine?.();
+      this.refresh();
+    }), PX + 0.368 + 0.23, ROW0 - 5 * ROWH);
     this._row(p, 6, 'Breathing guide', [['Off', false], ['On', true]], () => app.breathText, (v) => app.setBreathText(v));
   }
 

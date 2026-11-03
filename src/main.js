@@ -138,7 +138,7 @@ class App {
   // ------------------------------------------------------------ settings
   select(track) {
     this.selected = track;
-    if (!this.playing) {
+    if (!this.playing && !this.xrIdle) {
       this.setScene(this.sceneFor(track));
       this.applyPalette(track.palette);
     }
@@ -191,7 +191,7 @@ class App {
 
   setBackground(b) {
     this.background = b;
-    this.setScene(this.sceneFor(this.playing ? this.playingTrack : this.selected));
+    this.setScene(this.sceneFor(this.playing ? this.playingTrack : this.selected));   // picking a scene previews it
     this._changed();
   }
 
@@ -203,6 +203,8 @@ class App {
     this.world.setNebula(feel.nebula);
     if (this.active && this.active.name === name) return;
     if (this.active) this.outgoing.push(this.active);
+    // switching quickly: only the most recent scene fades out, older ones are freed at once
+    while (this.outgoing.length > 1) this.outgoing.shift().dispose();
     const s = new feel.type();
     s.name = name;
     s.setFade(0);
@@ -284,6 +286,7 @@ class App {
     this.welcome = { id: `welcome-${w + 1}`, text: WELCOMES[w] };
     this.nextWhisper = this.engine.now + 22;
     if (guided) this._startGuide(track);
+    this.xrIdle = false;
     this.setScene(this.sceneFor(track));
     this.applyPalette(track.palette);
     if (this.renderer.xr.isPresenting) this.menu.show(false);
@@ -333,7 +336,7 @@ class App {
     this.engine.fadeMaster(0, fade);
     const p = this.player;
     setTimeout(() => { if (this.player === p) this.player = null; }, fade * 1000 + 500);
-    if (this.renderer.xr.isPresenting) this.menu.show(true);
+    if (this.renderer.xr.isPresenting) { this.menu.show(true); this._xrIdle(); }
     this.menu.refresh();
     this.ui.onStop(completed);
   }
@@ -389,8 +392,18 @@ class App {
 
   exitXR() { this.renderer.xr.getSession()?.end(); }
 
+  // a quiet backdrop while you're in the headset menu between sessions
+  _xrIdle() {
+    this.xrIdle = true;
+    this.setScene(this.xrMode === 'immersive-ar' ? 'off' : 'stars');
+  }
+
   _onXRStart() {
     const ar = this.xrMode === 'immersive-ar';
+    // stepping into the headset ends whatever was playing on the screen;
+    // nothing plays until you press Begin in there
+    if (this.playing) this.stop();
+    this._xrIdle();
     this.world.setPassthrough(ar);
     this.renderer.setClearColor(0x000000, ar ? 0 : 1);
     this.menu.group.visible = true;
@@ -423,6 +436,8 @@ class App {
   }
 
   _onXREnd() {
+    this.xrIdle = false;
+    this.setScene(this.sceneFor(this.playing ? this.playingTrack : this.selected));
     this.world.setPassthrough(false);
     this.renderer.setClearColor(0x000000, 1);
     this.menu.group.visible = false;

@@ -33,7 +33,7 @@ function makeNoiseTexture(size = 64, period = 16) {
 
 // Uniforms shared by every material (same {value} objects, so one update reaches all).
 export const U = {
-  uNoiseTex: { value: makeNoiseTexture() },
+  uNoiseTex: { value: Object.assign(makeNoiseTexture(), { userData: { keep: true } }) },
   uOct: { value: 4 }, // noise detail; lowered automatically if the headset is struggling
   uTime: { value: 0 },
   uViewH: { value: 800 }, // half viewport height in px, for point sizing
@@ -125,10 +125,19 @@ export class BaseScene {
   onCue(_name) {}
   update(_dt, _t, _s) {}
   dispose() {
+    // free everything this scene put on the GPU: geometry, materials and their
+    // textures (captions, photos, glows), but never the textures every scene shares
+    const texs = new Set();
+    const grab = (v) => { if (v && v.isTexture && !v.userData.keep) texs.add(v); };
     this.group.traverse((o) => {
       if (o.geometry) o.geometry.dispose();
-      if (o.material) (Array.isArray(o.material) ? o.material : [o.material]).forEach((m) => m.dispose());
+      if (o.material) (Array.isArray(o.material) ? o.material : [o.material]).forEach((m) => {
+        for (const k of ['map', 'alphaMap', 'emissiveMap', 'normalMap']) grab(m[k]);
+        if (m.uniforms) for (const u of Object.values(m.uniforms)) grab(u && u.value);
+        m.dispose();
+      });
     });
+    for (const t of texs) t.dispose();
     this.group.removeFromParent();
   }
 }

@@ -229,6 +229,6 @@ export class CloudFlightScene extends BaseScene {
     this.veilAmt = damp(this.veilAmt, inside, 3, dt);
     this.veil.material.opacity = Math.min(0.8, this.veilAmt * 1.3) * this.fade;
   }
-  dispose() { this.veil.removeFromParent(); super.dispose(); }
+  dispose() { this.veil.removeFromParent(); this.veil.traverse((o) => { o.geometry?.dispose(); o.material?.dispose(); }); super.dispose(); }
 }
 

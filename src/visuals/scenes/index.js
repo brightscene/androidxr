@@ -20,6 +20,8 @@ import { HopeScene, BlissScene } from './hope.js';
 import { EarthJourneyScene } from './earth.js';
 import { JetSkiScene } from './jetski.js';
 import { NeonCityScene } from './neon.js';
+import { HeartJourneyScene } from './heart.js';
+import { IntoTheLightScene } from './light.js';
 import { DrumJourneyScene, IllusionScene, MindsEyeScene } from './lighttracks.js';
 import { TimePortalScene, KaleidosphereScene, NebulaFlightScene, WarpGateScene, MandalaBloomScene, SilkVortexScene } from './dimensions.js';
 import { MoonViewScene, FractalTunnelScene, CrystalCaveScene, NebulaScene, LightRibbonsScene, BlackHoleScene, ChakraScene } from './cosmic.js';
@@ -40,6 +42,8 @@ export const SCENES = {
   cycle: { type: ImageCycleScene, label: 'Image cycling', group: 'Dimensions', cruise: 0.2, nebula: 0.75, world: 'full' },
   quantum: { type: QuantumScene, label: 'Quantum field', group: 'Dimensions', cruise: 0, nebula: 0, world: 'bare' },
   stargate: { type: StarGateScene, label: 'Wormhole', group: 'Dimensions', cruise: 0, nebula: 0, world: 'bare' },
+  intothelight: { type: IntoTheLightScene, label: 'Into the light', group: 'Mind', cruise: 0, nebula: 0, world: 'off' },
+  heartjourney: { type: HeartJourneyScene, label: 'Journey into the heart', group: 'Mind', cruise: 0, nebula: 0, world: 'off' },
   hope: { type: HopeScene, label: 'Hope', group: 'Mind', cruise: 0, nebula: 0, world: 'off' },
   bliss: { type: BlissScene, label: 'Bliss', group: 'Mind', cruise: 0, nebula: 0, world: 'off' },
   neoncity: { type: NeonCityScene, label: 'Neon Tokyo flight', group: 'Dimensions', cruise: 0, nebula: 0, world: 'off' },

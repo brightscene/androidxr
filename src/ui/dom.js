@@ -81,7 +81,7 @@ export class DomUI {
     on('#mine-on', 'change', (e) => app.setMine(e.target.checked));
     on('#mine-every', 'change', (e) => app.setMineEvery(Number(e.target.value)));
     const mine = app.mine, st = (t) => (this.$('#mine-status').textContent = t);
-    const drawMine = () => {
+    const drawMine = this.drawMine = () => {
       const ul = this.$('#mine-list');
       ul.innerHTML = '';
       if (!mine.clips.length) st(mine.supported ? 'No recordings yet.' : 'Recording isn\'t supported in this browser.');

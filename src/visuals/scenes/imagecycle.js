@@ -132,6 +132,7 @@ function packAtlas(sets, kind) {
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.anisotropy = 8;
   tex.generateMipmaps = true;
+  tex.userData.keep = true;   // shared by every image-cycling scene; freed only when rebuilt
   return { tex, grid: G, sets: out, kind };
 }
 
