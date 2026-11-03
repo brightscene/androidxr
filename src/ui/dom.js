@@ -76,7 +76,8 @@ export class DomUI {
     const kind = tr.buffer ? 'Your track' : tr.free ? 'Free' : tr.plain ? 'Music' : tr.stream || tr.strobe ? 'Light & sound' : tr.guided ? `Guided · ~${Math.round(tr.estimate / 60)} min` : `Soundscape · ${tr.freq} Hz`;
     b.innerHTML = `<span class="pv" data-scene="${escapeHtml(tr.scene)}"></span><span class="tx"><span class="t">${escapeHtml(tr.title)}</span><span class="i">${escapeHtml(tr.intent)}</span><span class="k"></span></span>`;
     b._kind = kind;
-    b.addEventListener('click', () => app.select(tr));
+    // tapping a journey starts it (or offers Premium if it's locked)
+    b.addEventListener('click', () => { app.select(tr); app.beginOrResume(); });
     b._track = tr;
     return b;
   }
@@ -241,7 +242,6 @@ export class DomUI {
     on('#sw-accept', 'click', () => app.acceptStrobe());
     on('#sw-cancel', 'click', () => app.declineStrobe());
     on('#volume', 'input', (e) => app.setVolume(Number(e.target.value)));
-    on('#begin', 'click', () => app.beginOrResume());
     // long-press the logo to switch Premium on or off (testing, until payments are connected)
     {
       const brand = this.$('.brand');
@@ -337,7 +337,6 @@ export class DomUI {
       : tr.buffer
         ? `Your track · ${tr.intent} · ${tr.scene} scene`
         : `${tr.freq} Hz · ${tr.intent} · ${tr.scene} scene`;
-    this.$('#begin').textContent = !tr.free && !app.premium ? 'Unlock to begin' : app.playing ? (app.playingTrack === tr ? 'Resume' : 'Switch to this') : 'Begin here';
   }
 
   // the session bar fades out after 5 s without any movement, and comes back when you move or tap

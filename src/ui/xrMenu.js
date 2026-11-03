@@ -241,21 +241,10 @@ export class XRMenu {
 
     // footer
     const fy = -0.6;
-    this.beginBtn = this._btn(this.panel, new Button(0.34, 0.09, (c, w, h, b) => {
-      roundRect(c, 4, 4, w - 8, h - 8, (h - 8) / 2);
-      c.fillStyle = b.hover ? '#fff' : 'rgba(255,255,255,0.86)';
-      c.fill();
-      c.fillStyle = '#111';
-      c.font = `600 ${Math.round(h * 0.36)}px ${FONT}`;
-      c.textAlign = 'center';
-      c.textBaseline = 'middle';
-      const label = !app.selected.free && !app.premium ? 'Unlock to begin' : app.playing ? (app.playingTrack === app.selected ? 'Resume' : 'Play selected') : 'Begin';
-      c.fillText(label, w / 2, h / 2 + 2);
-    }, () => app.beginOrResume()), -0.55, fy);
-    this._btn(this.panel, new Button(0.27, 0.09, pill('Center View'), () => app.recentre()), -0.23, fy);
-    this.endBtn = this._btn(this.panel, new Button(0.24, 0.09, pill('End session'), () => app.stop()), 0.04, fy);
-    this.closeBtn = this._btn(this.panel, new Button(0.17, 0.09, pill('Close'), () => this.show(false)), 0.26, fy);
-    this._btn(this.panel, new Button(0.28, 0.09, pill('Exit Immersive'), () => app.exitXR()), 0.53, fy);
+    this._btn(this.panel, new Button(0.27, 0.09, pill('Center View'), () => app.recentre()), -0.58, fy);
+    this.endBtn = this._btn(this.panel, new Button(0.24, 0.09, pill('End session'), () => app.stop()), -0.12, fy);
+    this.closeBtn = this._btn(this.panel, new Button(0.17, 0.09, pill('Close'), () => this.show(false)), 0.1, fy);
+    this._btn(this.panel, new Button(0.28, 0.09, pill('Exit Immersive'), () => app.exitXR()), 0.6, fy);
 
     // toggle orb shown during a session
     this.orb = new Button(0.14, 0.17, (c, w, h, b) => {
@@ -351,7 +340,7 @@ export class XRMenu {
           c.font = `500 ${Math.round(h * 0.095)}px ${FONT}`;
           c.fillStyle = tr.free ? '#7ff0c8' : locked ? '#ffd27a' : '#d8ccff';
           c.fillText(tr.free ? 'FREE' : locked ? `🔒 ${kind}` : kind, x0, h * 0.85);
-        }, () => { if (!this.jDragged) { app.select(tr); this.refresh(); } }), (col - 0.5) * (CW + GAP), cy);
+        }, () => { if (!this.jDragged) { app.select(tr); this.refresh(); app.beginOrResume(); } }), (col - 0.5) * (CW + GAP), cy);
         clipMat(card.mesh.material); card.mesh.userData.clip = true;
         // the moving preview: a sheet of 100 frames, cross-faded on the GPU
         const pv = new THREE.Mesh(new THREE.PlaneGeometry(PVW, PVH), previewMaterial(tr.palette[1], this.clipPlanes));
