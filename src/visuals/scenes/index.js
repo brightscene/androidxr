@@ -25,6 +25,7 @@ import { IntoTheLightScene } from './light.js';
 import { DoorHallScene } from './doors.js';
 import { DroneShowScene } from './drones.js';
 import { SkiScene } from './ski.js';
+import { RainbowRoadScene } from './rainbow.js';
 import { DrumJourneyScene, IllusionScene, MindsEyeScene } from './lighttracks.js';
 import { TimePortalScene, KaleidosphereScene, NebulaFlightScene, WarpGateScene, MandalaBloomScene, SilkVortexScene } from './dimensions.js';
 import { MoonViewScene, FractalTunnelScene, CrystalCaveScene, NebulaScene, LightRibbonsScene, BlackHoleScene, ChakraScene } from './cosmic.js';
@@ -49,6 +50,7 @@ export const SCENES = {
   heartjourney: { type: HeartJourneyScene, label: 'Journey into the heart', group: 'Mind', cruise: 0, nebula: 0, world: 'off' },
   hope: { type: HopeScene, label: 'Hope', group: 'Mind', cruise: 0, nebula: 0, world: 'off' },
   bliss: { type: BlissScene, label: 'Bliss', group: 'Mind', cruise: 0, nebula: 0, world: 'off' },
+  rainbow: { type: RainbowRoadScene, label: 'Rainbow road', group: 'Space', cruise: 0, nebula: 0, world: 'off' },
   neoncity: { type: NeonCityScene, label: 'Neon Tokyo flight', group: 'Dimensions', cruise: 0, nebula: 0, world: 'off' },
   drones: { type: DroneShowScene, label: 'Drone light show', group: 'Sky & water', cruise: 0, nebula: 0, world: 'off' },
   ski: { type: SkiScene, label: 'Ski run in the snow', group: 'Nature', cruise: 0, nebula: 0, world: 'off' },

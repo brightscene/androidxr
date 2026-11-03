@@ -335,6 +335,11 @@ function buildCity() {
       }
     }
   }
+  // low banner signs strung across the street
+  for (let z = 30; z < LEN; z += 55 + Math.random() * 50) {
+    const bw = STREET * 2 - 3, bh = 2.4 + Math.random() * 1.2;
+    boards.push({ p: [0, 7.5 + Math.random() * 2, -z], w: bw, h: bh, side: 1, across: true, i: [Math.random(), Math.floor(Math.random() * 8), 0, -z] });
+  }
   return { parts, boards };
 }
 
@@ -354,6 +359,14 @@ export class NeonCityScene extends BaseScene {
         void main(){ vec3 d = normalize(vDir);
           vec3 c = mix(vec3(0.13, 0.05, 0.16), vec3(0.01, 0.01, 0.03), smoothstep(-0.05, 0.5, d.y));
           c += vec3(0.05, 0.02, 0.06) * fbm(vec3(d.xz / (d.y + 0.2) * 2.0, uTime * 0.02)) * smoothstep(0.0, 0.3, d.y);
+          // an aura over the city: slow curtains of magenta, violet and cyan light
+          float az = atan(d.x, -d.z);
+          float fold = fbm(vec3(az * 2.5, uTime * 0.05, 3.0));
+          float curtain = smoothstep(0.35, 0.9, fbm(vec3(az * 6.0 + fold * 3.0, d.y * 2.0 - uTime * 0.08, 7.0)));
+          float band = smoothstep(0.08, 0.3, d.y) * smoothstep(0.85, 0.35, d.y);
+          vec3 aura = mix(vec3(1.0, 0.2, 0.7), vec3(0.2, 0.9, 1.0), 0.5 + 0.5 * sin(az * 1.5 + uTime * 0.1 + fold * 2.0));
+          aura = mix(aura, vec3(0.6, 0.3, 1.0), smoothstep(0.3, 0.7, d.y));
+          c += aura * curtain * band * 0.32 * (0.8 + 0.2 * sin(uTime * 0.7 + az * 3.0));
           gl_FragColor = vec4(grade(c), uFade); }`,
     }));
     sky.renderOrder = -10;
@@ -369,7 +382,7 @@ export class NeonCityScene extends BaseScene {
       const towers = new THREE.InstancedMesh(box, new THREE.ShaderMaterial({ uniforms: { ...U, uMirror: { value: mirror } }, vertexShader: BUILD_VS, fragmentShader: BUILD_FS, transparent: true, side: mirror ? THREE.BackSide : THREE.FrontSide }), parts.length);
       parts.forEach((p, i) => { M.makeScale(...p.s); M.setPosition(...p.p); towers.setMatrixAt(i, M); });
       const screens = new THREE.InstancedMesh(plane, new THREE.ShaderMaterial({ uniforms: { ...U, uMirror: { value: mirror } }, vertexShader: BOARD_VS, fragmentShader: BOARD_FS, transparent: true, side: THREE.DoubleSide }), Math.max(1, boards.length));
-      boards.forEach((b, i) => { Q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), b.out ? 0 : -b.side * Math.PI / 2); M.compose(P.set(...b.p), Q, S.set(b.w, b.h, 1)); screens.setMatrixAt(i, M); });
+      boards.forEach((b, i) => { Q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), b.out || b.across ? 0 : -b.side * Math.PI / 2); M.compose(P.set(...b.p), Q, S.set(b.w, b.h, 1)); screens.setMatrixAt(i, M); });
       for (const m of [towers, screens]) { m.frustumCulled = false; m.renderOrder = mirror ? -8 : -4; }
       return [towers, screens];
     };
@@ -403,6 +416,7 @@ export class NeonCityScene extends BaseScene {
     this.group.add(this.rain);
 
     this.speed = 26; this.target = 26; this.next = 8;
+    this.duck = 0; this.duckT = -1; this.nextDuck = 14;
   }
   update(dt, t) {
     const U = this.uniforms;
@@ -412,11 +426,22 @@ export class NeonCityScene extends BaseScene {
       if (this.target > 0 && Math.random() < 0.25) { this.target = 0; this.next = 5 + Math.random() * 5; }
       else { this.target = [8, 16, 26, 38, 50][Math.floor(Math.random() * 5)]; this.next = 7 + Math.random() * 8; }
     }
-    this.speed = damp(this.speed, this.target, this.target === 0 ? 0.5 : 0.3, dt);
+    // now and then swoop down low under the street banners, rushing faster, then rise again
+    this.nextDuck -= dt;
+    if (this.nextDuck <= 0 && this.duckT < 0 && this.target > 0) { this.duckT = 0; this.nextDuck = 22 + Math.random() * 18; }
+    let duckTarget = 0, extra = 0;
+    if (this.duckT >= 0) {
+      this.duckT += dt;
+      duckTarget = this.duckT < 8 ? 1 : 0;
+      extra = this.duckT > 1.5 && this.duckT < 8 ? 30 : 0;
+      if (this.duckT > 11) this.duckT = -1;
+    }
+    this.duck = damp(this.duck, duckTarget, 0.9, dt);
+    this.speed = damp(this.speed, this.target + extra, this.target === 0 ? 0.5 : 0.3, dt);
     U.uZ.value += dt * this.speed;
     // a gentle weave down the street, rising and dipping a little
     this.world.position.x = Math.sin(t * 0.11) * 2.0;
-    this.world.position.y = -(FLY - 1.6) - Math.sin(t * 0.07) * 4;
+    this.world.position.y = -(FLY - 1.6) - Math.sin(t * 0.07) * 4 * (1 - this.duck) + this.duck * (FLY - 4.2);
     this.rain.userData.u.uBoost.value = this.speed * 0.02;
   }
 }
