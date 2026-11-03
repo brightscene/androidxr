@@ -319,7 +319,7 @@ export class XRMenu {
 
   _buildVoice() {
     const app = this.app, p = this.pages.Voice;
-    this._row(p, 0, 'Whispers', [['On', true], ['Off', false]], () => app.whispers, (v) => app.setWhispers(v));
+    this._row(p, 0, 'Soundscape voice', [['Off', false], ['On', true]], () => app.whispers, (v) => app.setWhispers(v));
     this._row(p, 1, 'Captions', [['On', true], ['Off', false]], () => app.captions, (v) => app.setCaptions(v));
     const choices = () => ['auto', ...app.voice.englishVoices().map((v) => v.voiceURI)];
     const nameOf = (uri) => {

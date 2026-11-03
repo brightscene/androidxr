@@ -32,7 +32,7 @@ class App {
     this.entrainment = p.entrainment || 'binaural';
     this.journey = p.journey || 'auto';
     this.solfeggio = p.solfeggio ?? true;
-    this.whispers = p.whispers ?? true;
+    this.whispers = p.voiceInSoundscapes ?? false;   // spoken lines outside guided sessions: off unless chosen
     this.captions = p.captions ?? false;
     this.dives = p.dives || 'gentle';
     this.nature = p.nature || 'off';
@@ -117,7 +117,7 @@ class App {
     try {
       localStorage.setItem('mindlyte', JSON.stringify({
         selected: this.selected.id === 'import' ? undefined : this.selected.id, minutes: this.minutes, entrainment: this.entrainment,
-        journey: this.journey, solfeggio: this.solfeggio, whispers: this.whispers, captions: this.captions,
+        journey: this.journey, solfeggio: this.solfeggio, voiceInSoundscapes: this.whispers, captions: this.captions,
         dives: this.dives, nature: this.nature, voice: this.voiceChoice, volume: this.volume, background: this.background, quality: this.quality, breathGuide: this.breathText,
         strobeAccepted: this.strobeAccepted, lights: this.lights, lightStyle: this.lightStyle, lightColour: this.lightColour,
         v: 2, lightLayout: this.lightLayout, lightDim: this.lightDim,
