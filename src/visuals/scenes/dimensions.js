@@ -151,6 +151,19 @@ export class KaleidosphereScene extends BaseScene {
         if (i < 7.0) return vec3(0.56, 0.14, 0.88);  // amethyst
         return vec3(0.95, 0.16, 0.55);               // magenta
       }
+      // one colour scheme at a time across the whole kaleidoscope: three
+      // glass colours that belong together, changing to the next scheme now and then
+      vec3 scheme(float s){
+        s = mod(s, 6.0);
+        if (s < 1.0) return vec3(0.0, 1.0, 2.0);   // ruby, amber, gold
+        if (s < 2.0) return vec3(3.0, 4.0, 2.0);   // emerald, turquoise, gold
+        if (s < 3.0) return vec3(5.0, 6.0, 4.0);   // sapphire, amethyst, turquoise
+        if (s < 4.0) return vec3(6.0, 7.0, 1.0);   // amethyst, magenta, amber
+        if (s < 5.0) return vec3(6.0, 3.0, 2.0);   // amethyst, emerald, gold
+        return vec3(5.0, 0.0, 2.0);                // sapphire, ruby, gold
+      }
+      vec3 pick(float s, float k){ vec3 g = scheme(s); k = mod(floor(k), 3.0); return gem(k < 1.0 ? g.x : (k < 2.0 ? g.y : g.z)); }
+      vec3 glassAt(float k){ float s = floor(uHue); float t = smoothstep(0.0, 1.0, fract(uHue)); return mix(pick(s, k), pick(s + 1.0, k), t); }
       vec3 rotY(vec3 p, float a){ float c = cos(a), s = sin(a); return vec3(c * p.x + s * p.z, p.y, -s * p.x + c * p.z); }
       vec3 rotX(vec3 p, float a){ float c = cos(a), s = sin(a); return vec3(p.x, c * p.y - s * p.z, s * p.y + c * p.z); }
       void main(){
@@ -175,10 +188,10 @@ export class KaleidosphereScene extends BaseScene {
         }
         acc = smoothstep(0.05, 0.95, acc / 8.0);
         // each fold region becomes a piece of coloured glass; chords turn the barrel
-        float pid = trap2 * 3.0 + acc * 3.0 + (p.x - p.z) * 7.0 + uHue * 8.0;
+        float pid = acc * 2.6 + trap2 * 0.8 + (p.x - p.z) * 1.2;   // darker glass gets the deeper colour, bright glass the lightest
         float f = fract(pid);
-        vec3 glass = mix(gem(pid), gem(pid + 1.0), smoothstep(0.9, 1.0, f));
-        float lit = 0.18 + acc * 0.95;
+        vec3 glass = mix(glassAt(pid), glassAt(pid + 1.0), smoothstep(0.9, 1.0, f));
+        float lit = 0.25 + acc * 0.95;
         vec3 col = glass * lit;
         col += vec3(1.0, 0.97, 0.9) * exp(-trap * 22.0) * (0.2 + uPulse * 0.35);     // bright edges where the glass pieces meet
         col *= 1.0 - 0.55 * smoothstep(0.82, 1.0, f) * smoothstep(1.0, 0.9, f);       // dark lead lines between pieces
@@ -191,13 +204,15 @@ export class KaleidosphereScene extends BaseScene {
   }
   onEvent(e) {
     const U = this.uniforms;
-    if (e.type === 'chord') U.uHueT.value += 0.12 + Math.random() * 0.1;
+    // a new colour scheme on a chord change, at most every 20 s
+    if (e.type === 'chord' && U.uTime.value - (this.lastScheme ?? -99) > 20) { U.uHueT.value = Math.round(U.uHueT.value) + 1; this.lastScheme = U.uTime.value; }
     if (e.type === 'beat') U.uPulse.value = Math.min(1, U.uPulse.value + (e.accent ? 0.5 : 0.18));
     if (e.type === 'section') this.morphT = e.index;
   }
   update(dt) {
     const U = this.uniforms;
-    U.uHue.value = damp(U.uHue.value, U.uHueT.value, 0.4, dt);
+    if (U.uTime.value - (this.lastScheme ?? 0) > 45) { U.uHueT.value = Math.round(U.uHueT.value) + 1; this.lastScheme = U.uTime.value; }
+    U.uHue.value = damp(U.uHue.value, U.uHueT.value, 0.6, dt);   // a few seconds' crossfade for the whole view
     U.uPulse.value *= Math.exp(-dt * 2.2);
     U.uMorph.value = damp(U.uMorph.value, this.morphT || 0, 0.15, dt);
   }
