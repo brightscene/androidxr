@@ -229,6 +229,11 @@ class App {
 
   // Fetch a built-in light track's pre-decoded light data and beat analysis.
   async _loadLightTrack(t) {
+    if (!t.lightsUrl) {
+      // a music track with no light signal: just its beat analysis
+      try { t.meta = await fetch(t.metaUrl).then((r) => r.json()); this.ui?.refresh(); this.menu?.refresh(); } catch (err) { t.loadError = err; }
+      return;
+    }
     try {
       const [meta, bin] = await Promise.all([
         fetch(t.metaUrl).then((r) => r.json()),
@@ -273,9 +278,9 @@ class App {
     const opts = {
       minutes: guided ? est / 60 : this.minutes,
       // light-encoded tracks carry their own entrainment programme: don't layer ours on top
-      entrainment: track.strobe || track.musicOff ? 'off' : this.entrainment,
+      entrainment: track.strobe || track.musicOff || track.plain ? 'off' : this.entrainment,
       profile: this.journey === 'auto' ? track.profile : this.journey,
-      solfeggio: track.strobe || track.musicOff ? false : this.solfeggio,
+      solfeggio: track.strobe || track.musicOff || track.plain ? false : this.solfeggio,
       dives: this.dives !== 'off',
     };
     this.player = track.stream ? new StreamPlayer(this.engine, track, opts)

@@ -608,7 +608,7 @@ export class StreamPlayer extends Sequenced {
     audio.preload = 'auto';
     const src = ctx.createMediaElementSource(audio);
     let node = src;
-    for (const f of Object.values(this.track.meta.carriers)) {
+    for (const f of Object.values(this.track.meta.carriers || {})) {   // music-only tracks have no light carriers
       for (let k = 0; k < 2; k++) {
         const n = ctx.createBiquadFilter();
         n.type = 'notch'; n.frequency.value = f; n.Q.value = 12;

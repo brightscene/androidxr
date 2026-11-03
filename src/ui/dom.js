@@ -25,7 +25,7 @@ export class DomUI {
     b.style.setProperty('--a', tr.palette[0]);
     b.style.setProperty('--b', tr.palette[1]);
     b.style.setProperty('--c', tr.palette[2]);
-    const f = tr.stream || tr.strobe ? ((tr.strobe?.format || tr.format) === 'spectrastrobe' ? 'SpectraStrobe' : 'AudioStrobe') : tr.guided ? `~${Math.round((tr.estimate + (tr.guided === 'sleep' ? 0 : tr.tail || 0)) / 60)} min` : tr.buffer ? 'Your track' : `${tr.freq} Hz`;
+    const f = tr.plain ? 'Music' : tr.stream || tr.strobe ? ((tr.strobe?.format || tr.format) === 'spectrastrobe' ? 'SpectraStrobe' : 'AudioStrobe') : tr.guided ? `~${Math.round((tr.estimate + (tr.guided === 'sleep' ? 0 : tr.tail || 0)) / 60)} min` : tr.buffer ? 'Your track' : `${tr.freq} Hz`;
     b.innerHTML = `<span class="t">${escapeHtml(tr.title)}</span><span class="f">${f}</span><span class="i">${escapeHtml(tr.intent)}${tr.guided ? ` · ${tr.freq} Hz` : ''}</span>`;
     b.addEventListener('click', () => this.app.select(tr));
     b._track = tr;
@@ -242,7 +242,7 @@ export class DomUI {
       for (const ev of ['pointermove', 'pointerdown', 'keydown', 'touchstart']) window.addEventListener(ev, () => { if (!this.session.classList.contains('hidden')) this._wake(); }, { passive: true });
     }
     this._wake();
-    this.$('#session-title').textContent = track.strobe ? `${track.title} · ${track.strobe.format === 'spectrastrobe' ? 'SpectraStrobe' : 'AudioStrobe'}` : track.buffer ? track.title : `${track.title} · ${track.freq} Hz`;
+    this.$('#session-title').textContent = track.plain ? track.title : track.strobe ? `${track.title} · ${track.strobe.format === 'spectrastrobe' ? 'SpectraStrobe' : 'AudioStrobe'}` : track.buffer ? track.title : `${track.title} · ${track.freq} Hz`;
     this.refresh();
   }
 

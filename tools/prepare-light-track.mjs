@@ -21,16 +21,18 @@ const buf = { sampleRate: SR, numberOfChannels: 2, length: n, getChannelData: (c
 const d = detect(buf);
 console.log('peaks', d.peaks.map((p) => `${p.f}(+${p.snr.toFixed(0)})`).join(' '));
 const s = await decodeStrobe(buf);
-if (!s) { console.log('NO LIGHT ENCODING FOUND'); process.exit(1); }
-console.log('format', s.format, JSON.stringify(s.carriers), 'frames', s.frames);
-for (let m = 0; m * 60 < n / SR; m += 3) {
+// --plain: a music track with no light signal (just the beat analysis)
+const plain = process.argv.includes('--plain');
+if (!s && !plain) { console.log('NO LIGHT ENCODING FOUND (use --plain for music only)'); process.exit(1); }
+if (s) console.log('format', s.format, JSON.stringify(s.carriers), 'frames', s.frames);
+for (let m = 0; s && m * 60 < n / SR; m += 3) {
   const t = m * 60 + 30;
   if (t + 20 > n / SR) break;
   console.log(`${m}m  L ${flashRateAt(s, 0, t).toFixed(1)}Hz  R ${flashRateAt(s, 1, t).toFixed(1)}Hz`);
 }
-const per = s.mono ? 2 : 6;
-const out = new Uint8Array(s.frames * per);
-for (let i = 0; i < s.frames; i++) {
+const per = s ? (s.mono ? 2 : 6) : 0;
+const out = new Uint8Array(s ? s.frames * per : 0);
+for (let i = 0; s && i < s.frames; i++) {
   if (s.mono) { out[i * 2] = Math.round(s.L[i * 3] * 255); out[i * 2 + 1] = Math.round(s.R[i * 3] * 255); }
   else for (let k = 0; k < 3; k++) { out[i * 6 + k] = Math.round(s.L[i * 3 + k] * 255); out[i * 6 + 3 + k] = Math.round(s.R[i * 3 + k] * 255); }
 }
@@ -65,6 +67,6 @@ for (let p = 0; p < 5; p++) {
 }
 const dir = new URL('../public/tracks/', import.meta.url).pathname;
 copyFileSync(input, join(dir, id + '.mp3'));
-writeFileSync(join(dir, id + '.lights'), out);
-writeFileSync(join(dir, id + '.json'), JSON.stringify({ duration: +(n / SR).toFixed(3), rate: s.rate, frames: s.frames, format: s.format, carriers: s.carriers, onsets, partEnergy }));
+if (s) writeFileSync(join(dir, id + '.lights'), out);
+writeFileSync(join(dir, id + '.json'), JSON.stringify(s ? { duration: +(n / SR).toFixed(3), rate: s.rate, frames: s.frames, format: s.format, carriers: s.carriers, onsets, partEnergy } : { duration: +(n / SR).toFixed(3), format: 'none', onsets, partEnergy }));
 console.log('onsets', onsets.length, 'written', id);
