@@ -713,6 +713,16 @@ class App {
 
 window.app = new App();
 
+// splash: the logo glows for a few seconds while everything warms up, then fades
+{
+  const splash = document.getElementById('splash');
+  if (splash) {
+    const hide = () => { splash.classList.add('gone'); setTimeout(() => splash.remove(), 1000); };
+    setTimeout(hide, Math.max(600, 3400 - performance.now()));   // about 3.4 s from opening the app
+    splash.addEventListener('click', hide);
+  }
+}
+
 if ('serviceWorker' in navigator && location.protocol === 'https:') {
   navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' }).then((r) => r.update()).catch(() => {});
 }
