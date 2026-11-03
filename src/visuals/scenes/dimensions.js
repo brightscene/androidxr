@@ -35,9 +35,9 @@ export class TimePortalScene extends BaseScene {
   constructor() {
     super();
     const U = this.uniforms;
-    Object.assign(U, { uPortal: { value: 0 }, uHue: { value: Math.random() }, uFlash: { value: 0 }, uWarp: { value: 0 }, uPulse: { value: 0 } });
+    Object.assign(U, { uPortal: { value: 0 }, uHue: { value: Math.random() }, uFlash: { value: 0 }, uWarp: { value: 0 }, uPulse: { value: 0 }, uSpin: { value: 0 }, uTwist: { value: 0 } });
     this.group.add(dome(U, /* glsl */ `
-      uniform float uTime, uTravel, uFade, uPulse, uBreath, uEnergy, uPortal, uHue, uFlash, uWarp;
+      uniform float uTime, uTravel, uFade, uPulse, uBreath, uEnergy, uPortal, uHue, uFlash, uWarp, uSpin, uTwist;
       varying vec3 vDir; ${NOISE} ${GRADE} ${HSV} ${NEBULA}
       void main(){
         vec3 d = normalize(vDir);
@@ -46,6 +46,9 @@ export class TimePortalScene extends BaseScene {
         float R = 1.0 + uBreath * 0.12;
         float z = fwd / r * R;                       // how far ahead this ray meets the tube wall
         vec2 hit = d.xy / r;                         // direction around the tube
+        // the tube spins as you dive, and twists more the faster you go
+        float sa = uSpin + z * uTwist * 0.05;
+        hit = mat2(cos(sa), -sin(sa), sin(sa), cos(sa)) * hit;
         float Z = z + uTravel * 0.5 + uWarp;
         vec2 bend = vec2(sin(Z * 0.11 + uTime * 0.07), cos(Z * 0.09)) * 0.6 * smoothstep(0.0, 6.0, z);
         vec3 P = vec3(hit * 1.6 + bend, Z * 0.35);
@@ -101,6 +104,10 @@ export class TimePortalScene extends BaseScene {
     }
     this.speed = damp(this.speed, this.speedTarget + (s?.energy || 0) * 2 + U.uPulse.value * 1.5, 0.6, dt);
     U.uWarp.value += dt * this.speed;
+    // spin with the dive: a slow turn when drifting, a whirl when rushing or going through a portal
+    const whirl = this.speed + U.uPortal.value * 10;
+    U.uSpin.value += dt * (0.04 + whirl * 0.035);
+    U.uTwist.value = damp(U.uTwist.value, Math.min(1.5, whirl / 10), 0.8, dt);
     const p = this.phase;
     if (p) {
       p.t += dt;
