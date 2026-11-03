@@ -35,7 +35,7 @@ export class MurmurationScene extends BaseScene {
     this.group.add(sky);
 
     // the flock: one point per bird, its place in the formation computed on the GPU
-    const N = 5000;
+    const N = 2500;
     const base = new Float32Array(N * 3), seed = new Float32Array(N);
     for (let i = 0; i < N; i++) {
       // a soft, flattened cloud
@@ -53,6 +53,7 @@ export class MurmurationScene extends BaseScene {
         ${NOISE} ${POINT_SIZE}
         vec3 rotY(vec3 p, float a){ float c = cos(a), s = sin(a); return vec3(c * p.x + s * p.z, p.y, -s * p.x + c * p.z); }
         vec3 rotX(vec3 p, float a){ float c = cos(a), s = sin(a); return vec3(p.x, c * p.y - s * p.z, s * p.y + c * p.z); }
+        float sn(vec3 p){ return vnoise(p) * 0.65 + vnoise(p * 2.03 + 11.0) * 0.35; }
         vec3 aura(float h){ h = fract(h);
           vec3 a = vec3(0.62, 0.45, 1.0), b = vec3(0.35, 0.9, 1.0), c = vec3(1.0, 0.5, 0.82), d = vec3(1.0, 0.8, 0.45);
           return h < 0.25 ? mix(a, b, h * 4.0) : h < 0.5 ? mix(b, c, h * 4.0 - 1.0) : h < 0.75 ? mix(c, d, h * 4.0 - 2.0) : mix(d, a, h * 4.0 - 3.0); }
@@ -62,11 +63,14 @@ export class MurmurationScene extends BaseScene {
           // the flock glides slowly across the sky in front of you, turning gently
           // just past the edges of your view, rising and falling a little
           float sweep = sin(t * 0.045);
-          vec3 C = vec3(sweep * 34.0, 24.0 + sin(t * 0.06) * 5.0, -52.0 + cos(t * 0.045) * 8.0);
+          // drifting nearer (about 18 m) and further away (about 60 m) over a couple of minutes
+          float depth = 39.0 - 21.0 * cos(t * 0.028);
+          vec3 C = vec3(sweep * depth * 0.62, depth * 0.42 + sin(t * 0.06) * 3.0, -depth);
           // its shape stretches and folds, slowly
           vec3 scale = vec3(16.0 + 6.0 * sin(t * 0.09), 5.5 + 2.5 * sin(t * 0.12 + 1.0), 11.0 + 4.0 * cos(t * 0.08));
           vec3 p = b * scale;
-          p += (vec3(fbm(b * 1.2 + vec3(t * 0.04, 0.0, 0.0)), fbm(b * 1.2 + vec3(0.0, t * 0.035, 4.0)), fbm(b * 1.2 + vec3(7.0, 0.0, t * 0.045))) - 0.5) * 10.0;
+          // smooth flowing deformation (fixed detail, so it never jumps when the quality governor changes)
+          p += (vec3(sn(b * 1.2 + vec3(t * 0.04, 0.0, 0.0)), sn(b * 1.2 + vec3(0.0, t * 0.035, 4.0)), sn(b * 1.2 + vec3(7.0, 0.0, t * 0.045))) - 0.5) * 9.0;
           // the flock banks the way it's heading
           float heading = cos(t * 0.045);
           p = rotX(rotY(p, heading * 0.5), sin(t * 0.05) * 0.25);
@@ -79,16 +83,17 @@ export class MurmurationScene extends BaseScene {
           vS = aSeed;
           // each bird glows its own aura colour, with gentle colour currents across the flock
           vCol = aura(aSeed * 0.35 + b.x * 0.4 + b.z * 0.25 + t * 0.01);
-          vFlap = sin(uTime * (9.0 + aSeed * 5.0) + aSeed * 50.0);
-          gl_PointSize = max(2.5, pointPx(0.55 + aSeed * 0.25, mv));
-          vA *= smoothstep(0.0, 6.0, dist) * min(1.0, pointPx(0.55, mv) * pointPx(0.55, mv) / 9.0 + 0.35);
+          vFlap = sin(uTime * (5.0 + aSeed * 3.0) + aSeed * 50.0);
+          float px = pointPx(0.55 + aSeed * 0.25, mv);
+          gl_PointSize = max(3.0, px);
+          vA *= smoothstep(0.0, 6.0, dist) * clamp(px * px / 9.0, 0.35, 1.0);
           gl_Position = projectionMatrix * mv;
         }`,
       fragmentShader: /* glsl */ `uniform float uFade; varying float vA; varying float vS; varying float vFlap; varying vec3 vCol;
         void main(){
           // a small bird: a body and two swept wings that beat
           vec2 p = (gl_PointCoord - 0.5) * vec2(2.0, -2.0);
-          float wingY = 0.15 + vFlap * 0.35;
+          float wingY = 0.15 + vFlap * 0.22;
           float body = smoothstep(0.22, 0.1, length(p * vec2(1.0, 1.6)));
           float wl = smoothstep(0.12, 0.0, abs(p.y - wingY * abs(p.x) * 1.4 + 0.05)) * smoothstep(0.95, 0.4, abs(p.x));
           float shape = max(body, wl);
