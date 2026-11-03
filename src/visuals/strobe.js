@@ -79,7 +79,44 @@ const FRAG = /* glsl */ `
     float core = mix(exp(-da * 260.0), exp(-db * 260.0), uMix);
     float k = uStyle < 0.5 ? line * 1.5 : (uStyle < 1.5 ? field * 1.2 : line * 1.5 + field * 0.55);
     vec3 col = uCol * k + mix(uCol, vec3(1.0), 0.45) * core * (uStyle < 1.5 && uStyle > 0.5 ? 0.0 : 0.9);
+    if (uStyle > 2.5 && uStyle < 3.5) { // glowing orb: solid filled disc, white-hot core, corona
+      float disc = smoothstep(0.37, 0.34, r);
+      col = uCol * (disc * 1.25 + exp(-r * 3.2) * 0.7) + vec3(1.0) * exp(-r * r * 28.0) * 0.75 * disc;
+    } else if (uStyle > 3.5) { // neon ring: thick solid ring with a hot centre line
+      float dr = abs(r - 0.3);
+      col = uCol * (smoothstep(0.06, 0.04, dr) * 1.3 + exp(-dr * 10.0) * 0.55) + vec3(1.0) * smoothstep(0.018, 0.0, dr) * 0.6;
+    }
     gl_FragColor = vec4(col * b, 1.0);
+  }`;
+
+// Silver chrome ball: a mirrored sphere reflecting a soft studio environment,
+// flooded with the channel's colour as it flashes.
+const CHROME_FRAG = /* glsl */ `
+  uniform vec3 uCol; uniform float uB, uMax; varying vec3 vN; varying vec3 vV;
+  void main(){
+    vec3 n = normalize(vN);
+    vec3 r = reflect(vV, n);
+    float sky = smoothstep(-0.35, 0.7, r.y);
+    float band = exp(-pow((r.y - 0.28) * 7.0, 2.0)) * 0.9 + exp(-pow((r.y + 0.15) * 10.0, 2.0)) * 0.35;
+    float key = pow(max(0.0, dot(r, normalize(vec3(-0.5, 0.6, 0.6)))), 60.0) * 2.0;
+    vec3 env = vec3(0.12) + vec3(0.75) * sky * 0.6 + vec3(1.0) * band + vec3(1.0) * key;
+    float fres = pow(1.0 - max(0.0, dot(-vV, n)), 2.5);
+    float b = clamp(uB, 0.0, 1.0) * uMax;
+    vec3 col = env * mix(vec3(0.85), uCol * 1.2 + 0.25, b) + uCol * b * (0.9 + fres * 1.5);
+    gl_FragColor = vec4(col, 1.0);
+  }`;
+
+// Faceted crystal: flat facets lit from inside by the channel's colour.
+const CRYSTAL_FRAG = /* glsl */ `
+  uniform vec3 uCol; uniform float uB, uMax; varying vec3 vN; varying vec3 vV;
+  void main(){
+    vec3 n = normalize(vN);
+    float facet = 0.45 + 0.55 * abs(dot(n, normalize(vec3(0.3, 0.8, 0.5))));
+    float spec = pow(max(0.0, dot(reflect(vV, n), normalize(vec3(-0.4, 0.7, 0.6)))), 30.0);
+    float rim = pow(1.0 - abs(dot(-vV, n)), 2.0);
+    float b = clamp(uB, 0.0, 1.0) * uMax;
+    vec3 col = uCol * (0.12 + b * 1.6) * facet + mix(uCol, vec3(1.0), 0.6) * (spec * (0.4 + b) + rim * b * 0.8);
+    gl_FragColor = vec4(col, 1.0);
   }`;
 
 const DIST = 2.6; // metres in front of you
@@ -132,6 +169,15 @@ export class StrobeLayer {
     this.dim.visible = false;
     camera.add(this.dim);
     this.dimLevel = 0;
+
+    // Solid 3D lights: a chrome ball and a faceted crystal per channel
+    const crystalGeo = new THREE.OctahedronGeometry(0.34, 0).toNonIndexed();
+    crystalGeo.scale(1, 1.45, 1);
+    crystalGeo.computeVertexNormals();
+    this.solids = {
+      chrome: [0, 1].map(() => this._solid(new THREE.SphereGeometry(0.34, 64, 48), CHROME_FRAG)),
+      crystal: [0, 1].map(() => this._solid(crystalGeo, CRYSTAL_FRAG)),
+    };
 
     this.leds = { leds: [0, 1].map((side) => this._buildLeds(side, 'dome')), pandora: [0, 1].map((side) => this._buildLeds(side, 'disc')) };
 
@@ -211,6 +257,21 @@ export class StrobeLayer {
     return pts;
   }
 
+  _solid(geo, frag) {
+    const m = new THREE.Mesh(geo, new THREE.ShaderMaterial({
+      transparent: true, depthTest: false, depthWrite: false,
+      uniforms: { uCol: { value: new THREE.Color() }, uB: { value: 0 }, uMax: { value: 0.6 }, uTime: U.uTime },
+      vertexShader: /* glsl */ `varying vec3 vN; varying vec3 vV;
+        void main(){ vec4 mv = modelViewMatrix * vec4(position,1.0); vN = normalize(normalMatrix * normal); vV = normalize(mv.xyz); gl_Position = projectionMatrix * mv; }`,
+      fragmentShader: frag,
+    }));
+    m.renderOrder = 952;
+    m.frustumCulled = false;
+    m.visible = false;
+    this.camera.add(m);
+    return m;
+  }
+
   // Layer 1/2 are seen only by the left/right eye in a headset.
   setXR(on) {
     if (on) { this.camera.layers.disable(1); this.camera.layers.disable(2); }
@@ -258,6 +319,20 @@ export class StrobeLayer {
       u.uMax.value = opts.max;
       p.layers.set(perEye ? side + 1 : 0);
     });
+    const solidKind = this.solids[opts.style] ? opts.style : null;
+    for (const [kind, pair] of Object.entries(this.solids)) pair.forEach((m, side) => {
+      m.visible = show && kind === solidKind;
+      if (!m.visible) return;
+      const rgb = side ? rgbR : rgbL;
+      const peak = Math.max(rgb[0], rgb[1], rgb[2], 1e-4);
+      const u = m.material.uniforms;
+      u.uB.value = peak;
+      u.uCol.value.setRGB(rgb[0] / peak, rgb[1] / peak, rgb[2] / peak);
+      u.uMax.value = opts.max;
+      m.layers.set(perEye ? side + 1 : 0);
+      m.position.set(side ? SEP : -SEP, 0, -DIST);
+      if (kind === 'crystal') m.rotation.y = t * 0.25 + side * 1.3;
+    });
     this.meshes.forEach((m, side) => {
       m.visible = show && !ledMode;
       if (!show) return;
@@ -266,7 +341,8 @@ export class StrobeLayer {
       const peak = Math.max(rgb[0], rgb[1], rgb[2], 1e-4);
       u.uBright.value = peak;
       u.uCol.value.setRGB(rgb[0] / peak, rgb[1] / peak, rgb[2] / peak);
-      u.uStyle.value = { symbol: 0, field: 1, both: 2 }[opts.style] ?? 2;
+      // chrome ball / crystal get a soft coloured halo behind them
+      u.uStyle.value = solidKind ? 1 : ({ symbol: 0, field: 1, both: 2, orb: 3, ring: 4 }[opts.style] ?? 2);
       u.uMax.value = opts.max;
       u.uTime.value = t;
       if (u.uMix.value > 0) {
@@ -276,7 +352,7 @@ export class StrobeLayer {
       // per-eye: each eye sees only its own symbol, off to its own side (like LEDs in light glasses)
       m.layers.set(perEye ? side + 1 : 0);
       m.position.set(side ? SEP : -SEP, 0, -DIST);
-      m.scale.setScalar(0.7);
+      m.scale.setScalar(solidKind ? 0.5 : 0.7);
     });
     this.dimLevel += ((show ? opts.dim ?? 0.5 : 0) - this.dimLevel) * (1 - Math.exp(-dt * 2));
     this.dim.visible = this.dimLevel > 0.005;

@@ -51,6 +51,7 @@ MindLyte is a meditation app for Android XR. You drift slowly through a field of
   - **AudioStrobe**: a single carrier, normally 19.2 kHz. Other frequencies are detected automatically too, such as the 19.5 kHz used by *Oceamniotic*. Its level in the left and right channels sets the left and right light.
   - **SpectraStrobe**: an 18.2 kHz reference tone plus red at 18.7, green at 19.2 and blue at 19.7 kHz, giving full colour in each eye. Each colour is scaled against the reference tone.
 - Each tone is demodulated (complex heterodyne, low-pass, then 500 Hz control frames). A 16-minute track decodes in a few seconds.
+- **Solid lights:** a **glowing orb** (solid filled disc, the brightest option), a **chrome ball** (mirrored silver sphere that floods with colour on each flash), a **neon ring** or a faceted **crystal**. There's one per light channel.
 - **Show:** symbol plus glow, symbol only, soft glow, **LED starfield** (NeuroVizr-style: a wide dome of about 400 LEDs, left half driven by the left channel and right half by the right) or **LED panel** (Pandora Star-style: one large round disc packed with LED rings, left half and right half).
 - **Two symbols, side by side** (the default): the left and right light channels each drive their own symbol, about 2.6 m in front of you. Each symbol flashes at exactly the encoded rate and colour.
 - **Each eye sees only its own light** (headset only): like LEDs in light glasses, the left eye sees only the left-channel symbol or LEDs and the right eye only the right.
