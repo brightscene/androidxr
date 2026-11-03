@@ -11,7 +11,6 @@ import { StrobeLayer } from './visuals/strobe.js';
 import { U, damp, SFX, INPUT } from './visuals/common.js';
 import { World } from './visuals/world.js';
 import { SCENES } from './visuals/scenes/index.js';
-import { HUB } from './visuals/scenes/doors.js';
 import { XRMenu } from './ui/xrMenu.js';
 import { DomUI } from './ui/dom.js';
 
@@ -106,7 +105,7 @@ class App {
     this.outgoing = [];
     this.palTarget = [new THREE.Color(), new THREE.Color(), new THREE.Color()];
     this.applyPalette(this.selected.palette, true);
-    this.setScene(this.sceneFor(this.selected));
+    this.setScene('nebula');   // the app always opens on Nebula drift
     this.engine.setNature(this.nature);
 
     this.ui = new DomUI(this);
@@ -397,13 +396,8 @@ class App {
   // a quiet backdrop while you're in the headset menu between sessions
   _xrIdle() {
     this.xrIdle = true;
-    if (this.xrMode === 'immersive-ar') { this.setScene('off'); return; }
-    // the hall of doors: each door leads into a session
-    HUB.tracks = [...this.lightTracks, ...this.guided, ...this.tracks, ...(this.imported ? [this.imported] : [])];
-    HUB.onChoose = (track) => { this.select(track); this.start(track); };
-    if (this.active?.name === 'doors') { this.outgoing.push(this.active); this.active = null; }
-    this.setScene('doors');
-    this.menu.show(false);
+    this.setScene(this.xrMode === 'immersive-ar' ? 'off' : 'nebula');
+    this.menu.show(true);
   }
 
   _onXRStart() {

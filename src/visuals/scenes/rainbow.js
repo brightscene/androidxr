@@ -68,6 +68,57 @@ function puffMaterial(U) {
   });
 }
 
+// a road paved with glossy candy-coated chocolate buttons in bright colours
+function candyMaterial(U) {
+  return new THREE.ShaderMaterial({
+    uniforms: U,
+    vertexShader: /* glsl */ `attribute vec3 aUp; varying vec2 vUv; varying vec3 vW; varying float vH; varying vec3 vCell; varying vec3 vNrm;
+      float h2(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+      void main(){ vUv = uv; vec2 q = vec2(uv.x * ${WIDTH.toFixed(1)}, uv.y) * 3.2;
+        // the nearest button: its centre, how far we are from it, and which colour
+        vec2 i = floor(q), f = fract(q); float best = 9.0; vec2 bc = vec2(0.0); float id = 0.0;
+        for (int y = -1; y <= 1; y++) for (int x = -1; x <= 1; x++) {
+          vec2 c = i + vec2(x, y); vec2 o = vec2(0.25) + 0.5 * vec2(h2(c), h2(c + 7.1));
+          float d = length(f - vec2(x, y) - o);
+          if (d < best) { best = d; bc = f - vec2(x, y) - o; id = h2(c + 3.3); }
+        }
+        float r = 0.42;
+        float dome = best < r ? sqrt(1.0 - (best / r) * (best / r)) : 0.0;     // a lentil-shaped button
+        float edge = smoothstep(0.0, 0.04, uv.x) * smoothstep(1.0, 0.96, uv.x);
+        vH = dome; vCell = vec3(bc / r, id);
+        vec3 p = position + aUp * dome * 0.09 * edge;
+        vec4 w = modelMatrix * vec4(p, 1.0); vW = w.xyz;
+        gl_Position = projectionMatrix * viewMatrix * w; }`,
+    fragmentShader: /* glsl */ `uniform float uTime, uFade; varying vec2 vUv; varying vec3 vW; varying float vH; varying vec3 vCell; ${NOISE} ${GRADE}
+      float h2(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+      vec3 candy(float id){
+        return id < 0.125 ? vec3(0.9, 0.08, 0.1) : id < 0.25 ? vec3(1.0, 0.5, 0.05) : id < 0.375 ? vec3(1.0, 0.85, 0.1) : id < 0.5 ? vec3(0.15, 0.7, 0.2)
+             : id < 0.625 ? vec3(0.1, 0.35, 0.9) : id < 0.75 ? vec3(1.0, 0.45, 0.7) : id < 0.875 ? vec3(0.5, 0.2, 0.75) : vec3(0.45, 0.25, 0.12);
+      }
+      void main(){
+        // find this pixel's button: its colour, and where on its dome we are
+        vec2 q = vec2(vUv.x * ${WIDTH.toFixed(1)}, vUv.y) * 3.2;
+        vec2 i = floor(q), f = fract(q); float best = 9.0; vec2 bc = vec2(0.0); float id = 0.0;
+        for (int y = -1; y <= 1; y++) for (int x = -1; x <= 1; x++) {
+          vec2 c = i + vec2(x, y); vec2 o = vec2(0.25) + 0.5 * vec2(h2(c), h2(c + 7.1));
+          float d = length(f - vec2(x, y) - o);
+          if (d < best) { best = d; bc = f - vec2(x, y) - o; id = h2(c + 3.3); }
+        }
+        float r = 0.42, k = best / r;
+        float dome = k < 1.0 ? sqrt(1.0 - k * k) : 0.0;
+        vec3 nl = normalize(vec3(bc / r * 1.2, max(dome, 0.05)));
+        vec3 L = normalize(vec3(-0.35, 0.45, 0.82));
+        vec3 c = candy(id) * (0.45 + 0.6 * max(dot(nl, L), 0.0));
+        c += vec3(1.0) * pow(max(dot(reflect(-L, nl), vec3(0.0, 0.0, 1.0)), 0.0), 30.0) * 0.55 * step(0.01, dome);   // glossy shell
+        c *= mix(0.12, 1.0, smoothstep(0.0, 0.2, dome));                // dark gaps between the buttons
+        float rail = smoothstep(0.03, 0.0, min(vUv.x, 1.0 - vUv.x));
+        c = mix(c, vec3(1.0, 0.95, 0.98), rail * 0.8);
+        float dist = length(vW - cameraPosition);
+        c *= exp(-max(0.0, dist - 150.0) * 0.006);
+        gl_FragColor = vec4(grade(c), uFade); }`,
+  });
+}
+
 export class RainbowRoadScene extends BaseScene {
   constructor(opts = {}) {
     super();
@@ -115,7 +166,7 @@ export class RainbowRoadScene extends BaseScene {
     this.frames = [];
     const pos = [], uv = [], idx = [], ups = [];
     const up = new THREE.Vector3(0, 1, 0);
-    const ACROSS = this.puff ? 18 : 1;
+    const ACROSS = this.puff ? 36 : 1;
     for (let i = 0; i <= SEGS; i++) {
       const u = i / SEGS;
       const p = curve.getPointAt(u % 1), t = curve.getTangentAt(u % 1);
@@ -142,7 +193,7 @@ export class RainbowRoadScene extends BaseScene {
     g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
     g.setAttribute('aUp', new THREE.Float32BufferAttribute(ups, 3));
     g.setIndex(idx);
-    const road = new THREE.Mesh(g, this.puff ? puffMaterial(U) : new THREE.ShaderMaterial({
+    const road = new THREE.Mesh(g, this.puff ? candyMaterial(U) : new THREE.ShaderMaterial({
       transparent: true, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, uniforms: U,
       vertexShader: 'varying vec2 vUv; varying vec3 vW; void main(){ vUv = uv; vec4 w = modelMatrix * vec4(position, 1.0); vW = w.xyz; gl_Position = projectionMatrix * viewMatrix * w; }',
       fragmentShader: /* glsl */ `uniform float uTime, uFade, uRoadT, uBoost; varying vec2 vUv; varying vec3 vW; ${NOISE} ${GRADE}

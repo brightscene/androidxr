@@ -164,10 +164,27 @@ const SHOW = [
   { kind: 'text', text: 'Amazing', hold: 14, cols: ['#7ff0ff', '#b8a9ff', '#ffffff'] },
   { kind: 'spiral', hold: 16, cols: ['#a493ff', '#f29bd0', '#5ed6d0'], spin: 0.08 },
   { kind: 'text', text: 'You are Enough', hold: 16, cols: ['#ffd27a', '#ffffff', '#ffb36b'] },
-  { kind: 'picture', draw: drawCollie, hold: 16 },
+  { kind: 'photo', name: 'dog', hold: 18 },
   { kind: 'heart', hold: 10, cols: ['#ff3b6b', '#ff8fb4', '#ffffff'] },
-  { kind: 'picture', draw: drawBunny, hold: 16 },
+  { kind: 'photo', name: 'lady', hold: 22 },
+  { kind: 'sphere', hold: 10, cols: ['#6fd3ff', '#a493ff', '#ffffff'], spin: 0.15 },
+  { kind: 'photo', name: 'bunny', hold: 18 },
 ];
+
+// portraits from photos: each point is a drone's place and colour
+let PORTRAITS = null;
+fetch('drones/portraits.json').then((r) => r.json()).then((j) => { PORTRAITS = j; }).catch(() => {});
+function photoTargets(name, height) {
+  const P = PORTRAITS?.[name];
+  if (!P) return null;
+  const lit = P.points.slice().sort(() => Math.random() - 0.5).slice(0, N).map(([x, y, r, g, b]) => {
+    // lift the colours a touch so they glow, and keep the darkest parts faint rather than off
+    const k = 1.15;
+    return [x * height, y * height - 5, (Math.random() - 0.5) * 0.8, 0, Math.min(1, r * k + 0.02), Math.min(1, g * k + 0.02), Math.min(1, b * k + 0.02)];
+  });
+  const parked = Array.from({ length: N - lit.length }, (_, i) => [(i / Math.max(1, N - lit.length) - 0.5) * height, -CY + 4 + Math.random() * 2, (Math.random() - 0.5) * 6, 1]);
+  return lit.concat(parked);
+}
 
 export class DroneShowScene extends BaseScene {
   constructor() {
@@ -206,7 +223,7 @@ export class DroneShowScene extends BaseScene {
       transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, uniforms: { ...U, uA: { value: alpha } },
       vertexShader: /* glsl */ `attribute vec3 aCol; attribute float aSeed; attribute float aBri; uniform float uTime, uViewH; varying vec3 vC; varying float vT; ${POINT_SIZE}
         void main(){ vec4 mv = modelViewMatrix * vec4(position, 1.0);
-          gl_PointSize = pointPx(0.4 * (0.7 + 0.3 * min(aBri, 1.5)), mv);
+          gl_PointSize = pointPx(0.55 * (0.7 + 0.3 * min(aBri, 1.5)), mv);
           vC = aCol; vT = aBri * (0.9 + 0.1 * sin(uTime * (1.0 + aSeed * 2.0) + aSeed * 40.0));
           gl_Position = projectionMatrix * mv; }`,
       fragmentShader: /* glsl */ `uniform float uFade, uA; varying vec3 vC; varying float vT;
@@ -236,6 +253,7 @@ export class DroneShowScene extends BaseScene {
     if (f.kind === 'heart') return heartTargets();
     if (f.kind === 'text') return textTargets(f.text, f.text.length > 10 ? 62 : 48);
     if (f.kind === 'picture') return pictureTargets(f.draw, 46, 1100);
+    if (f.kind === 'photo') return photoTargets(f.name, f.name === 'lady' ? 34 : 32) || sphereTargets();
     if (f.kind === 'spiral') return spiralTargets();
     return sphereTargets();
   }
