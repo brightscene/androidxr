@@ -28,6 +28,8 @@ import { RainbowRoadScene } from './rainbow.js';
 import { SleepScene } from './sleep.js';
 import { StarsScene } from './stars.js';
 import { FinalFrontierScene } from './frontier.js';
+import { FireworksScene } from './fireworks.js';
+import { WasherScene } from './washer.js';
 import { DrumJourneyScene, IllusionScene, MindsEyeScene } from './lighttracks.js';
 import { TimePortalScene, KaleidosphereScene, NebulaFlightScene, WarpGateScene, MandalaBloomScene, SilkVortexScene } from './dimensions.js';
 import { MoonViewScene, FractalTunnelScene, CrystalCaveScene, NebulaScene, LightRibbonsScene, BlackHoleScene, ChakraScene } from './cosmic.js';
@@ -57,6 +59,8 @@ export const SCENES = {
   rainbow: { type: RainbowRoadScene, label: 'Rainbow road', group: 'Space', cruise: 0, nebula: 0, world: 'off' },
   puffroad: { type: class extends RainbowRoadScene { constructor() { super({ puff: true }); } }, label: 'Sweetie road', group: 'Space', cruise: 0, nebula: 0, world: 'off' },
   neoncity: { type: NeonCityScene, label: 'Neon Tokyo flight', group: 'Dimensions', cruise: 0, nebula: 0, world: 'off' },
+  washer: { type: WasherScene, label: 'Inside the washing machine', group: 'Dimensions', cruise: 0, nebula: 0, world: 'off' },
+  fireworks: { type: FireworksScene, label: 'Fireworks', group: 'Sky & water', cruise: 0, nebula: 0, world: 'off' },
   drones: { type: DroneShowScene, label: 'Drone light show', group: 'Sky & water', cruise: 0, nebula: 0, world: 'off' },
   ski: { type: SkiScene, label: 'Ski run in the snow', group: 'Nature', cruise: 0, nebula: 0, world: 'off' },
   jetski: { type: JetSkiScene, label: 'Jet ski', group: 'Sky & water', cruise: 0, nebula: 0, world: 'off' },
@@ -103,7 +107,10 @@ export const SCENES = {
   geometry: { type: GeometryScene, label: 'Sacred geometry', group: 'Mind', cruise: 0.45, nebula: 0.7, world: 'full' },
   cymatics: { type: CymaticsScene, label: 'Cymatics', group: 'Mind', cruise: 0.4, nebula: 0.7, world: 'full' },
 
-  stars: { type: StarsScene, label: 'Stars only', group: 'Simple', cruise: 0, nebula: 0, world: 'off' },
+  stars: { type: StarsScene, label: 'White stars', group: 'Simple', cruise: 0, nebula: 0, world: 'off' },
+  bluestars: { type: class extends StarsScene { constructor() { super({ blue: true }); } }, label: 'Blue stars', group: 'Simple', cruise: 0, nebula: 0, world: 'off' },
+  starsaura: { type: class extends StarsScene { constructor() { super({ aura: true }); } }, label: 'White stars with aura', group: 'Simple', cruise: 0, nebula: 0, world: 'off' },
+  bluestarsaura: { type: class extends StarsScene { constructor() { super({ blue: true, aura: true }); } }, label: 'Blue stars with aura', group: 'Simple', cruise: 0, nebula: 0, world: 'off' },
   off: { type: BaseScene, label: 'Off (black)', group: 'Simple', cruise: 0, nebula: 0, world: 'off' },
 };
 

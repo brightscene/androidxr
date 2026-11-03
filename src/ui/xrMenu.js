@@ -351,7 +351,7 @@ export class XRMenu {
     this._btn(p, new Button(1.46, 0.06, textDraw(() => {
       const b = app.background;
       if (b === 'off') return app.xrMode === 'immersive-ar' ? 'Off: only your room and the lights.' : 'Off: pure black. Only the lights (and this menu) are shown.';
-      if (b === 'stars') return 'Stars only: a still, quiet starry sky with no nebula, travel or effects.';
+      if (b === 'stars') return 'White stars: a living night sky of twinkling stars, the Milky Way and shooting stars.';
       if (b === 'auto') return `Auto: each track uses its own scene (${(app.playing ? app.playingTrack : app.selected).scene} for the selected track).`;
       return 'This scene is used for every track until you switch back to Auto.';
     }, { alpha: 0.6, size: 0.46 })), 0, ROW0 - 8.5 * ROWH);
