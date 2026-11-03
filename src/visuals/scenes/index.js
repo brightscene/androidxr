@@ -8,6 +8,8 @@ import { MandalaScene } from './mandala.js';
 import { CymaticsScene } from './cymatics.js';
 import { MeadowScene, BeachScene, UnderwaterScene, ZenGardenScene, GlowForestScene, SnowPeaksScene, DesertNightScene } from './nature.js';
 import { LanternLakeScene, RainLakeScene, CloudFlightScene, LotusPondScene, BambooGroveScene, FloatingIslandsScene } from './skywater.js';
+import { AffirmationScene } from './affirm.js';
+import { ImageCycleScene } from './imagecycle.js';
 import { TimePortalScene, KaleidosphereScene, NebulaFlightScene, WarpGateScene, MandalaBloomScene, SilkVortexScene } from './dimensions.js';
 import { MoonViewScene, FractalTunnelScene, CrystalCaveScene, NebulaScene, LightRibbonsScene, BlackHoleScene, ChakraScene } from './cosmic.js';
 
@@ -23,6 +25,8 @@ export const SCENES = {
   ribbons: { type: LightRibbonsScene, label: 'Light ribbons', group: 'Space', cruise: 0.2, nebula: 0.7, world: 'full' },
   aurora: { type: AuroraScene, label: 'Aurora', group: 'Space', cruise: 0.3, nebula: 0.5, world: 'full' },
 
+  affirm: { type: AffirmationScene, label: 'Affirmation field', group: 'Dimensions', cruise: 2.2, nebula: 0.75, world: 'full' },
+  cycle: { type: ImageCycleScene, label: 'Image cycling', group: 'Dimensions', cruise: 0.2, nebula: 0.75, world: 'full' },
   portal: { type: TimePortalScene, label: 'Time portal', group: 'Dimensions', cruise: 4, nebula: 0, world: 'bare' },
   kaleido: { type: KaleidosphereScene, label: 'Kaleidosphere', group: 'Dimensions', cruise: 0, nebula: 0, world: 'bare' },
   tunnel: { type: FractalTunnelScene, label: 'Fractal tunnel', group: 'Dimensions', cruise: 2.5, nebula: 0, world: 'bare' },

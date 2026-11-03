@@ -14,6 +14,17 @@ const dome = (U, frag, radius = 60) => {
 
 const HSV = /* glsl */ `vec3 hsv(float h, float s, float v){ vec3 k = clamp(abs(mod(h * 6.0 + vec3(0.0, 4.0, 2.0), 6.0) - 3.0) - 1.0, 0.0, 1.0); return v * mix(vec3(1.0), k, s); }`;
 
+const NEBULA = /* glsl */ `
+vec3 nebula(float t){
+  t = clamp(t, 0.0, 1.0);
+  vec3 c0 = vec3(0.008, 0.012, 0.05), c1 = vec3(0.07, 0.07, 0.3), c2 = vec3(0.32, 0.16, 0.6), c3 = vec3(0.78, 0.36, 0.7), c4 = vec3(0.5, 0.86, 0.95);
+  if (t < 0.25) return mix(c0, c1, t / 0.25);
+  if (t < 0.5) return mix(c1, c2, (t - 0.25) / 0.25);
+  if (t < 0.75) return mix(c2, c3, (t - 0.5) / 0.25);
+  return mix(c3, c4, (t - 0.75) / 0.25);
+}
+float stars(vec3 d){ float r = hash3(floor(d * 300.0)); return step(0.9965, r) * (0.55 + 0.45 * sin(uTime * (1.0 + r * 3.0) + r * 60.0)); }`;
+
 // ===================================================================== Time portal
 // Travelling down a softly snaking pipe of flowing aura light toward a bright
 // exit. Every so often the exit opens into a portal: you surge through in a
@@ -103,35 +114,36 @@ export class KaleidosphereScene extends BaseScene {
     Object.assign(U, { uHue: { value: 0 }, uHueT: { value: 0 }, uPulse: { value: 0 }, uMorph: { value: 0 } });
     this.group.add(dome(U, /* glsl */ `
       uniform vec3 uC1, uC2; uniform float uTime, uFade, uBreath, uEnergy, uPulse, uMorph, uHue;
-      varying vec3 vDir; ${NOISE} ${GRADE}
+      varying vec3 vDir; ${NOISE} ${GRADE} ${NEBULA}
       vec3 rotY(vec3 p, float a){ float c = cos(a), s = sin(a); return vec3(c * p.x + s * p.z, p.y, -s * p.x + c * p.z); }
       vec3 rotX(vec3 p, float a){ float c = cos(a), s = sin(a); return vec3(p.x, c * p.y - s * p.z, s * p.y + c * p.z); }
-      vec3 pal(float t){ return 0.5 + 0.5 * cos(6.28318 * (t + vec3(0.0, 0.33, 0.67))); }
       void main(){
-        vec3 d = normalize(vDir);
-        float t = uTime * 0.025;
-        d = rotY(rotX(d, t * 0.7), t);
+        vec3 d0 = normalize(vDir);
+        float t = uTime * 0.02;
+        vec3 d = rotY(rotX(d0, t * 0.7), t);
         // octahedral mirror folds: the same image reflected 48 ways around you
         vec3 p = abs(d);
         if (p.x < p.y) p.xy = p.yx;
         if (p.x < p.z) p.xz = p.zx;
         if (p.y < p.z) p.yz = p.zy;
-        vec3 q = p * (1.15 + uBreath * 0.12) + vec3(0.0, 0.0, sin(uTime * 0.05) * 0.08);
-        vec3 k = vec3(0.52 + 0.05 * sin(uTime * 0.041), 0.4 + 0.05 * cos(uTime * 0.033), 0.62 + uMorph * 0.06);
-        float acc = 0.0, prev = 0.0, trap = 1e3;
-        for (int i = 0; i < 9; i++) {
+        vec3 q = p * (1.1 + uBreath * 0.1) + vec3(0.0, 0.0, sin(uTime * 0.04) * 0.07);
+        vec3 k = vec3(0.52 + 0.04 * sin(uTime * 0.037), 0.41 + 0.04 * cos(uTime * 0.029), 0.62 + uMorph * 0.05);
+        float acc = 0.0, prev = 0.0, trap = 1e3, trap2 = 1e3;
+        for (int i = 0; i < 8; i++) {
           q = abs(q) / dot(q, q) - k;
           float l = length(q);
-          acc += exp(-abs(l - prev) * 2.6);
+          acc += exp(-abs(l - prev) * 1.8);
           prev = l;
           trap = min(trap, abs(q.y - q.z));
+          trap2 = min(trap2, length(q.xy - vec2(0.3, 0.1)));
         }
-        acc /= 9.0;
-        vec3 col = mix(pal(acc * 1.3 + uHue + t * 0.4), mix(uC1, uC2, acc) * 1.4, 0.15);
-        col = mix(vec3(dot(col, vec3(0.333))), col, 1.35);       // richer colour
-        col *= 0.12 + pow(acc, 1.3) * 1.5;
-        col += mix(col, vec3(1.0), 0.5) * exp(-trap * 18.0) * (0.35 + uPulse * 0.8);
-        col *= 0.8 + uEnergy * 0.35;
+        acc = smoothstep(0.05, 0.95, acc / 8.0);
+        vec3 col = nebula(acc * 0.95 + sin(uHue * 6.28318) * 0.06);
+        col += vec3(0.45, 0.85, 0.95) * exp(-trap * 16.0) * (0.22 + uPulse * 0.5);       // turquoise glow lines
+        col += vec3(1.0, 0.72, 0.4) * exp(-trap2 * 14.0) * 0.18;                          // warm star-gold accents
+        col += nebula(acc * 0.8) * 0.35;                                                  // soft bloom
+        col += vec3(stars(d0)) * 0.9;
+        col *= 0.85 + uEnergy * 0.3;
         gl_FragColor = vec4(grade(col), uFade);
       }`));
     this.group.add(particles(U, { count: 600, min: [-10, -2, -10], max: [10, 9, 10], vel: [0.05, 0.08, 0.04], sway: 0.6, size: [0.02, 0.05], colors: ['#ffffff', '#ffe6fb', '#e0f6ff'], alpha: 0.7, clear: 1.2 }));
@@ -249,7 +261,7 @@ export class MandalaBloomScene extends BaseScene {
     Object.assign(U, { uPulse: { value: 0 }, uTurn: { value: 0 } });
     this.group.add(dome(U, /* glsl */ `
       uniform vec3 uC2; uniform float uTime, uTravel, uFade, uBreath, uEnergy, uPulse, uTurn;
-      varying vec3 vDir; ${NOISE} ${GRADE}
+      varying vec3 vDir; ${NOISE} ${GRADE} ${NEBULA}
       void main(){
         vec3 d = normalize(vDir);
         float fwd = -d.z;
@@ -257,20 +269,21 @@ export class MandalaBloomScene extends BaseScene {
         float a = atan(d.y, d.x) + uTurn;
         float seg = 6.28318 / 8.0;
         float fa = abs(mod(a + seg * 64.0, seg) - seg * 0.5);
-        float u = log(th + 0.03) * 1.1 - uTime * 0.1 - uTravel * 0.015 - uBreath * 0.08;
+        float u = log(th + 0.03) * 1.1 - uTime * 0.08 - uTravel * 0.012 - uBreath * 0.08;
         vec2 q = vec2(fa * 3.2, u);
         vec3 Q = vec3(q * vec2(3.0, 2.0), uTime * 0.03);
         float w = fbm(Q);
         float v = fbm(Q * 1.8 + vec3(w * 2.5, w * 1.3, 0.0));
-        float petals = smoothstep(0.5, 0.66, fbm(vec3(q * vec2(4.5, 2.4) + vec2(0.0, v * 1.5), 5.0)));
-        float bands = 0.55 + 0.45 * smoothstep(-0.3, 0.6, sin(u * 6.0 + v * 4.0));
-        vec3 c = mix(vec3(0.005, 0.03, 0.04), vec3(0.05, 0.48, 0.45), smoothstep(0.32, 0.72, v)) * bands;
-        c = mix(c, mix(vec3(1.0, 0.62, 0.12), uC2, 0.1), petals * smoothstep(0.42, 0.62, w) * 0.95);
-        c += vec3(0.85, 0.12, 0.15) * smoothstep(0.78, 0.86, fbm(vec3(q * vec2(9.0, 5.0), 2.0))) * 0.55;
-        c += vec3(0.5, 0.92, 0.85) * smoothstep(0.9, 0.96, vnoise(vec3(q * vec2(22.0, 14.0), 1.0))) * (0.35 + uPulse * 0.6);
-        c *= mix(0.12, 1.0, smoothstep(2.7, 0.7, th));
-        c *= 0.85 + uEnergy * 0.3 + uPulse * 0.15;
-        gl_FragColor = vec4(grade(c * 1.25), uFade);
+        float petals = smoothstep(0.5, 0.7, fbm(vec3(q * vec2(4.5, 2.4) + vec2(0.0, v * 1.5), 5.0)));
+        float ridge = pow(1.0 - abs(v * 2.0 - 1.0), 10.0);
+        vec3 c = nebula(smoothstep(0.25, 0.85, v) * 0.7);
+        c = mix(c, mix(vec3(0.85, 0.42, 0.78), vec3(1.0, 0.74, 0.45), smoothstep(0.55, 0.75, w)), petals * smoothstep(0.42, 0.62, w) * 0.75);
+        c += vec3(0.45, 0.86, 0.95) * ridge * 0.35;                       // turquoise filaments
+        c += nebula(v * 0.75) * 0.25;                                       // soft glow
+        c += vec3(stars(d)) * smoothstep(0.3, 1.2, th) * 0.8;
+        c *= mix(0.18, 1.0, smoothstep(2.7, 0.7, th));
+        c *= 0.85 + uEnergy * 0.25 + uPulse * 0.12;
+        gl_FragColor = vec4(grade(c * 1.15), uFade);
       }`));
   }
   onEvent(e) {

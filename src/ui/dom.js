@@ -1,5 +1,6 @@
 import { SYMBOLS } from '../visuals/strobe.js';
 import { SCENES } from '../visuals/scenes/index.js';
+import { saveUserImages, clearUserImages, refreshImageAtlas } from '../visuals/scenes/imagecycle.js';
 
 // Flat-screen UI: the launcher you see in a browser panel on Android XR
 // (and on phones/desktops), plus the in-session bar.
@@ -87,6 +88,16 @@ export class DomUI {
     on('#light-dim', 'change', (e) => app.setLightOpt('lightDim', Number(e.target.value)));
     on('#light-max', 'input', (e) => app.setLightOpt('lightMax', Number(e.target.value)));
     on('#lights-generated', 'change', (e) => app.setLightOpt('lightsGenerated', e.target.checked));
+    const cycStatus = (n) => { this.$('#cycle-status').textContent = n ? `Using your ${n} image${n > 1 ? 's' : ''}` : 'Using the built-in images'; };
+    refreshImageAtlas().then(cycStatus);
+    on('#cycle-files', 'change', async (e) => {
+      const files = [...e.target.files].slice(0, 16);
+      if (!files.length) return;
+      this.$('#cycle-status').textContent = 'Saving…';
+      await saveUserImages(files);
+      cycStatus(await refreshImageAtlas());
+    });
+    on('#cycle-clear', 'click', async () => { await clearUserImages(); cycStatus(await refreshImageAtlas()); });
     on('#sw-accept', 'click', () => app.acceptStrobe());
     on('#sw-cancel', 'click', () => app.declineStrobe());
     on('#volume', 'input', (e) => app.setVolume(Number(e.target.value)));
