@@ -381,7 +381,8 @@ class App {
   async enterXR(mode) {
     this.voice.unlock();
     this._applyQuality();
-    await this.engine.init();
+    // start the audio alongside (without a tap it waits, and must not hold up entering)
+    this.engine.init().catch(() => {});
     const session = await navigator.xr.requestSession(mode, {
       requiredFeatures: ['local-floor'],
       optionalFeatures: ['hand-tracking', 'bounded-floor'],
@@ -740,13 +741,36 @@ class App {
 
 window.app = new App();
 
-// splash: the logo glows for a few seconds while everything warms up, then fades
+// splash: the logo glows for a few seconds while everything warms up. On a
+// headset it then goes straight into immersive view; browsers only allow that
+// from a tap, so if it's refused the splash waits and the first tap goes in.
 {
   const splash = document.getElementById('splash');
   if (splash) {
     const hide = () => { splash.classList.add('gone'); setTimeout(() => splash.remove(), 1000); };
-    setTimeout(hide, Math.max(600, 3400 - performance.now()));   // about 3.4 s from opening the app
-    splash.addEventListener('click', hide);
+    const xrOK = navigator.xr ? navigator.xr.isSessionSupported('immersive-vr').catch(() => false) : Promise.resolve(false);
+    let tapped = false;
+    const enter = async () => {
+      try { await window.app.enterXR('immersive-vr'); hide(); return true; } catch { return false; }
+    };
+    splash.addEventListener('click', async () => {
+      if (tapped) return; tapped = true;
+      if (await xrOK) { if (!(await enter())) hide(); } else hide();
+    });
+    setTimeout(async () => {
+      if (tapped) return;
+      if (!(await xrOK)) { hide(); return; }
+      if (await enter()) return;
+      // the browser wants a tap first: invite it
+      splash.classList.add('tap');
+      const tag = splash.querySelector('.splash-tag');
+      if (tag) tag.textContent = 'Tap anywhere to begin';
+      const flat = document.createElement('button');
+      flat.className = 'splash-flat';
+      flat.textContent = 'Stay on this screen';
+      flat.addEventListener('click', (e) => { e.stopPropagation(); tapped = true; hide(); });
+      splash.appendChild(flat);
+    }, Math.max(600, 3400 - performance.now()));   // about 3.4 s from opening the app
   }
 }
 

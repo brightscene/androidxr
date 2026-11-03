@@ -125,6 +125,10 @@ body:not(.playing) #close-menu { display: none; }
 #splash { position: fixed; inset: 0; z-index: 1000; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
   background: radial-gradient(ellipse at 50% 45%, #1a1440 0%, #0b0a1f 55%, #05040f 100%); transition: opacity 0.9s ease; }
 #splash.gone { opacity: 0; pointer-events: none; }
+#splash.tap { cursor: pointer; }
+#splash.tap .splash-tag { color: #e9e4ff; animation: tapPulse 2.4s ease-in-out infinite; }
+@keyframes tapPulse { 0%, 100% { opacity: 0.55; } 50% { opacity: 1; } }
+.splash-flat { position: absolute; bottom: 28px; background: none; border: 1px solid rgba(233, 228, 255, 0.25); color: #9d97c4; border-radius: 999px; padding: 8px 18px; font: 400 13px Jost, system-ui, sans-serif; cursor: pointer; }
 .splash-mark { width: min(38vmin, 260px); height: auto; overflow: visible; animation: splashIn 1.2s ease-out both; filter: drop-shadow(0 0 18px rgba(164, 147, 255, 0.45)); }
 .splash-mark .sr { opacity: 0.25; animation: ringGlow 2.4s ease-in-out infinite; animation-delay: calc(var(--i) * 0.16s); }
 .splash-mark .score-glow { transform-origin: 74px 44px; animation: coreGlow 2.4s ease-in-out infinite 1.1s; }

@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { BaseScene, NOISE, GRADE, STARS, SFX, damp } from '../common.js';
+import { BaseScene, NOISE, GRADE, STARS, SFX, POINT_SIZE, SOFT_DOT, damp } from '../common.js';
 import { particles } from './kit.js';
 
 // ===================================================================== Into the light
@@ -11,52 +11,77 @@ import { particles } from './kit.js';
 const smooth = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 const LOOP = 280;
 
-// soft glowing silhouettes, drawn once onto canvases
-function figureTexture(kind) {
-  const cv = document.createElement('canvas');
-  cv.width = 256; cv.height = 512;
-  const c = cv.getContext('2d');
-  c.translate(128, 0);
-  c.fillStyle = '#fff';
-  c.shadowColor = 'rgba(255, 240, 210, 1)';
-  const draw = () => {
-    c.beginPath();
-    if (kind === 'person' || kind === 'person2') {
-      const tall = kind === 'person' ? 1 : 0.92;
-      c.save(); c.scale(1, tall); c.translate(0, 512 * (1 - tall) / tall);
-      c.arc(0, 92, 34, 0, Math.PI * 2);
-      c.moveTo(-30, 140);
-      c.quadraticCurveTo(-62, 150, -66, 210); c.lineTo(-74, 330); c.quadraticCurveTo(-80, 430, -70, 500);
-      c.lineTo(70, 500); c.quadraticCurveTo(80, 430, 74, 330); c.lineTo(66, 210); c.quadraticCurveTo(62, 150, 30, 140);
-      c.closePath(); c.restore();
-    } else if (kind === 'child') {
-      c.arc(0, 262, 30, 0, Math.PI * 2);
-      c.moveTo(-24, 302); c.quadraticCurveTo(-52, 312, -54, 360); c.lineTo(-58, 500); c.lineTo(58, 500); c.lineTo(54, 360); c.quadraticCurveTo(52, 312, 24, 302);
-      c.closePath();
-    } else if (kind === 'dog') {
-      // a dog standing side-on, tail up, ears soft
-      c.ellipse(-6, 392, 66, 30, 0, 0, Math.PI * 2);
-      c.moveTo(46, 380); c.lineTo(64, 330); c.lineTo(88, 330); c.lineTo(70, 390); c.closePath();
-      c.moveTo(100, 322); c.ellipse(82, 322, 24, 20, 0, 0, Math.PI * 2);
-      c.moveTo(110, 330); c.ellipse(106, 334, 18, 10, 0.15, 0, Math.PI * 2);
-      c.moveTo(68, 312); c.ellipse(70, 322, 9, 20, 0.25, 0, Math.PI * 2);
-      for (const x of [-56, -38, 30, 48]) { c.moveTo(x - 7, 410); c.rect(x - 7, 405, 14, 95); }
-      c.moveTo(-68, 384); c.quadraticCurveTo(-104, 372, -112, 340); c.lineTo(-102, 338); c.quadraticCurveTo(-98, 364, -64, 372); c.closePath();
-    } else {
-      // a cat sitting, tail curled round
-      c.ellipse(0, 430, 52, 66, 0, 0, Math.PI * 2);
-      c.moveTo(34, 350); c.arc(0, 350, 34, 0, Math.PI * 2);
-      c.moveTo(-30, 334); c.lineTo(-26, 296); c.lineTo(-8, 322);
-      c.moveTo(30, 334); c.lineTo(26, 296); c.lineTo(8, 322);
-      c.moveTo(40, 480); c.quadraticCurveTo(100, 470, 84, 420); c.lineTo(76, 426); c.quadraticCurveTo(86, 462, 40, 470);
-    }
-    c.fill();
-  };
-  // layered glow: wide soft halo, then a brighter body
-  for (const [blur, a] of [[60, 0.35], [26, 0.5], [8, 0.9]]) { c.shadowBlur = blur; c.globalAlpha = a; draw(); }
-  const t = new THREE.CanvasTexture(cv);
-  t.colorSpace = THREE.SRGBColorSpace;
-  return t;
+// ---- figures of light: real body shapes, made of thousands of glowing motes
+const V = (x, y, z) => new THREE.Vector3(x, y, z);
+const seg = (p, a, b) => { const ab = b.clone().sub(a), t = Math.max(0, Math.min(1, p.clone().sub(a).dot(ab) / ab.lengthSq())); return p.distanceTo(a.clone().addScaledVector(ab, t)); };
+const cap = (a, b, r0, r1 = r0) => (p) => {
+  const ab = b.clone().sub(a), t = Math.max(0, Math.min(1, p.clone().sub(a).dot(ab) / ab.lengthSq()));
+  return p.distanceTo(a.clone().addScaledVector(ab, t)) - (r0 + (r1 - r0) * t);
+};
+const ell = (c, r) => (p) => { const q = p.clone().sub(c).divide(r); return (q.length() - 1) * Math.min(r.x, r.y, r.z); };
+
+function personShape(h, build) {
+  // an adult (or child, scaled) standing with arms opening in welcome
+  const k = h / 1.75, w = build;
+  const P = (x, y, z) => V(x * k * w, y * k, z * k);
+  return [
+    ell(P(0, 1.63, 0), V(0.095 * k, 0.12 * k, 0.105 * k)),                  // head
+    cap(P(0, 1.5, 0), P(0, 1.43, 0), 0.05 * k),                               // neck
+    ell(P(0, 1.27, 0), V(0.19 * k * w, 0.2 * k, 0.11 * k)),                  // chest
+    ell(P(0, 1.03, 0), V(0.16 * k * w, 0.14 * k, 0.1 * k)),                  // waist and hips
+    cap(P(-0.19, 1.4, 0), P(-0.3, 1.13, 0.06), 0.05 * k, 0.042 * k),          // upper arms, slightly out
+    cap(P(0.19, 1.4, 0), P(0.3, 1.13, 0.06), 0.05 * k, 0.042 * k),
+    cap(P(-0.3, 1.13, 0.06), P(-0.42, 0.96, 0.24), 0.04 * k, 0.032 * k),      // forearms reaching forward, open
+    cap(P(0.3, 1.13, 0.06), P(0.42, 0.96, 0.24), 0.04 * k, 0.032 * k),
+    ell(P(-0.44, 0.93, 0.27), V(0.04 * k, 0.07 * k, 0.025 * k)),              // hands
+    ell(P(0.44, 0.93, 0.27), V(0.04 * k, 0.07 * k, 0.025 * k)),
+    cap(P(-0.09, 0.95, 0), P(-0.1, 0.5, 0.02), 0.075 * k, 0.055 * k),         // legs
+    cap(P(0.09, 0.95, 0), P(0.1, 0.5, 0.02), 0.075 * k, 0.055 * k),
+    cap(P(-0.1, 0.5, 0.02), P(-0.1, 0.07, 0), 0.052 * k, 0.04 * k),
+    cap(P(0.1, 0.5, 0.02), P(0.1, 0.07, 0), 0.052 * k, 0.04 * k),
+    ell(P(-0.1, 0.035, 0.06), V(0.045 * k, 0.035 * k, 0.11 * k)),             // feet
+    ell(P(0.1, 0.035, 0.06), V(0.045 * k, 0.035 * k, 0.11 * k)),
+  ];
+}
+function dogShape() {
+  // a friendly dog standing side-on to its path, head up, tail raised
+  return [
+    ell(V(0, 0.52, 0), V(0.14, 0.15, 0.36)),                                  // body (along z)
+    ell(V(0, 0.56, 0.3), V(0.15, 0.16, 0.14)),                                // chest
+    cap(V(0, 0.6, 0.36), V(0, 0.78, 0.46), 0.08),                             // neck
+    ell(V(0, 0.84, 0.5), V(0.1, 0.1, 0.12)),                                  // head
+    ell(V(0, 0.8, 0.63), V(0.055, 0.05, 0.09)),                               // muzzle
+    ell(V(-0.08, 0.86, 0.46), V(0.03, 0.08, 0.05)), ell(V(0.08, 0.86, 0.46), V(0.03, 0.08, 0.05)),   // soft ears
+    ...[[-0.08, 0.28], [0.08, 0.28], [-0.08, -0.25], [0.08, -0.25]].map(([x, z]) => cap(V(x, 0.45, z), V(x, 0.03, z + 0.02), 0.045, 0.035)),
+    cap(V(0, 0.6, -0.34), V(0, 0.82, -0.52), 0.035, 0.02),                    // tail up
+  ];
+}
+function catShape() {
+  // a cat sitting upright, tail curled round its paws
+  return [
+    ell(V(0, 0.2, 0), V(0.13, 0.2, 0.15)),
+    ell(V(0, 0.38, 0.04), V(0.1, 0.12, 0.1)),
+    ell(V(0, 0.52, 0.07), V(0.085, 0.075, 0.08)),
+    cap(V(-0.055, 0.58, 0.07), V(-0.065, 0.66, 0.06), 0.028, 0.004), cap(V(0.055, 0.58, 0.07), V(0.065, 0.66, 0.06), 0.028, 0.004),
+    cap(V(-0.04, 0.2, 0.12), V(-0.04, 0.02, 0.14), 0.03), cap(V(0.04, 0.2, 0.12), V(0.04, 0.02, 0.14), 0.03),
+    cap(V(0.12, 0.05, -0.1), V(0.17, 0.04, 0.08), 0.03, 0.025), cap(V(0.17, 0.04, 0.08), V(0.06, 0.03, 0.2), 0.025, 0.02),
+  ];
+}
+function sampleShape(parts, n, box) {
+  const d = (p) => Math.min(...parts.map((f) => f(p)));
+  const pos = [], rnd = [];
+  const p = new THREE.Vector3();
+  let guard = 0;
+  while (pos.length < n * 3 && guard++ < n * 400) {
+    p.set(box[0] + Math.random() * (box[3] - box[0]), box[1] + Math.random() * (box[4] - box[1]), box[2] + Math.random() * (box[5] - box[2]));
+    const dist = d(p);
+    // mostly a luminous skin, with a softer glow inside
+    if (dist < 0 && (dist > -0.018 || Math.random() < 0.12)) { pos.push(p.x, p.y, p.z); rnd.push(Math.random()); }
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute('aR', new THREE.Float32BufferAttribute(rnd, 1));
+  return g;
 }
 
 export class IntoTheLightScene extends BaseScene {
@@ -101,27 +126,40 @@ export class IntoTheLightScene extends BaseScene {
     this.motes = particles(U, { count: 500, min: [-14, -6, -20], max: [14, 14, 8], vel: [0, -1.2, 0], sway: 0.4, size: [0.02, 0.05], colors: ['#fff4dc', '#ffe6b0', '#dfe8ff', '#ffffff'], alpha: 0.6, clear: 1.5 });
     this.group.add(this.motes);
 
-    // the ones who come to meet you
-    const kinds = [['person', -1.6, 0], ['person2', 1.5, 0.15], ['child', 0.55, 0.3], ['dog', -0.5, 0.1], ['cat', 2.6, 0.25], ['person', -3.0, 0.35]];
+    // the ones who come to meet you, made of light
+    const kinds = [['woman', -1.6, 0], ['man', 1.5, 0.15], ['child', 0.55, 0.3], ['dog', -0.5, 0.1], ['cat', 2.6, 0.25], ['elder', -3.0, 0.35]];
+    const glow = new THREE.CanvasTexture((() => { const cv = document.createElement('canvas'); cv.width = cv.height = 128; const c = cv.getContext('2d'); const g = c.createRadialGradient(64, 64, 0, 64, 64, 64); g.addColorStop(0, 'rgba(255,240,215,0.55)'); g.addColorStop(0.4, 'rgba(255,225,190,0.18)'); g.addColorStop(1, 'rgba(255,220,180,0)'); c.fillStyle = g; c.fillRect(0, 0, 128, 128); return cv; })());
     this.figs = kinds.map(([k, x, delay], i) => {
+      const geo = k === 'dog' ? sampleShape(dogShape(), 2600, [-0.3, 0, -0.65, 0.3, 1.0, 0.75])
+        : k === 'cat' ? sampleShape(catShape(), 1500, [-0.25, 0, -0.25, 0.25, 0.7, 0.3])
+        : sampleShape(personShape(k === 'child' ? 1.2 : k === 'man' ? 1.8 : k === 'elder' ? 1.66 : 1.68, k === 'man' ? 1.12 : k === 'child' ? 1.0 : 0.95), k === 'child' ? 3000 : 4200, [-0.6, 0, -0.3, 0.6, 1.85, 0.45]);
       const mat = new THREE.ShaderMaterial({
-        transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
-        uniforms: { ...U, uTex: { value: figureTexture(k) }, uOp: { value: 0 }, uSeed: { value: i * 7.3 } },
-        vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
-        fragmentShader: /* glsl */ `uniform sampler2D uTex; uniform float uOp, uTime, uSeed, uFade; varying vec2 vUv; ${NOISE}
-          void main(){ vec4 t = texture2D(uTex, vUv);
-            // made of light: shimmering currents rising through a soft glow, brighter at the heart
-            float sh = fbm(vec3(vUv * vec2(6.0, 9.0) - vec2(0.0, uTime * 0.35), uSeed + uTime * 0.1));
-            float sp = pow(vnoise(vec3(vUv * 60.0, uTime * 1.5 + uSeed)), 12.0) * 6.0;
-            float core = smoothstep(0.6, 1.0, t.a);
-            vec3 iri = 0.5 + 0.5 * cos(6.2831 * (sh + vec3(0.0, 0.33, 0.67) + uTime * 0.05));
-            vec3 c = vec3(1.0, 0.9, 0.75) * (t.a * 0.12 + core * (0.06 + 0.22 * sh)) + iri * core * 0.06 + vec3(1.0, 0.97, 0.9) * sp * core * 0.5;
-            gl_FragColor = vec4(c * uOp * uFade, 1.0); }`,
+        transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+        uniforms: { ...U, uOp: { value: 0 }, uDis: { value: 0 }, uSeed: { value: i * 7.3 } },
+        vertexShader: /* glsl */ `attribute float aR; uniform float uTime, uViewH, uOp, uDis, uSeed; varying float vA; varying vec3 vC; ${NOISE} ${POINT_SIZE}
+          void main(){ vec3 p = position;
+            // each mote drifts softly about its place, and on dissolving rises and spreads into the light
+            float t = uTime * 0.4 + aR * 30.0;
+            p += vec3(sin(t), sin(t * 1.3 + 2.0), cos(t * 0.9)) * 0.006;
+            p += (vec3(vnoise(p * 3.0 + uSeed), vnoise(p * 3.0 + uSeed + 5.0), vnoise(p * 3.0 + uSeed + 9.0)) - 0.5) * uDis * 2.5 + vec3(0.0, uDis * uDis * (1.0 + aR * 3.0), 0.0);
+            vec4 mv = modelViewMatrix * vec4(p, 1.0);
+            gl_PointSize = pointPx(0.016 + aR * 0.014, mv);
+            float tw = 0.55 + 0.45 * sin(uTime * (1.0 + aR * 3.0) + aR * 60.0);
+            vA = uOp * tw * (1.0 - uDis * 0.6);
+            vC = mix(vec3(1.0, 0.9, 0.72), 0.75 + 0.25 * cos(6.2831 * (aR + vec3(0.0, 0.33, 0.67) + uTime * 0.03)), 0.25);
+            gl_Position = projectionMatrix * mv; }`,
+        fragmentShader: /* glsl */ `uniform float uFade; varying float vA; varying vec3 vC; ${SOFT_DOT}
+          void main(){ vec2 q = gl_PointCoord - 0.5; float d = exp(-dot(q, q) * 14.0); gl_FragColor = vec4(vC * d * vA * uFade * 0.55, 1.0); }`,
       });
-      const h = k === 'dog' || k === 'cat' ? 1.85 : 1.95;
-      const sp = new THREE.Mesh(new THREE.PlaneGeometry(h * 0.5, h).translate(0, h / 2, 0), mat);
-      this.group.add(sp);
-      return { sp, x, delay, k, ang0: Math.atan2(x, 4) };
+      const pts = new THREE.Points(geo, mat);
+      pts.frustumCulled = false;
+      const aura = new THREE.Sprite(new THREE.SpriteMaterial({ map: glow, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0 }));
+      const ah = k === 'dog' || k === 'cat' ? 1.2 : 2.6;
+      aura.scale.set(ah, ah * 1.15, 1); aura.position.y = k === 'dog' ? 0.5 : k === 'cat' ? 0.35 : 1.0;
+      const holder = new THREE.Group();
+      holder.add(aura, pts);
+      this.group.add(holder);
+      return { sp: holder, pts, aura, x, delay, k, ang0: Math.atan2(x, 4) };
     });
     this.t = 0; this.chimed = 0;
   }
@@ -156,8 +194,12 @@ export class IntoTheLightScene extends BaseScene {
       f.sp.position.set(x, 0.05 + Math.sin(t * 1.3 + i) * 0.03 * walk, zz);
       // they shimmer, and dissolve into the bliss
       const vis = smooth(start - 4, start + 12, t) * (1 - smooth(215, 240, t));
-      f.sp.material.uniforms.uOp.value = vis * (0.85 + 0.15 * Math.sin(t * 2.1 + i * 1.7));
-      f.sp.rotation.y = Math.atan2(-x, -zz);   // always turned toward you
+      const u = f.pts.material.uniforms;
+      u.uOp.value = vis * (0.85 + 0.15 * Math.sin(t * 2.1 + i * 1.7));
+      u.uDis.value = smooth(212, 245, t);
+      f.aura.material.opacity = vis * 0.55 * this.fade;
+      // people turn to face you; the dog trots along its path, the cat sits facing you
+      f.sp.rotation.y = f.k === 'dog' ? (gather > 0 ? Math.atan2(-x, -zz) + Math.PI / 2 : 0) : Math.atan2(-x, -zz);
       if (walk > 0.98 && !f.chimed && t < 200) { f.chimed = true; this._sfx('chime', { note: [0, 4, 7, 9, 12, 16][i % 6], pan: Math.max(-0.8, Math.min(0.8, x / 4)), gain: 0.35 }); }
       if (t < start) f.chimed = false;
     }

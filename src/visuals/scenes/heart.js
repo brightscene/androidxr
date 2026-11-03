@@ -115,8 +115,10 @@ export class HeartJourneyScene extends BaseScene {
     const rr = Math.max(0.25, R * 0.8) * (0.35 + 0.65 * Math.sqrt(Math.random())), th = Math.random() * Math.PI * 2;
     c.x = Math.cos(th) * rr; c.y = Math.sin(th) * rr;
     c.z = anywhere ? -Math.random() * 30 + 2 : -28 - Math.random() * 4;
-    c.v = 0.6 + Math.random() * 0.8;                       // its own pace, relative to you
-    c.rx = Math.random() * 6; c.ry = Math.random() * 6; c.sp = (Math.random() - 0.5) * 1.5;
+    c.v = 0.3 + Math.random() * 1.6;                       // its own pace, relative to you
+    c.rx = Math.random() * 6; c.ry = Math.random() * 6; c.rz = Math.random() * 6;
+    c.wx = (Math.random() - 0.5) * 2.4; c.wy = (Math.random() - 0.5) * 2.4; c.wz = (Math.random() - 0.5) * 1.6;   // its own tumble
+    c.vx = 0; c.vy = 0;
     c.s = 0.08 + Math.random() * 0.03;
     return c;
   }
@@ -154,21 +156,27 @@ export class HeartJourneyScene extends BaseScene {
     U.uBeat.value = Math.exp(-ph * 7) * (1 - Math.exp(-ph * 60)) * 1.4;
     U.uValve.value = damp(U.uValve.value, ph > 0.08 && ph < 0.45 ? 1 : 0, 9, dt);
     this.surge *= Math.exp(-dt * 3);
-    const speed = (p < 0.22 ? 0.9 : p < 0.74 ? 1.6 : 0.8) + this.surge * 2.2;
-    this.flow = damp(this.flow, speed, 3, dt);
+    // a smooth glide forward, easing gently between the parts of the journey
+    const speed = (p < 0.22 ? 1.0 : p < 0.74 ? 1.7 : 1.0) * (1 + 0.15 * Math.sin(this.t * 0.05));
+    this.flow = damp(this.flow, speed, 0.3, dt);
     U.uTravel.value += this.flow * dt;
 
     // the cells: drift past at their own pace, tumbling slowly, pulsed by each beat
     const scale = Math.min(1, U.uR.value / 1.6) * 0.6 + 0.4;
     for (let i = 0; i < this.N; i++) {
       const c = this.cell[i];
-      c.z += (c.v * 0.6 + this.surge * 1.2) * dt;
-      c.rx += c.sp * dt * 0.5; c.ry += c.sp * dt * 0.3;
+      // each cell drifts on its own currents, tumbling and spinning freely
+      c.vx += (Math.random() - 0.5) * 1.2 * dt; c.vy += (Math.random() - 0.5) * 1.2 * dt;
+      c.vx *= Math.exp(-dt * 0.4); c.vy *= Math.exp(-dt * 0.4);
+      c.x += c.vx * dt; c.y += c.vy * dt;
+      c.z += (c.v * 0.7 + this.surge * 0.5) * dt;
+      c.rx += c.wx * dt; c.ry += c.wy * dt; c.rz += c.wz * dt;
       if (c.z > 3) this._spawn(c, false);
       const lim = U.uR.value * 0.85;
       const rr = Math.hypot(c.x, c.y);
-      if (rr > lim) { c.x *= lim / rr; c.y *= lim / rr; }
-      this.E.set(c.rx, c.ry, 0); this.Q.setFromEuler(this.E);
+      if (rr > lim) { c.x *= lim / rr; c.y *= lim / rr; c.vx *= -0.5; c.vy *= -0.5; }
+      if (rr < 0.22) { c.vx += c.x / (rr + 1e-3) * dt; c.vy += c.y / (rr + 1e-3) * dt; }   // keep the way ahead clear
+      this.E.set(c.rx, c.ry, c.rz); this.Q.setFromEuler(this.E);
       this.S.setScalar(c.s * scale * 1.6);
       this.T.set(c.x, EYE + c.y, c.z);
       this.M.compose(this.T, this.Q, this.S);

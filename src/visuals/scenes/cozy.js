@@ -127,14 +127,16 @@ export class MurmurationScene extends BaseScene {
           vec2 p0 = (gl_PointCoord - 0.5) * vec2(2.0, -2.0);
           float cs = cos(vHead), sn = sin(vHead);
           vec2 q = vec2(cs * p0.x + sn * p0.y, -sn * p0.x + cs * p0.y);
-          float body = smoothstep(1.0, 0.7, length(q / vec2(0.34, 0.075)));
-          float head = smoothstep(0.075, 0.045, length(q - vec2(0.3, 0.0)));
-          float tail = step(-0.46, q.x) * step(q.x, -0.24) * step(abs(q.y), 0.02 + (-0.24 - q.x) * 0.35);
-          float span = 0.88 * (0.45 + 0.55 * abs(vFlap));
+          // a starling from below: a stubby body, short square tail, and pointed
+          // triangular wings, broad at the root, sweeping and bending as they beat
+          float body = smoothstep(1.0, 0.75, length(q / vec2(0.2, 0.068)));
+          float head = smoothstep(1.0, 0.75, length((q - vec2(0.2, 0.0)) / vec2(0.07, 0.045)));
+          float tail = step(-0.3, q.x) * step(q.x, -0.14) * step(abs(q.y), 0.045 + (-0.14 - q.x) * 0.12);
+          float span = 0.7 * (0.32 + 0.68 * abs(vFlap));
           float ay = abs(q.y);
-          float cx = 0.06 - ay * 0.42;
-          float thick = 0.11 * (1.0 - ay / span) + 0.012;
-          float wing = smoothstep(thick, thick * 0.5, abs(q.x - cx)) * step(ay, span);
+          float sweep = 0.08 - ay * 0.22 - ay * ay * 0.45 + vFlap * 0.12 * ay;
+          float chord = 0.15 * pow(max(0.0, 1.0 - ay / span), 0.8) + 0.008;
+          float wing = smoothstep(chord, chord * 0.55, abs(q.x - sweep + chord * 0.35)) * step(ay, span);
           float shape = max(max(body, head), max(tail, wing));
           float glow = exp(-dot(p0, p0) * 3.0) * 0.35;
           if (uBlack > 0.5) { if (shape < 0.05) discard; gl_FragColor = vec4(vec3(0.015, 0.012, 0.02), shape * uFade * 0.95); return; }
