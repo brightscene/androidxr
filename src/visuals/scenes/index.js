@@ -51,6 +51,7 @@ export const SCENES = {
   hope: { type: HopeScene, label: 'Hope', group: 'Mind', cruise: 0, nebula: 0, world: 'off' },
   bliss: { type: BlissScene, label: 'Bliss', group: 'Mind', cruise: 0, nebula: 0, world: 'off' },
   rainbow: { type: RainbowRoadScene, label: 'Rainbow road', group: 'Space', cruise: 0, nebula: 0, world: 'off' },
+  puffroad: { type: class extends RainbowRoadScene { constructor() { super({ puff: true }); } }, label: 'Cheesy puff road', group: 'Space', cruise: 0, nebula: 0, world: 'off' },
   neoncity: { type: NeonCityScene, label: 'Neon Tokyo flight', group: 'Dimensions', cruise: 0, nebula: 0, world: 'off' },
   drones: { type: DroneShowScene, label: 'Drone light show', group: 'Sky & water', cruise: 0, nebula: 0, world: 'off' },
   ski: { type: SkiScene, label: 'Ski run in the snow', group: 'Nature', cruise: 0, nebula: 0, world: 'off' },
