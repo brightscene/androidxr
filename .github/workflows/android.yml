@@ -1,0 +1,46 @@
+name: Build Android XR app
+
+on:
+  push:
+    branches: [main]
+    paths: [android/**, .github/workflows/android.yml]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.9"
+      - name: Upload key
+        env:
+          KS: ${{ secrets.ANDROID_KEYSTORE_B64 }}
+        run: |
+          if [ -n "$KS" ]; then echo "$KS" | base64 -d > "$RUNNER_TEMP/mindlyte.jks"; echo "ANDROID_KEYSTORE_FILE=$RUNNER_TEMP/mindlyte.jks" >> "$GITHUB_ENV"; fi
+      - name: Build APK
+        working-directory: android
+        env:
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          BUILD_NUMBER: ${{ github.run_number }}
+        run: gradle assembleRelease --no-daemon
+      - run: cp android/app/build/outputs/apk/release/app-release.apk MindLyte.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MindLyte-apk
+          path: MindLyte.apk
+      # a fixed download link for the newest build: .../releases/download/android-latest/MindLyte.apk
+      - name: Publish to the android-latest release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete android-latest --yes --cleanup-tag || true
+          gh release create android-latest MindLyte.apk --title "MindLyte for Android XR (build ${{ github.run_number }})" --notes "Test build. Install on the headset and open MindLyte." --prerelease
