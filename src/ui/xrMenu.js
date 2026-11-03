@@ -335,7 +335,7 @@ export class XRMenu {
     this._btn(p, new Button(0.32, 0.07, pill('Hear the voice'), () => app.previewVoice()), PX + 0.16, ROW0 - 3 * ROWH);
     this._btn(p, new Button(1.46, 0.06, textDraw(() => `Now using: ${app.voice.description}`, { alpha: 0.6, size: 0.46 })), 0, ROW0 - 4 * ROWH);
     this._btn(p, new Button(1.46, 0.06, textDraw('Whispers: short thoughtful lines now and then during soundscapes. Guided journeys always speak.', { alpha: 0.5, size: 0.46 }), null), 0, ROW0 - 5 * ROWH, false);
-    this._row(p, 6, 'Breath prompts', [['On', true], ['Off', false]], () => app.breathText, (v) => app.setBreathText(v));
+    this._row(p, 6, 'Breathing guide', [['Off', false], ['On', true]], () => app.breathText, (v) => app.setBreathText(v));
   }
 
   _buildWarning() {

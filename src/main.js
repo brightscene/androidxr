@@ -39,7 +39,7 @@ class App {
     this.voiceChoice = p.voice || 'auto';
     this.background = p.background || 'auto';
     this.quality = p.quality || 'balanced'; // smooth | balanced | sharp
-    this.breathText = p.breathText ?? true;
+    this.breathText = p.breathGuide ?? false;   // breathing guide text, off unless chosen
     this.perf = { avg: 1 / 72, level: 0, t: 0 };
     this.volume = p.volume ?? 0.8;
     // light (AudioStrobe / SpectraStrobe) settings
@@ -118,7 +118,7 @@ class App {
       localStorage.setItem('mindlyte', JSON.stringify({
         selected: this.selected.id === 'import' ? undefined : this.selected.id, minutes: this.minutes, entrainment: this.entrainment,
         journey: this.journey, solfeggio: this.solfeggio, whispers: this.whispers, captions: this.captions,
-        dives: this.dives, nature: this.nature, voice: this.voiceChoice, volume: this.volume, background: this.background, quality: this.quality, breathText: this.breathText,
+        dives: this.dives, nature: this.nature, voice: this.voiceChoice, volume: this.volume, background: this.background, quality: this.quality, breathGuide: this.breathText,
         strobeAccepted: this.strobeAccepted, lights: this.lights, lightStyle: this.lightStyle, lightColour: this.lightColour,
         v: 2, lightLayout: this.lightLayout, lightDim: this.lightDim,
         lightMax: this.lightMax, lightMode: this.lightMode, lightsGenerated: this.lightsGenerated, lightSymbol: this.lightSymbol,
