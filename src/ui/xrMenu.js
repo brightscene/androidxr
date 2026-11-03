@@ -454,7 +454,7 @@ export class XRMenu {
   show(on) {
     this.visible = on;
     this.panel.visible = on;
-    this.orb.mesh.visible = !on && this.app.playing;
+    this.orb.mesh.visible = !on && (this.app.playing || this.app.xrIdle);
     if (!on) this.warn.visible = false;
     this.app.getHead((h, f) => this.placeInFront(h, f));
     if (on) this.refresh();
@@ -494,6 +494,8 @@ export class XRMenu {
         if (hit && hit.onSelect) hit.onSelect();
         // pinch on empty space during a session opens the menu
         else if (!hit && !this.visible && this.app.playing) this.show(true);
+        // in the hall of doors, a press opens the door you're pointing at
+        else if (!hit && !this.visible && this.app.active?.onSelect) this.app.active.onSelect();
       });
       scene.add(ctl);
       this.controllers.push(ctl);

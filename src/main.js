@@ -11,6 +11,7 @@ import { StrobeLayer } from './visuals/strobe.js';
 import { U, damp, SFX, INPUT } from './visuals/common.js';
 import { World } from './visuals/world.js';
 import { SCENES } from './visuals/scenes/index.js';
+import { HUB } from './visuals/scenes/doors.js';
 import { XRMenu } from './ui/xrMenu.js';
 import { DomUI } from './ui/dom.js';
 
@@ -396,7 +397,13 @@ class App {
   // a quiet backdrop while you're in the headset menu between sessions
   _xrIdle() {
     this.xrIdle = true;
-    this.setScene(this.xrMode === 'immersive-ar' ? 'off' : 'stars');
+    if (this.xrMode === 'immersive-ar') { this.setScene('off'); return; }
+    // the hall of doors: each door leads into a session
+    HUB.tracks = [...this.lightTracks, ...this.guided, ...this.tracks, ...(this.imported ? [this.imported] : [])];
+    HUB.onChoose = (track) => { this.select(track); this.start(track); };
+    if (this.active?.name === 'doors') { this.outgoing.push(this.active); this.active = null; }
+    this.setScene('doors');
+    this.menu.show(false);
   }
 
   _onXRStart() {
@@ -404,11 +411,11 @@ class App {
     // stepping into the headset ends whatever was playing on the screen;
     // nothing plays until you press Begin in there
     if (this.playing) this.stop();
-    this._xrIdle();
     this.world.setPassthrough(ar);
     this.renderer.setClearColor(0x000000, ar ? 0 : 1);
     this.menu.group.visible = true;
     this.menu.show(!this.playing);
+    this._xrIdle();
     this._placeMenuIn = 4;
     this.strobe.setXR(true);
     this.ui.setXR(true);

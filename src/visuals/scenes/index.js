@@ -22,6 +22,7 @@ import { JetSkiScene } from './jetski.js';
 import { NeonCityScene } from './neon.js';
 import { HeartJourneyScene } from './heart.js';
 import { IntoTheLightScene } from './light.js';
+import { DoorHallScene } from './doors.js';
 import { DrumJourneyScene, IllusionScene, MindsEyeScene } from './lighttracks.js';
 import { TimePortalScene, KaleidosphereScene, NebulaFlightScene, WarpGateScene, MandalaBloomScene, SilkVortexScene } from './dimensions.js';
 import { MoonViewScene, FractalTunnelScene, CrystalCaveScene, NebulaScene, LightRibbonsScene, BlackHoleScene, ChakraScene } from './cosmic.js';
@@ -93,7 +94,8 @@ export const SCENES = {
   cymatics: { type: CymaticsScene, label: 'Cymatics', group: 'Mind', cruise: 0.4, nebula: 0.7, world: 'full' },
 
   stars: { type: BaseScene, label: 'Stars only', group: 'Simple', cruise: 0, nebula: 0, world: 'stars' },
+  doors: { type: DoorHallScene, label: 'Hall of doors', group: 'Simple', cruise: 0, nebula: 0, world: 'off', hidden: true },
   off: { type: BaseScene, label: 'Off (black)', group: 'Simple', cruise: 0, nebula: 0, world: 'off' },
 };
 
-export const BACKGROUNDS = [['auto', 'Auto (per track)'], ...Object.entries(SCENES).map(([k, v]) => [k, v.label])];
+export const BACKGROUNDS = [['auto', 'Auto (per track)'], ...Object.entries(SCENES).filter(([, v]) => !v.hidden).map(([k, v]) => [k, v.label])];
