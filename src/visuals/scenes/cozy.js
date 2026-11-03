@@ -18,16 +18,17 @@ export class MurmurationScene extends BaseScene {
         void main(){ vec3 d = normalize(vDir); float h = d.y;
           vec3 sunDir = normalize(vec3(0.3, 0.03, -1.0));
           float s = max(dot(d, sunDir), 0.0);
-          vec3 c = mix(vec3(0.95, 0.5, 0.25), vec3(0.45, 0.28, 0.45), smoothstep(0.0, 0.25, h));
-          c = mix(c, vec3(0.08, 0.08, 0.22), smoothstep(0.2, 0.75, h));
-          c += vec3(1.0, 0.6, 0.3) * (pow(s, 8.0) * 0.5 + pow(s, 400.0) * 2.0);
+          // late dusk: just a dark ember of light left on the horizon
+          vec3 c = mix(vec3(0.3, 0.12, 0.08), vec3(0.08, 0.05, 0.12), smoothstep(0.0, 0.2, h));
+          c = mix(c, vec3(0.01, 0.012, 0.035), smoothstep(0.15, 0.6, h));
+          c += vec3(1.0, 0.5, 0.25) * (pow(s, 12.0) * 0.18 + pow(s, 600.0) * 0.6);
           float cl = fbm(vec3(d.xz * 2.5 / (h + 0.25), uTime * 0.01)) * smoothstep(0.03, 0.25, h) * smoothstep(0.6, 0.25, h);
-          c = mix(c, mix(vec3(0.35, 0.2, 0.3), vec3(1.0, 0.6, 0.4), pow(s, 3.0)), cl * 0.55);
-          vec2 st = starDot(d, 220.0, 0.995); c += vec3(0.9) * st.x * smoothstep(0.4, 0.8, h) * 0.6;
+          c = mix(c, mix(vec3(0.06, 0.04, 0.07), vec3(0.4, 0.2, 0.15), pow(s, 3.0)), cl * 0.5);
+          vec2 st = starDot(d, 220.0, 0.993); c += vec3(0.9) * st.x * smoothstep(0.2, 0.6, h) * 0.6;
           // reed beds and a calm lake on the horizon
           float reeds = 0.012 + 0.02 * fbm(vec3(atan(d.z, d.x) * 40.0, 0.0, 0.0));
           c = mix(c, vec3(0.04, 0.03, 0.05), smoothstep(reeds + 0.003, reeds - 0.003, h) * step(-0.02, h));
-          vec3 water = mix(vec3(0.2, 0.12, 0.18), vec3(0.95, 0.55, 0.3) * 0.7, pow(max(dot(normalize(vec3(d.x, -d.y, d.z)), sunDir), 0.0), 20.0));
+          vec3 water = mix(vec3(0.03, 0.025, 0.045), vec3(0.6, 0.3, 0.15) * 0.5, pow(max(dot(normalize(vec3(d.x, -d.y, d.z)), sunDir), 0.0), 20.0));
           c = mix(c, water * (0.8 + 0.25 * fbm(vec3(d.x * 40.0 / (-h + 0.02), d.z * 6.0 / (-h + 0.02), uTime * 0.2))), step(h, -0.02));
           gl_FragColor = vec4(grade(c), uFade); }`,
     }));
@@ -76,13 +77,15 @@ export class MurmurationScene extends BaseScene {
           p = rotX(rotY(p, heading * 0.5), sin(t * 0.05) * 0.25);
           // soft ripples of density travelling through the flock
           float wave = sin(dot(b, vec3(3.0, 1.0, 2.0)) * 2.0 - t * 0.5);
-          p += normalize(vec3(1.0, 0.3, 0.6)) * wave * (1.0 + uWave * 1.2);
+          p += normalize(vec3(1.0, 0.3, 0.6)) * wave * (1.0 + uWave * 0.6);
           vec4 mv = modelViewMatrix * vec4(C + p, 1.0);
           float dist = -mv.z;
           vA = 0.75 + 0.25 * wave;
           vS = aSeed;
           // each bird glows its own aura colour, with gentle colour currents across the flock
-          vCol = aura(aSeed * 0.35 + b.x * 0.4 + b.z * 0.25 + t * 0.01);
+          vCol = aura(fract(aSeed * 7.31) + uTime * (0.004 + aSeed * 0.01));
+          // and brightens and dims on its own rhythm
+          vA *= 0.35 + 0.65 * pow(0.5 + 0.5 * sin(uTime * (0.35 + fract(aSeed * 13.7) * 1.1) + aSeed * 90.0), 2.0);
           vFlap = sin(uTime * (5.0 + aSeed * 3.0) + aSeed * 50.0);
           float px = pointPx(0.55 + aSeed * 0.25, mv);
           gl_PointSize = max(3.0, px);
@@ -103,18 +106,19 @@ export class MurmurationScene extends BaseScene {
     }));
     this.flock.frustumCulled = false;
     this.group.add(this.flock);
-    this.group.add(particles(U, { count: 300, min: [-30, 0.5, -40], max: [30, 6, 10], vel: [0.2, 0.05, 0], sway: 0.4, size: [0.02, 0.04], colors: ['#ffd8a0', '#ffffff'], alpha: 0.4 }));
+    this.group.add(particles(U, { count: 300, min: [-30, 0.5, -40], max: [30, 6, 10], vel: [0.2, 0.05, 0], sway: 0.4, size: [0.02, 0.04], colors: ['#ffd8a0', '#ffffff'], alpha: 0.2 }));
     this.speed = 1;
   }
   onEvent(e) {
-    if (e.type === 'beat' && e.accent) this.uniforms.uWave.value = Math.min(1, this.uniforms.uWave.value + 0.25);
+    if (e.type === 'beat' && e.accent) this.waveT = Math.min(1, (this.waveT || 0) + 0.25);
     if (e.type === 'section') this.speedT = 0.8 + (e.energy ?? 0.5) * 0.4;
   }
   update(dt, t, s) {
     const U = this.uniforms;
     this.speed = damp(this.speed, (this.speedT || 1) * 0.8, 0.2, dt);
     U.uFlock.value += dt * this.speed;
-    U.uWave.value *= Math.exp(-dt * 0.8);
+    this.waveT = (this.waveT || 0) * Math.exp(-dt * 0.5);
+    U.uWave.value = damp(U.uWave.value, this.waveT, 0.8, dt);
     // a rush of wings when the flock sweeps close overhead
     const f = U.uFlock.value;
     // a soft rush of wings each time the flock turns at the edge of your view

@@ -182,8 +182,9 @@ export class StarGateScene extends BaseScene {
           gl_FragColor = vec4(grade(c), uWorm * uFade); }`,
     }));
     this.worm.renderOrder = 50;
+    this.worm.position.y = 1.6;   // centred on your eyes, so the stars stream from the tunnel's heart
     this.group.add(this.worm);
-    this.streaks = particles(U, { count: 900, min: [-3, 0, -60], max: [3, 4, 4], vel: [0, 0, 22], sway: 0.05, size: [0.015, 0.035], colors: ['#ffffff', '#cfe6ff'], alpha: 0 });
+    this.streaks = particles(U, { count: 900, min: [-3, -0.4, -60], max: [3, 3.6, 4], vel: [0, 0, 22], sway: 0.05, size: [0.015, 0.035], colors: ['#ffffff', '#cfe6ff'], alpha: 0 });
     this.streaks.renderOrder = 51;
     this.group.add(this.streaks);
     this.dust = particles(U, { count: 400, min: [-14, 0, -24], max: [14, 6, 4], vel: [0.1, 0.03, 0], sway: 0.4, size: [0.01, 0.03], colors: ['#ffffff', '#ffe8c8'], alpha: 0.4 });
@@ -300,7 +301,7 @@ const WORMS = {
   violet: { deep: [0.22, 0.06, 0.5], bright: [1.3, 0.7, 1.5], light: [1.0, 0.85, 1.0], speeds: [0.5, 1.0, 1.6], bend: 0.35, twist: 0.25 },
   gold: { deep: [0.25, 0.08, 0.02], bright: [1.0, 0.72, 0.3], light: [1.0, 0.95, 0.8], speeds: [1.5, 2.6, 4.0], bend: 0.55, twist: 0.9 },
   emerald: { deep: [0.0, 0.08, 0.07], bright: [0.2, 0.75, 0.55], light: [0.9, 1.0, 0.95], speeds: [0.35, 0.7, 1.1], bend: 0.7, twist: 0.12 },
-  crimson: { deep: [0.25, 0.01, 0.06], bright: [1.0, 0.35, 0.45], light: [1.0, 0.85, 0.85], speeds: [2.5, 3.8, 5.5], bend: 0.3, twist: 1.6 },
+  crimson: { deep: [0.25, 0.01, 0.06], bright: [1.0, 0.35, 0.45], light: [1.0, 0.85, 0.85], speeds: [0.6, 1.2, 2.2, 3.5], bend: 0, twist: 0, classic: true },
 };
 
 export class WormholeScene extends BaseScene {
@@ -311,19 +312,19 @@ export class WormholeScene extends BaseScene {
     const U = this.uniforms;
     Object.assign(U, {
       uDeep: { value: new THREE.Color(...W.deep) }, uBright: { value: new THREE.Color(...W.bright) }, uLight: { value: new THREE.Color(...W.light) },
-      uWT: { value: 0 }, uTw: { value: 0 }, uBend: { value: new THREE.Vector2() }, uSurge: { value: 0 },
+      uWT: { value: 0 }, uTw: { value: 0 }, uTwK: { value: W.twist }, uBend: { value: new THREE.Vector2() }, uSurge: { value: 0 },
     });
     const m = new THREE.Mesh(new THREE.SphereGeometry(30, 64, 40), new THREE.ShaderMaterial({
       side: THREE.BackSide, transparent: true, depthWrite: false, uniforms: U,
       vertexShader: 'varying vec3 vDir; void main(){ vDir = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
-      fragmentShader: /* glsl */ `uniform vec3 uDeep, uBright, uLight; uniform vec2 uBend; uniform float uTime, uWT, uTw, uSurge, uFade, uBreath; varying vec3 vDir; ${NOISE} ${GRADE}
+      fragmentShader: /* glsl */ `uniform vec3 uDeep, uBright, uLight; uniform vec2 uBend; uniform float uTime, uWT, uTw, uTwK, uSurge, uFade, uBreath; varying vec3 vDir; ${NOISE} ${GRADE}
         void main(){ vec3 d = normalize(vDir);
           // bend the tunnel: the far end swings away, so it curves ahead of you
           float far = smoothstep(0.0, 1.0, -d.z);
           d.xy -= uBend * far * far * 0.7;
           d = normalize(d);
           float r = max(length(d.xy), 1e-3), z = max(-d.z, -0.5) / r;
-          float a = atan(d.y, d.x) + z * 0.05 * (1.0 + uTw * 2.0) + uTw;
+          float a = atan(d.y, d.x) + z * 0.05 * (1.0 + uTwK * 2.0) + uTw;
           vec3 P = vec3(cos(a) * 1.5, sin(a) * 1.5, z * 0.4 + uWT * 3.0);
           float n = fbm(P), m = fbm(P * 2.3 + n * 2.0);
           float streak = pow(0.5 + 0.5 * sin(a * 18.0 + n * 6.0), 6.0);
@@ -333,10 +334,15 @@ export class WormholeScene extends BaseScene {
           gl_FragColor = vec4(grade(c * (0.9 + uBreath * 0.05)), uFade); }`,
     }));
     m.renderOrder = -5;
+    m.position.y = 1.6;   // centred on your eyes
     this.group.add(m);
     const col = (c) => '#' + new THREE.Color(...c).getHexString();
-    this.streaks = particles(U, { count: 900, min: [-3, 0, -60], max: [3, 4, 4], vel: [0, 0, 22], sway: 0.05, size: [0.015, 0.035], colors: ['#ffffff', col(W.light), col(W.bright)], alpha: 0.85 });
-    this.group.add(this.streaks);
+    this.streaks = particles(U, { count: 900, min: [-3, -2, -60], max: [3, 2, 4], vel: [0, 0, 22], sway: 0.05, size: [0.015, 0.035], colors: ['#ffffff', col(W.light), col(W.bright)], alpha: 0.85 });
+    // the stars fly out of the tunnel's centre, wherever the bend has taken it
+    this.aim = new THREE.Group();
+    this.aim.position.y = 1.6;
+    this.aim.add(this.streaks);
+    this.group.add(this.aim);
     this.speed = W.speeds[1]; this.target = W.speeds[1]; this.next = 6;
     this.bendT = new THREE.Vector2(); this.bendNext = 4;
   }
@@ -356,7 +362,9 @@ export class WormholeScene extends BaseScene {
     if (this.bendNext <= 0) { this.bendT.set((Math.random() - 0.5) * 2 * W.bend, (Math.random() - 0.5) * 1.4 * W.bend); this.bendNext = 5 + Math.random() * 6; }
     U.uBend.value.x = damp(U.uBend.value.x, this.bendT.x, 0.35, dt);
     U.uBend.value.y = damp(U.uBend.value.y, this.bendT.y, 0.35, dt);
-    U.uTw.value += dt * W.twist * (0.4 + this.speed * 0.2) * Math.sign(Math.sin(U.uWT.value * 0.05) + 0.001);
+    if (W.classic) U.uTw.value = U.uWT.value * 0.4;   // the original Wormhole's slow roll as you travel
+    else U.uTw.value += dt * W.twist * (0.4 + this.speed * 0.2) * Math.sign(Math.sin(U.uWT.value * 0.05) + 0.001);
+    this.aim.rotation.set(Math.atan(0.7 * U.uBend.value.y), -Math.atan(0.7 * U.uBend.value.x), 0, 'YXZ');
     U.uSurge.value *= Math.exp(-dt * 1.5);
     this.streaks.userData.u.uBoost.value = Math.max(0, this.speed - W.speeds[0]) * 0.3 + U.uSurge.value * 0.5;
   }
