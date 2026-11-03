@@ -83,7 +83,8 @@ export class AudioEngine {
   // Short scene sounds, panned left/right in the head (not spatialised):
   //   'thud'  a soft, dull low thump, like something landing on a cushion
   //   'whoosh' a breathy swell of air that drifts across
-  sfx(kind, { pan = 0, gain = 1, decay = 0.35, dur = 1.4 } = {}) {
+  sfx(kind, { pan = 0, gain = 1, decay = 0.35, dur = 1.4, note = 1 } = {}) {
+    const opts_note = note;
     if (!this.ctx || !this.master) return;
     const ctx = this.ctx, t = ctx.currentTime + 0.01;
     if (!this.sfxBus) { this.sfxBus = ctx.createGain(); this.sfxBus.gain.value = 0.9; this.sfxBus.connect(this.master); }
@@ -121,6 +122,21 @@ export class AudioEngine {
       n.start(t, Math.random() * 4); n.stop(t + 0.12);
       nodes.push(o, g, lp, n, nf, ng, o2, g2);
       end(decay + 0.1);
+    } else if (kind === 'chime') {
+      // a soft singing-bowl chime: a few inharmonic partials with a long decay
+      const base = 392 * (opts_note || 1);
+      [[1, 0.5], [2.71, 0.22], [5.19, 0.1], [1.5, 0.12]].forEach(([m, a], i) => {
+        const o = ctx.createOscillator(), g = ctx.createGain();
+        o.type = 'sine'; o.frequency.value = base * m * (1 + (i ? 0.002 : 0));
+        g.gain.setValueAtTime(0, t);
+        g.gain.linearRampToValueAtTime(a * 0.5 * gain, t + 0.01);
+        g.gain.exponentialRampToValueAtTime(0.0005, t + dur * (1 - i * 0.18));
+        o.connect(g).connect(p);
+        o.start(t); o.stop(t + dur + 0.1);
+        nodes.push(o, g);
+      });
+      const send = ctx.createGain(); send.gain.value = 0.5; p.connect(send).connect(this.reverbSend); nodes.push(send);
+      end(dur + 0.2);
     } else if (kind === 'whoosh') {
       const n = ctx.createBufferSource(), bp = ctx.createBiquadFilter(), g = ctx.createGain();
       n.buffer = this.noise || this.whiteNoise;

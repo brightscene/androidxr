@@ -45,6 +45,12 @@ const SLEEP_ARC = [
 
 export const TRACKS = [
   {
+    id: 'reiki', title: 'Reiki', freq: 528, intent: 'Healing hands · trace the symbols',
+    bpm: 50, scale: 'hirajoshi', progression: [0, 3, 2, 4], barsPerChord: 2,
+    profile: 'meditate', scene: 'reiki', seed: 1528,
+    palette: ['#0d0818', '#7a4fd0', '#f3c77a'], breath: [4, 2, 6, 0], arc: GUIDED_ARC,
+  },
+  {
     id: 'ground', title: 'Ground', freq: 174, intent: 'Foundation · ease',
     bpm: 52, scale: 'minorPent', progression: [0, 3, 1, 4], barsPerChord: 2,
     profile: 'relax', scene: 'meadow', seed: 174,

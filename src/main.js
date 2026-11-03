@@ -7,7 +7,7 @@ import { Voice, GuideRunner } from './audio/voice.js';
 import { bandName } from './audio/entrainment.js';
 import { decodeStrobe, flashRateAt } from './audio/strobe.js';
 import { StrobeLayer } from './visuals/strobe.js';
-import { U, damp, SFX } from './visuals/common.js';
+import { U, damp, SFX, INPUT } from './visuals/common.js';
 import { World } from './visuals/world.js';
 import { SCENES } from './visuals/scenes/index.js';
 import { XRMenu } from './ui/xrMenu.js';
@@ -97,6 +97,7 @@ class App {
     this.menu.group.visible = false;
     this.scene.add(this.menu.group);
     this.menu.attachControllers(r, this.scene);
+    for (let i = 0; i < 2; i++) this.scene.add(this.renderer.xr.getHand(i));   // fingertips for tracing scenes
 
     this.active = null;
     this.outgoing = [];
@@ -536,6 +537,7 @@ class App {
     U.uLevel.value = s.level;
     U.uBeat.value *= Math.exp(-dt * 3);
 
+    this._updatePointers();
     if (this.active) {
       this.active.setFade(damp(this.active.fade, 1, 0.8, dt));
       this.active.update(dt, t, s);
@@ -638,6 +640,63 @@ class App {
     this.renderer.xr.setFoveation(Math.min(1, base + (p.level >= 3 ? 0.25 : 0)));
   }
 
+  // Collect pointing rays and fingertips for interactive scenes (INPUT).
+  _updatePointers() {
+    const list = [];
+    const xr = this.renderer.xr;
+    if (xr.isPresenting) {
+      for (let i = 0; i < 2; i++) {
+        const ctl = xr.getController(i);
+        if (!ctl.userData.connected || ctl.userData.mode === 'gaze') continue;
+        const o = new THREE.Vector3().setFromMatrixPosition(ctl.matrixWorld);
+        const d = new THREE.Vector3(0, 0, -1).applyMatrix3(new THREE.Matrix3().setFromMatrix4(ctl.matrixWorld)).normalize();
+        let tip = null;
+        const hand = xr.getHand(i);
+        const j = hand?.joints?.['index-finger-tip'];
+        if (j && j.visible) tip = new THREE.Vector3().setFromMatrixPosition(j.matrixWorld);
+        list.push({ origin: o, dir: d, tip, id: i });
+      }
+    } else if (this.mouse && !this.menuVisibleFlat()) {
+      const rc = new THREE.Raycaster();
+      rc.setFromCamera(this.mouse, this.camera);
+      list.push({ origin: rc.ray.origin.clone(), dir: rc.ray.direction.clone(), tip: null, id: 'mouse' });
+    }
+    INPUT.pointers = list;
+    this._detectShake(list);
+  }
+
+  // Shaking both hands for about two seconds also centres the view.
+  _detectShake(list) {
+    const now = performance.now() / 1000;
+    this._shake = this._shake || { h: {}, last: 0 };
+    const S = this._shake;
+    let ready = 0;
+    for (const p of list) {
+      if (p.id === 'mouse') continue;
+      const pos = p.tip || p.origin;
+      const h = (S.h[p.id] = S.h[p.id] || []);
+      h.push([now, pos.x, pos.y, pos.z]);
+      while (h.length && now - h[0][0] > 2.0) h.shift();
+      if (h.length < 20 || now - h[0][0] < 1.8) continue;
+      let len = 0, flips = 0, prev = null;
+      for (let i = 1; i < h.length; i++) {
+        const dx = h[i][1] - h[i - 1][1], dy = h[i][2] - h[i - 1][2], dz = h[i][3] - h[i - 1][3];
+        len += Math.hypot(dx, dy, dz);
+        // count changes of direction along the biggest movement
+        const v = Math.abs(dx) > Math.abs(dy) ? dx : dy;
+        if (Math.abs(v) > 0.004) { const sgn = Math.sign(v); if (prev !== null && sgn !== prev) flips++; prev = sgn; }
+      }
+      if (len > 1.4 && flips >= 6) ready++;
+    }
+    if (ready >= 2 && now - S.last > 3) {
+      S.last = now;
+      S.h = {};
+      this.recentre();
+    }
+  }
+
+  menuVisibleFlat() { const m = document.getElementById('menu'); return m && !m.classList.contains('hidden'); }
+
   _resize() {
     if (this.renderer.xr.isPresenting) return;
     this.camera.aspect = window.innerWidth / window.innerHeight;
@@ -651,7 +710,8 @@ class App {
     this.yaw = 0; this.pitch = 0.05;
     el.addEventListener('pointerdown', (e) => { down = { x: e.clientX, y: e.clientY }; el.setPointerCapture(e.pointerId); });
     el.addEventListener('pointermove', (e) => {
-      if (!down) return;
+      this.mouse = new THREE.Vector2((e.clientX / window.innerWidth) * 2 - 1, -(e.clientY / window.innerHeight) * 2 + 1);
+      if (!down || e.shiftKey || this.active?.wantsPointer) return;   // interactive scenes keep the mouse for tracing
       this.yaw += (e.clientX - down.x) * 0.0045;
       this.pitch = Math.max(-1.3, Math.min(1.3, this.pitch + (e.clientY - down.y) * 0.0045));
       down = { x: e.clientX, y: e.clientY };

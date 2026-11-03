@@ -281,11 +281,15 @@ export function estimateSeconds(items, wpm = 125, startDelay = 12) {
 }
 
 // Every spoken line in the app with its id (for the recording tool).
+// spoken when you finish tracing a Reiki symbol
+export const REIKI_THANKS = ['Thank you.', 'Beautifully done. Thank you.', 'Thank you. Feel that energy flowing through you.', 'Wonderful. Thank you.', 'Thank you. Let that light settle in you.'];
+
 export function allLines() {
   const out = [];
   for (const items of Object.values(SCRIPTS)) for (const it of items) if (it.text) out.push({ id: it.id, text: it.text });
   WELCOMES.forEach((text, i) => out.push({ id: `welcome-${i + 1}`, text }));
   WHISPERS.forEach((text, i) => out.push({ id: `whisper-${i + 1}`, text }));
+  REIKI_THANKS.forEach((text, i) => out.push({ id: `reiki-thanks-${i + 1}`, text }));
   AFFIRMATIONS.forEach((set, i) => set.forEach((text, j) => out.push({ id: `aff-${i + 1}-${j + 1}`, text })));
   return out;
 }
