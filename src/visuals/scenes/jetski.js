@@ -6,8 +6,7 @@ import { particles } from './kit.js';
 // You ride a jet ski out across a rough open sea under a wild, broken sky.
 // Big swells roll toward you; the ski climbs each one, crests, and crashes
 // down through the next with a thump and a burst of spray, the sun flashing
-// off the water. The ski's own nose and handlebars stay steady in front of
-// you while the sea heaves gently around them, which keeps it comfortable.
+// off the water. Point into the lower half of your view, left or right, to steer.
 
 // the swells: amplitude, x and z wavenumbers, own speed (shared by the shader
 // and by the ride, so the ski moves exactly with the water you see)
@@ -141,18 +140,6 @@ export class JetSkiScene extends BaseScene {
     this.bars.position.set(0, 0.86, -0.42);
     for (const m of [bar, ...grips]) { m.position.y -= 0.86; m.position.z += 0.42; this.bars.add(m); }
     ski.add(hull, cowl, stem, this.bars);
-    // your hands, drawn as glowing joints and bones whenever the headset sees them
-    const CH = [[0, 1, 2, 3, 4], [0, 5, 6, 7, 8, 9], [0, 10, 11, 12, 13, 14], [0, 15, 16, 17, 18, 19], [0, 20, 21, 22, 23, 24]];
-    this.bones = []; for (const ch of CH) for (let k = 0; k < ch.length - 1; k++) this.bones.push([ch[k], ch[k + 1]]);
-    this.handViz = [0, 1].map(() => {
-      const pg = new THREE.BufferGeometry(); pg.setAttribute('position', new THREE.BufferAttribute(new Float32Array(25 * 3), 3));
-      const lg = new THREE.BufferGeometry(); lg.setAttribute('position', new THREE.BufferAttribute(new Float32Array(this.bones.length * 6), 3));
-      const pts = new THREE.Points(pg, new THREE.PointsMaterial({ color: 0xfff1dc, size: 0.016, transparent: true, opacity: 0.95, depthWrite: false }));
-      const lines = new THREE.LineSegments(lg, new THREE.LineBasicMaterial({ color: 0xffd9b0, transparent: true, opacity: 0.7, depthWrite: false }));
-      const g = new THREE.Group(); g.add(pts, lines); g.visible = false; this.group.add(g);
-      for (const o of [pts, lines]) o.frustumCulled = false;
-      return { g, pg, lg };
-    });
     this.yaw = 0; this.steer = 0; this.off = new THREE.Vector2();
     const buoyG = mergeBuoy();
     this.buoys = new THREE.InstancedMesh(buoyG, litMat(U, '#c8241c', '#f2f2f2'), 24);
@@ -160,38 +147,22 @@ export class JetSkiScene extends BaseScene {
     this.buoyPos = Array.from({ length: 24 }, () => [(Math.random() - 0.5) * 160, (Math.random() - 0.5) * 160]);
     this.world.add(this.buoys);
     this.BM = new THREE.Matrix4();
-    this.wantsHands = true;   // show your hands as proper hand models
+    this.wantsPointer = true;   // point low to steer
     this.ski = ski;
-    this.group.add(ski);
+    // the jet ski itself is not drawn: just you and the sea
 
     this.S = 0; this.T = 0; this.speed = 9; this.target = 9; this.next = 6;
     this.hc = height(0, 0, 0, 0, 0); this.vy = 0; this.air = false; this.spray0 = 0;
   }
   _sfx(kind, o) { if (this.fade > 0.5) SFX.play(kind, o); }
 
-  // show your hands, and steer with the handlebars when both hands hold them
-  _hands(dt, hands = INPUT.hands || [], pointers = INPUT.pointers) {
-    this.handViz.forEach((v, i) => {
-      const h = hands[i];
-      v.g.visible = false;   // the skeleton is replaced by real hand models
-      if (!h) return;
-      const pa = v.pg.attributes.position, la = v.lg.attributes.position;
-      h.joints.forEach((j, k) => { if (j) pa.setXYZ(k, j.x, j.y, j.z); });
-      this.bones.forEach(([a, b], k) => { const A = h.joints[a], B = h.joints[b]; if (A && B) { la.setXYZ(k * 2, A.x, A.y, A.z); la.setXYZ(k * 2 + 1, B.x, B.y, B.z); } });
-      pa.needsUpdate = true; la.needsUpdate = true;
-    });
-    // where are the two grips held? hands (palm centre) or controllers
-    const grips = hands.map((h) => h.joints[10] || h.joints[0]).filter(Boolean);
-    if (grips.length < 2) for (const p of pointers) if (!p.tip) grips.push(p.origin);
+  // steer by pointing: aim into the lower half of your view, left or right
+  _steerByPointer(dt, pointers = INPUT.pointers) {
     let target = 0;
-    if (grips.length >= 2) {
-      const [a, b] = grips.slice(0, 2).sort((p, q) => p.x - q.x);
-      const centre = new THREE.Vector3(0, 0.86, -0.42);
-      const near = a.distanceTo(centre) < 0.6 && b.distanceTo(centre) < 0.6;
-      if (near) target = Math.max(-0.9, Math.min(0.9, Math.atan2(a.z - b.z, b.x - a.x) * 1.6));
+    for (const p of pointers) {
+      if (p.dir.y < -0.12) { target = Math.max(-0.9, Math.min(0.9, -Math.atan2(p.dir.x, -p.dir.z) * 1.8)); break; }
     }
-    this.steer = damp(this.steer, target, 6, dt);
-    this.bars.rotation.y = this.steer * 0.8;
+    this.steer = damp(this.steer, target, 4, dt);
   }
 
   update(dt) {
@@ -200,7 +171,7 @@ export class JetSkiScene extends BaseScene {
     this.next -= dt;
     if (this.next <= 0) { this.target = [6, 8, 10, 13][Math.floor(Math.random() * 4)]; this.next = 7 + Math.random() * 8; }
     this.speed = damp(this.speed, this.target, 0.4, dt);
-    if (!this.testHands) this._hands(dt); else this._hands(dt, this.testHands, []);
+    this._steerByPointer(dt, this.testPointers || INPUT.pointers);
     // steering turns your heading; you travel along it
     this.yaw += this.steer * dt * (0.9 + this.speed * 0.06);
     const fx = Math.sin(this.yaw), fz = -Math.cos(this.yaw), rx = Math.cos(this.yaw), rz = Math.sin(this.yaw);
@@ -244,7 +215,6 @@ export class JetSkiScene extends BaseScene {
     this.world.rotation.y = this.yaw;
     this.world.rotation.x = damp(this.world.rotation.x, -pitch, 3, dt);
     this.world.rotation.z = damp(this.world.rotation.z, -roll - this.steer * 0.12, 3, dt);   // lean into the turn
-    this.ski.position.y = damp(this.ski.position.y, Math.sin(this.T * 7) * 0.006 * this.speed / 10, 10, dt);
     // spray bursts on each crash, with a fine mist at speed
     this.spray0 *= Math.exp(-dt * 1.8);
     this.spray.userData.u.uAlpha.value = Math.min(0.9, this.spray0 + (this.speed - 6) * 0.015);
