@@ -1,0 +1,996 @@
+{
+ "site": "https://brightscene.github.io/androidxr/",
+ "journeys": {
+  "free": [
+   {
+    "id": "j-galaxy",
+    "title": "Galaxy voyage",
+    "intent": "Drift through a spiral galaxy",
+    "scene": "galaxy",
+    "palette": [
+     "#04061a",
+     "#3b2a8a",
+     "#9fc4ff"
+    ],
+    "free": true,
+    "kind": "Free",
+    "freq": 528,
+    "audio": null
+   },
+   {
+    "id": "j-nebula",
+    "title": "Nebula drift",
+    "intent": "Float through glowing nebula clouds",
+    "scene": "nebula",
+    "palette": [
+     "#0a0418",
+     "#6a2a8a",
+     "#ffb0e0"
+    ],
+    "free": true,
+    "kind": "Free",
+    "freq": 639,
+    "audio": null
+   },
+   {
+    "id": "j-stars",
+    "title": "White stars",
+    "intent": "A living night sky, the Milky Way and shooting stars",
+    "scene": "stars",
+    "palette": [
+     "#020308",
+     "#2a2f4a",
+     "#e8ecff"
+    ],
+    "free": true,
+    "kind": "Free",
+    "freq": 174,
+    "audio": null
+   },
+   {
+    "id": "j-bluestars",
+    "title": "Blue stars",
+    "intent": "Blue stars all around, drifting past you",
+    "scene": "bluestars",
+    "palette": [
+     "#010414",
+     "#1a3a8a",
+     "#8fc0ff"
+    ],
+    "free": true,
+    "kind": "Free",
+    "freq": 852,
+    "audio": null
+   },
+   {
+    "id": "j-starsaura",
+    "title": "White stars with aura",
+    "intent": "Stars beneath soft curtains of coloured light",
+    "scene": "starsaura",
+    "palette": [
+     "#05030f",
+     "#4a2a7a",
+     "#7ff0d8"
+    ],
+    "free": true,
+    "kind": "Free",
+    "freq": 963,
+    "audio": null
+   },
+   {
+    "id": "j-bluestarsaura",
+    "title": "Blue stars with aura",
+    "intent": "Blue stars and drifting aura light",
+    "scene": "bluestarsaura",
+    "palette": [
+     "#02051a",
+     "#2a3a9a",
+     "#d08fff"
+    ],
+    "free": true,
+    "kind": "Free",
+    "freq": 741,
+    "audio": null
+   }
+  ],
+  "premium": [
+   {
+    "id": "oceamniotic",
+    "title": "Oceamniotic",
+    "intent": "AudioStrobe light & sound",
+    "scene": "galaxy",
+    "palette": [
+     "#020b18",
+     "#1d6fa8",
+     "#a8ecff"
+    ],
+    "free": false,
+    "kind": "Light & sound",
+    "freq": 528,
+    "audio": "https://brightscene.github.io/androidxr/tracks/oceamniotic.mp3"
+   },
+   {
+    "id": "lost-worlds-3",
+    "title": "Lost Worlds Discovery 3",
+    "intent": "SpectraStrobe full-colour light & sound",
+    "scene": "galaxy",
+    "palette": [
+     "#03041a",
+     "#2d3fbf",
+     "#8fd0ff"
+    ],
+    "free": false,
+    "kind": "Light & sound",
+    "freq": 432,
+    "audio": "https://brightscene.github.io/androidxr/tracks/lost-worlds-discovery-3.mp3"
+   },
+   {
+    "id": "midnight-level-one",
+    "title": "Midnight · Level One",
+    "intent": "AudioStrobe theta meditation",
+    "scene": "galaxy",
+    "palette": [
+     "#05030f",
+     "#4b2a8a",
+     "#d6b8ff"
+    ],
+    "free": false,
+    "kind": "Light & sound",
+    "freq": 396,
+    "audio": "https://brightscene.github.io/androidxr/tracks/midnight-level-one.mp3"
+   },
+   {
+    "id": "journey-of-the-drums",
+    "title": "Journey of the Drums",
+    "intent": "AudioStrobe shamanic drumming",
+    "scene": "drums",
+    "palette": [
+     "#0c0503",
+     "#a8461a",
+     "#ffc27a"
+    ],
+    "free": false,
+    "kind": "Light & sound",
+    "freq": 396,
+    "audio": "https://brightscene.github.io/androidxr/tracks/journey-of-the-drums.mp3"
+   },
+   {
+    "id": "audio-illusions",
+    "title": "Audio Illusions",
+    "intent": "AudioStrobe sound & light illusions",
+    "scene": "illusions",
+    "palette": [
+     "#03031a",
+     "#4a1f8a",
+     "#5fd6e0"
+    ],
+    "free": false,
+    "kind": "Light & sound",
+    "freq": 852,
+    "audio": "https://brightscene.github.io/androidxr/tracks/audio-illusions.mp3"
+   },
+   {
+    "id": "dreams-minds-eye",
+    "title": "Dreams in the Mind's Eye",
+    "intent": "AudioStrobe dreamy visualisation",
+    "scene": "mindseye",
+    "palette": [
+     "#05030f",
+     "#5b2a7a",
+     "#e0c8ff"
+    ],
+    "free": false,
+    "kind": "Light & sound",
+    "freq": 852,
+    "audio": "https://brightscene.github.io/androidxr/tracks/dreams-minds-eye.mp3"
+   },
+   {
+    "id": "time-of-your-life-2",
+    "title": "Time Of Your Life · Part 2",
+    "intent": "Chicane · AudioStrobe light & sound",
+    "scene": "bliss",
+    "palette": [
+     "#05030f",
+     "#3a2a8a",
+     "#ffd6f0"
+    ],
+    "free": false,
+    "kind": "Light & sound",
+    "freq": 528,
+    "audio": "https://brightscene.github.io/androidxr/tracks/time-of-your-life-2.mp3"
+   },
+   {
+    "id": "sleep",
+    "title": "Drift to Sleep",
+    "intent": "Hypnotic sleep journey",
+    "scene": "aurora",
+    "palette": [
+     "#03030c",
+     "#2b2d6e",
+     "#9fb4ff"
+    ],
+    "free": false,
+    "kind": "Guided · ~NaN min",
+    "freq": 174,
+    "audio": null
+   },
+   {
+    "id": "abundance",
+    "title": "Abundance",
+    "intent": "Manifesting story · money",
+    "scene": "meadow",
+    "palette": [
+     "#0f0817",
+     "#b07d2b",
+     "#ffe8a8"
+    ],
+    "free": false,
+    "kind": "Guided · ~NaN min",
+    "freq": 528,
+    "audio": null
+   },
+   {
+    "id": "okay",
+    "title": "It's Going to Be Okay",
+    "intent": "Comfort & reassurance",
+    "scene": "beach",
+    "palette": [
+     "#060f17",
+     "#3a8fb7",
+     "#ffd9c2"
+    ],
+    "free": false,
+    "kind": "Guided · ~NaN min",
+    "freq": 639,
+    "audio": null
+   },
+   {
+    "id": "j-cycle",
+    "title": "Image cycling",
+    "intent": "Time-line images of your best future, faster and faster",
+    "scene": "cycle",
+    "palette": [
+     "#0a0a1a",
+     "#6a3aa8",
+     "#ffd6a0"
+    ],
+    "free": false,
+    "kind": "Soundscape · 741 Hz",
+    "freq": 741,
+    "audio": null
+   },
+   {
+    "id": "j-affirm",
+    "title": "Affirmation field",
+    "intent": "Words of affirmation lift off a field of light",
+    "scene": "affirm",
+    "palette": [
+     "#06061a",
+     "#3a5aa8",
+     "#ffe0b0"
+    ],
+    "free": false,
+    "kind": "Soundscape · 528 Hz",
+    "freq": 528,
+    "audio": null
+   },
+   {
+    "id": "womb",
+    "title": "Womb",
+    "intent": "Only a muffled heartbeat · return to the beginning",
+    "scene": "womb",
+    "palette": [
+     "#1a0303",
+     "#8a1f14",
+     "#ffb08a"
+    ],
+    "free": false,
+    "kind": "Soundscape · 174 Hz",
+    "freq": 174,
+    "audio": null
+   },
+   {
+    "id": "reiki",
+    "title": "Reiki",
+    "intent": "Healing hands · trace the symbols",
+    "scene": "reiki",
+    "palette": [
+     "#0d0818",
+     "#7a4fd0",
+     "#f3c77a"
+    ],
+    "free": false,
+    "kind": "Soundscape · 528 Hz",
+    "freq": 528,
+    "audio": null
+   },
+   {
+    "id": "ground",
+    "title": "Ground",
+    "intent": "Foundation · ease",
+    "scene": "meadow",
+    "palette": [
+     "#0b1d3a",
+     "#1f6f8b",
+     "#99e1d9"
+    ],
+    "free": false,
+    "kind": "Soundscape · 174 Hz",
+    "freq": 174,
+    "audio": null
+   },
+   {
+    "id": "mend",
+    "title": "Mend",
+    "intent": "Restoration · renewal",
+    "scene": "galaxy",
+    "palette": [
+     "#1a0f2e",
+     "#7b4fa0",
+     "#f5c6e6"
+    ],
+    "free": false,
+    "kind": "Soundscape · 285 Hz",
+    "freq": 285,
+    "audio": null
+   },
+   {
+    "id": "release",
+    "title": "Release",
+    "intent": "Letting go of fear",
+    "scene": "aurora",
+    "palette": [
+     "#050b1a",
+     "#1ea896",
+     "#b8f2e6"
+    ],
+    "free": false,
+    "kind": "Soundscape · 396 Hz",
+    "freq": 396,
+    "audio": null
+   },
+   {
+    "id": "undo",
+    "title": "Undo",
+    "intent": "Facilitating change",
+    "scene": "forest",
+    "palette": [
+     "#120a1f",
+     "#d4a373",
+     "#fefae0"
+    ],
+    "free": false,
+    "kind": "Soundscape · 417 Hz",
+    "freq": 417,
+    "audio": null
+   },
+   {
+    "id": "bloom",
+    "title": "Bloom",
+    "intent": "Transformation · love",
+    "scene": "mandala",
+    "palette": [
+     "#1b0a14",
+     "#e07a5f",
+     "#f9dcc4"
+    ],
+    "free": false,
+    "kind": "Soundscape · 528 Hz",
+    "freq": 528,
+    "audio": null
+   },
+   {
+    "id": "connect",
+    "title": "Connect",
+    "intent": "Harmony · relationships",
+    "scene": "mindseye",
+    "palette": [
+     "#071a1a",
+     "#3a9d8f",
+     "#f2e3bc"
+    ],
+    "free": false,
+    "kind": "Soundscape · 639 Hz",
+    "freq": 639,
+    "audio": null
+   },
+   {
+    "id": "clarity",
+    "title": "Clarity",
+    "intent": "Expression · solutions",
+    "scene": "cymatics",
+    "palette": [
+     "#03071e",
+     "#4895ef",
+     "#e0fbfc"
+    ],
+    "free": false,
+    "kind": "Soundscape · 741 Hz",
+    "freq": 741,
+    "audio": null
+   },
+   {
+    "id": "intuition",
+    "title": "Intuition",
+    "intent": "Inner sight",
+    "scene": "galaxy",
+    "palette": [
+     "#0d0221",
+     "#9d4edd",
+     "#c8f7ff"
+    ],
+    "free": false,
+    "kind": "Soundscape · 852 Hz",
+    "freq": 852,
+    "audio": null
+   },
+   {
+    "id": "crown",
+    "title": "Crown",
+    "intent": "Oneness · stillness",
+    "scene": "moon",
+    "palette": [
+     "#05050f",
+     "#c9a227",
+     "#ffffff"
+    ],
+    "free": false,
+    "kind": "Soundscape · 963 Hz",
+    "freq": 963,
+    "audio": null
+   }
+  ]
+ },
+ "scenes": [
+  {
+   "id": "galaxy",
+   "label": "Galaxy voyage",
+   "group": "Space",
+   "palette": [
+    "#03031a",
+    "#4a1f8a",
+    "#5fd6e0"
+   ]
+  },
+  {
+   "id": "moon",
+   "label": "Moon view",
+   "group": "Space",
+   "palette": [
+    "#020b18",
+    "#1d6fa8",
+    "#a8ecff"
+   ]
+  },
+  {
+   "id": "blackhole",
+   "label": "Black hole",
+   "group": "Space",
+   "palette": [
+    "#0c0503",
+    "#a8461a",
+    "#ffc27a"
+   ]
+  },
+  {
+   "id": "nebula",
+   "label": "Nebula drift",
+   "group": "Space",
+   "palette": [
+    "#060f17",
+    "#3a8fb7",
+    "#ffd9c2"
+   ]
+  },
+  {
+   "id": "ribbons",
+   "label": "Light ribbons",
+   "group": "Space",
+   "palette": [
+    "#05030f",
+    "#3a2a8a",
+    "#ffd6f0"
+   ]
+  },
+  {
+   "id": "aurora",
+   "label": "Aurora",
+   "group": "Space",
+   "palette": [
+    "#03071e",
+    "#4895ef",
+    "#e0fbfc"
+   ]
+  },
+  {
+   "id": "quantum",
+   "label": "Quantum field",
+   "group": "Dimensions",
+   "palette": [
+    "#0f0817",
+    "#b07d2b",
+    "#ffe8a8"
+   ]
+  },
+  {
+   "id": "stargate",
+   "label": "Wormhole",
+   "group": "Dimensions",
+   "palette": [
+    "#03071e",
+    "#4895ef",
+    "#e0fbfc"
+   ]
+  },
+  {
+   "id": "intothelight",
+   "label": "Into the light",
+   "group": "Mind",
+   "palette": [
+    "#071a1a",
+    "#3a9d8f",
+    "#f2e3bc"
+   ]
+  },
+  {
+   "id": "heartjourney",
+   "label": "Journey into the heart",
+   "group": "Mind",
+   "palette": [
+    "#1a0303",
+    "#8a1f14",
+    "#ffb08a"
+   ]
+  },
+  {
+   "id": "sleep",
+   "label": "Sleep",
+   "group": "Mind",
+   "palette": [
+    "#03030c",
+    "#2b2d6e",
+    "#9fb4ff"
+   ]
+  },
+  {
+   "id": "hope",
+   "label": "Hope",
+   "group": "Mind",
+   "palette": [
+    "#0f0817",
+    "#b07d2b",
+    "#ffe8a8"
+   ]
+  },
+  {
+   "id": "bliss",
+   "label": "Bliss",
+   "group": "Mind",
+   "palette": [
+    "#0d0221",
+    "#9d4edd",
+    "#c8f7ff"
+   ]
+  },
+  {
+   "id": "frontier",
+   "label": "Final frontier",
+   "group": "Space",
+   "palette": [
+    "#060f17",
+    "#3a8fb7",
+    "#ffd9c2"
+   ]
+  },
+  {
+   "id": "rainbow",
+   "label": "Rainbow road",
+   "group": "Space",
+   "palette": [
+    "#0d0221",
+    "#9d4edd",
+    "#c8f7ff"
+   ]
+  },
+  {
+   "id": "neoncity",
+   "label": "Neon Tokyo flight",
+   "group": "Dimensions",
+   "palette": [
+    "#03031a",
+    "#4a1f8a",
+    "#5fd6e0"
+   ]
+  },
+  {
+   "id": "washer",
+   "label": "Inside the washing machine",
+   "group": "Dimensions",
+   "palette": [
+    "#05050f",
+    "#c9a227",
+    "#ffffff"
+   ]
+  },
+  {
+   "id": "fireworks",
+   "label": "Fireworks",
+   "group": "Sky & water",
+   "palette": [
+    "#020b18",
+    "#1d6fa8",
+    "#a8ecff"
+   ]
+  },
+  {
+   "id": "drones",
+   "label": "Drone light show",
+   "group": "Sky & water",
+   "palette": [
+    "#071a1a",
+    "#3a9d8f",
+    "#f2e3bc"
+   ]
+  },
+  {
+   "id": "ski",
+   "label": "Ski run in the snow",
+   "group": "Nature",
+   "palette": [
+    "#020b18",
+    "#1d6fa8",
+    "#a8ecff"
+   ]
+  },
+  {
+   "id": "jetski",
+   "label": "Jet ski",
+   "group": "Sky & water",
+   "palette": [
+    "#0b1d3a",
+    "#1f6f8b",
+    "#99e1d9"
+   ]
+  },
+  {
+   "id": "earthcore",
+   "label": "Journey to the centre of the earth",
+   "group": "Dimensions",
+   "palette": [
+    "#0f0817",
+    "#b07d2b",
+    "#ffe8a8"
+   ]
+  },
+  {
+   "id": "labyrinth",
+   "label": "Space labyrinth",
+   "group": "Dimensions",
+   "palette": [
+    "#0d0818",
+    "#7a4fd0",
+    "#f3c77a"
+   ]
+  },
+  {
+   "id": "portal",
+   "label": "Time portal",
+   "group": "Dimensions",
+   "palette": [
+    "#0d0221",
+    "#9d4edd",
+    "#c8f7ff"
+   ]
+  },
+  {
+   "id": "kaleido",
+   "label": "Kaleidosphere",
+   "group": "Dimensions",
+   "palette": [
+    "#03030c",
+    "#2b2d6e",
+    "#9fb4ff"
+   ]
+  },
+  {
+   "id": "tunnel",
+   "label": "Fractal tunnel",
+   "group": "Dimensions",
+   "palette": [
+    "#03031a",
+    "#4a1f8a",
+    "#5fd6e0"
+   ]
+  },
+  {
+   "id": "nebulaflight",
+   "label": "Nebula flight",
+   "group": "Dimensions",
+   "palette": [
+    "#0b1d3a",
+    "#1f6f8b",
+    "#99e1d9"
+   ]
+  },
+  {
+   "id": "warp",
+   "label": "Warp gate",
+   "group": "Dimensions",
+   "palette": [
+    "#05030f",
+    "#4b2a8a",
+    "#d6b8ff"
+   ]
+  },
+  {
+   "id": "bloom",
+   "label": "Mandala bloom",
+   "group": "Dimensions",
+   "palette": [
+    "#0d0818",
+    "#7a4fd0",
+    "#f3c77a"
+   ]
+  },
+  {
+   "id": "silk",
+   "label": "Silk vortex",
+   "group": "Dimensions",
+   "palette": [
+    "#1a0f2e",
+    "#7b4fa0",
+    "#f5c6e6"
+   ]
+  },
+  {
+   "id": "murmuration",
+   "label": "Starling murmuration",
+   "group": "Nature",
+   "palette": [
+    "#05030f",
+    "#5b2a7a",
+    "#e0c8ff"
+   ]
+  },
+  {
+   "id": "campfire",
+   "label": "Campfire under the stars",
+   "group": "Nature",
+   "palette": [
+    "#1b0a14",
+    "#e07a5f",
+    "#f9dcc4"
+   ]
+  },
+  {
+   "id": "fireplace",
+   "label": "Fireplace",
+   "group": "Nature",
+   "palette": [
+    "#120a1f",
+    "#d4a373",
+    "#fefae0"
+   ]
+  },
+  {
+   "id": "meadow",
+   "label": "Meadow",
+   "group": "Nature",
+   "palette": [
+    "#05050f",
+    "#c9a227",
+    "#ffffff"
+   ]
+  },
+  {
+   "id": "beach",
+   "label": "White beach",
+   "group": "Nature",
+   "palette": [
+    "#020b18",
+    "#1d6fa8",
+    "#a8ecff"
+   ]
+  },
+  {
+   "id": "underwater",
+   "label": "Underwater",
+   "group": "Nature",
+   "palette": [
+    "#060f17",
+    "#3a8fb7",
+    "#ffd9c2"
+   ]
+  },
+  {
+   "id": "forest",
+   "label": "Glowing forest",
+   "group": "Nature",
+   "palette": [
+    "#050b1a",
+    "#1ea896",
+    "#b8f2e6"
+   ]
+  },
+  {
+   "id": "snow",
+   "label": "Snowy peaks",
+   "group": "Nature",
+   "palette": [
+    "#03071e",
+    "#4895ef",
+    "#e0fbfc"
+   ]
+  },
+  {
+   "id": "desert",
+   "label": "Desert night",
+   "group": "Nature",
+   "palette": [
+    "#05030f",
+    "#3a2a8a",
+    "#ffd6f0"
+   ]
+  },
+  {
+   "id": "clouds",
+   "label": "Cloud flight",
+   "group": "Sky & water",
+   "palette": [
+    "#03071e",
+    "#4895ef",
+    "#e0fbfc"
+   ]
+  },
+  {
+   "id": "lanterns",
+   "label": "Lantern lake",
+   "group": "Sky & water",
+   "palette": [
+    "#1a0f2e",
+    "#7b4fa0",
+    "#f5c6e6"
+   ]
+  },
+  {
+   "id": "rain",
+   "label": "Rain on the lake",
+   "group": "Sky & water",
+   "palette": [
+    "#060f17",
+    "#3a8fb7",
+    "#ffd9c2"
+   ]
+  },
+  {
+   "id": "ocean",
+   "label": "Light ocean",
+   "group": "Sky & water",
+   "palette": [
+    "#0b1d3a",
+    "#1f6f8b",
+    "#99e1d9"
+   ]
+  },
+  {
+   "id": "crystal",
+   "label": "Crystal cave",
+   "group": "Mind",
+   "palette": [
+    "#05030f",
+    "#4b2a8a",
+    "#d6b8ff"
+   ]
+  },
+  {
+   "id": "chakras",
+   "label": "Chakras",
+   "group": "Mind",
+   "palette": [
+    "#0d0221",
+    "#9d4edd",
+    "#c8f7ff"
+   ]
+  },
+  {
+   "id": "drums",
+   "label": "Drum circle",
+   "group": "Light journeys",
+   "palette": [
+    "#120a1f",
+    "#d4a373",
+    "#fefae0"
+   ]
+  },
+  {
+   "id": "illusions",
+   "label": "Audio illusions",
+   "group": "Light journeys",
+   "palette": [
+    "#03041a",
+    "#2d3fbf",
+    "#8fd0ff"
+   ]
+  },
+  {
+   "id": "womb",
+   "label": "Womb",
+   "group": "Mind",
+   "palette": [
+    "#0c0503",
+    "#a8461a",
+    "#ffc27a"
+   ]
+  },
+  {
+   "id": "reiki",
+   "label": "Reiki symbols",
+   "group": "Mind",
+   "palette": [
+    "#071a1a",
+    "#3a9d8f",
+    "#f2e3bc"
+   ]
+  },
+  {
+   "id": "orb",
+   "label": "Breathing orb",
+   "group": "Mind",
+   "palette": [
+    "#03041a",
+    "#2d3fbf",
+    "#8fd0ff"
+   ]
+  },
+  {
+   "id": "mandala",
+   "label": "Lotus mandala",
+   "group": "Mind",
+   "palette": [
+    "#03071e",
+    "#4895ef",
+    "#e0fbfc"
+   ]
+  },
+  {
+   "id": "geometry",
+   "label": "Sacred geometry",
+   "group": "Mind",
+   "palette": [
+    "#03030c",
+    "#2b2d6e",
+    "#9fb4ff"
+   ]
+  },
+  {
+   "id": "cymatics",
+   "label": "Cymatics",
+   "group": "Mind",
+   "palette": [
+    "#03041a",
+    "#2d3fbf",
+    "#8fd0ff"
+   ]
+  },
+  {
+   "id": "stars",
+   "label": "White stars",
+   "group": "Simple",
+   "palette": [
+    "#03030c",
+    "#2b2d6e",
+    "#9fb4ff"
+   ]
+  },
+  {
+   "id": "off",
+   "label": "Off (black)",
+   "group": "Simple",
+   "palette": [
+    "#020b18",
+    "#1d6fa8",
+    "#a8ecff"
+   ]
+  }
+ ]
+}

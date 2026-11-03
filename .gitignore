@@ -5,3 +5,7 @@ android/build/
 android/app/build/
 android/.gradle/
 android/local.properties
+android-native/build/
+android-native/app/build/
+android-native/app/.cxx/
+android-native/.gradle/

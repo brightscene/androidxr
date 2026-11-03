@@ -1,0 +1,45 @@
+name: Build native Android XR app
+
+on:
+  push:
+    branches: [main]
+    paths: [android-native/**, public/previews/**, src/journeys.js, src/audio/tracks.js, src/visuals/scenes/index.js, src/ui/scenePalettes.json, tools/export-native.mjs, .github/workflows/android-native.yml]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.9"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Export journeys and scenes from the web app
+        run: node tools/export-native.mjs
+      - name: Build APK
+        working-directory: android-native
+        env:
+          BUILD_NUMBER: ${{ github.run_number }}
+        run: gradle assembleRelease --no-daemon
+      - run: cp android-native/app/build/outputs/apk/release/app-release.apk MindLyte-native.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MindLyte-native.apk
+          path: MindLyte-native.apk
+      # a fixed download link for the newest build: .../releases/download/android-native-latest/MindLyte-native.apk
+      - name: Publish to the android-native-latest release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete android-native-latest --yes --cleanup-tag || true
+          gh release create android-native-latest MindLyte-native.apk --title "MindLyte native for Android XR (build ${{ github.run_number }})" --notes "Test build. Install on the headset and open MindLyte." --prerelease
