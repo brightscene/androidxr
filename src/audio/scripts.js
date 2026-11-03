@@ -14,6 +14,8 @@
 // Each spoken line gets a stable id (<script>-<n>) so recorded voice clips
 // can replace the device voice: see tools/generate-voice.mjs.
 
+import { AFFIRMATIONS } from './affirmations.js';
+
 const RAW = {
   sleep: `
 @scene lotus
@@ -116,7 +118,7 @@ And you realise it's a doorway, glowing with golden light. [6]
 On the other side is your life, a little further along. [5]
 Take your time. [3]
 And when you're ready, step through. [6]
-@scene islands
+@scene meadow
 Look around. [4]
 Notice how open and calm everything feels here. [5]
 This is a life where money moves toward you easily. [5]
@@ -284,5 +286,6 @@ export function allLines() {
   for (const items of Object.values(SCRIPTS)) for (const it of items) if (it.text) out.push({ id: it.id, text: it.text });
   WELCOMES.forEach((text, i) => out.push({ id: `welcome-${i + 1}`, text }));
   WHISPERS.forEach((text, i) => out.push({ id: `whisper-${i + 1}`, text }));
+  AFFIRMATIONS.forEach((set, i) => set.forEach((text, j) => out.push({ id: `aff-${i + 1}-${j + 1}`, text })));
   return out;
 }

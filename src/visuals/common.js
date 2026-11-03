@@ -132,3 +132,7 @@ export class BaseScene {
     this.group.removeFromParent();
   }
 }
+
+// Scenes trigger sounds through this hook; the app connects it to the audio
+// engine and voice. Calls are ignored until audio has started.
+export const SFX = { play() {}, say() { return Promise.resolve(false); } };

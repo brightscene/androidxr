@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { BaseScene, NOISE, GRADE, damp } from '../common.js';
+import { BaseScene, NOISE, GRADE, SFX, damp } from '../common.js';
 import { particles } from './kit.js';
 import { makeBlanket } from './affirm.js';
 
@@ -378,6 +378,9 @@ export class ImageCycleScene extends BaseScene {
     if (e.type === 'beat' && e.accent && this.st.phase === 'obstacle' && this.st.t > 5) this.breakNow = true;
   }
 
+  // only the scene you're in makes sounds, not one fading out
+  _sfx(kind, opts) { if (this.fade > 0.5) SFX.play(kind, opts); }
+
   _next(phase) { this.st.phase = phase; this.st.t = 0; }
 
   update(dt, t, s) {
@@ -417,28 +420,32 @@ export class ImageCycleScene extends BaseScene {
         if (b >= 1.25) { this.broke = false; this.breakNow = false; this._next('cycle'); this.img.timer = 0; }
       }
     } else if (st.phase === 'cycle') {
-      // accelerate from about one image every 1.5 s to six a second
+      // Accelerate from one image every 1.5 s to fourteen a second over 30 s,
+      // then hold at full overload for 6 s before everything goes still.
       const k = Math.min(1, st.t / 30);
-      this.rate = 0.65 + Math.pow(k, 1.6) * 5.5;
+      this.rate = 0.65 + Math.pow(k, 1.8) * 13.35;
       const im = this.img;
       im.timer += dt;
       if ((this.rate >= 2.2 && im.timer > 1 / this.rate) || (this.advance && im.timer > 0.35) || im.timer > 1 / this.rate + 0.6) {
         im.cur = im.next;
         im.next = this._wrap(im.next + 1);
         im.mix = 0; im.timer = 0;
+        // each image lands with a dull thud, alternating right and left ear
+        this.side = -(this.side || -1);
+        this._sfx('thud', { pan: this.side * 0.85, decay: Math.max(0.07, Math.min(0.4, 0.7 / this.rate)), gain: 0.9 - Math.min(0.35, this.rate * 0.025) });
       }
       this.advance = false;
       im.mix = Math.min(1, im.mix + dt * Math.max(6, this.rate * 4));
       fu.uGlow.value = Math.min(1, k * 1.2);
       titleA = Math.max(0, 1 - st.t / 6);
       obst = firstStation ? 1 : 0;
-      if (k >= 1) this._next('condense');
+      if (st.t >= 36) this._next('condense');
     } else if (st.phase === 'condense') {
       const k = Math.min(1, st.t / 5);
       scale = Math.max(0.001, 1 - k * 1.2);
       show = 1 - k;
       this.orb.material.opacity = Math.sin(Math.min(1, k * 1.4) * Math.PI * 0.5) * (1 - Math.max(0, k - 0.85) / 0.15 * 0.3);
-      if (k >= 1) this._next('place');
+      if (k >= 1) { this._next('place'); this._sfx('whoosh', { pan: 0, dur: 2.2, gain: 0.8 }); }
     } else { // place the orb into your future: it arcs ahead and settles onto the timeline
       const k = Math.min(1, st.t / 6);
       const bi = this.placed % this.beacons.length;
@@ -451,6 +458,7 @@ export class ImageCycleScene extends BaseScene {
       title = PLACE_LINES[this.placed % PLACE_LINES.length]; titleA = Math.sin(Math.min(1, k * 1.2) * Math.PI);
       if (k >= 1) {
         B.on = 1; this.placed++;
+        this._sfx('thud', { pan: Math.sign(B.x) * 0.5, decay: 0.6, gain: 0.7 });
         this.station++;
         if (this.station % this.atlas.sets.length === 0) for (const b of this.beacons) b.userData.on = 0;   // a fresh timeline each round
         this._resetImages();

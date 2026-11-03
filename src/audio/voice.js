@@ -150,6 +150,26 @@ export class Voice {
     src.start();
   }
 
+  // A recorded clip placed to one side (pan -1 left .. 1 right). Plays on top of
+  // the music without interrupting anything; skipped while the guide speaks.
+  async sayPanned(id, pan = 0) {
+    if (this.speaking || !this.clips.has(id) || this.userVoiceURI || !this.e.ctx) return false;
+    await this.preload(id);
+    const buf = this.buffers.get(id);
+    if (!buf || this.speaking) return false;
+    const ctx = this.e.ctx;
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    const g = ctx.createGain(); g.gain.value = 1.05;
+    const p = ctx.createStereoPanner(); p.pan.value = pan;
+    const send = ctx.createGain(); send.gain.value = 0.1;
+    src.connect(g).connect(p).connect(this.e.voiceBus);
+    g.connect(send).connect(this.e.reverbSend);
+    src.onended = () => { g.disconnect(); p.disconnect(); };
+    src.start();
+    return true;
+  }
+
   cancel() {
     this._token = null;
     clearTimeout(this._safety);

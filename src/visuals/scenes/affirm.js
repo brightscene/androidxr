@@ -1,17 +1,9 @@
 import * as THREE from 'three';
-import { BaseScene, NOISE, GRADE, damp } from '../common.js';
+import { BaseScene, NOISE, GRADE, SFX, damp } from '../common.js';
 import { particles } from './kit.js';
 
-// Affirmations, grouped by the arc of a session:
-//   Arrive: calm and safety · Settle: self-worth · Open: possibility
-//   Deep: love and wholeness · Return: hope and tomorrow
-export const AFFIRMATIONS = [
-  ['You are safe here', 'Peace begins with this breath', 'Let it be easy', 'Calm is your home', 'You are allowed to rest', 'It\'s okay to slow down', 'All is well'],
-  ['You are enough', 'You are worthy of good things', 'Be gentle with yourself', 'You deserve kindness', 'Your light matters', 'You belong here', 'You are growing'],
-  ['Everything is possible', 'Your dreams are valid', 'Good things are coming', 'Trust the timing of your life', 'You can begin again', 'There is so much ahead of you', 'Small steps are still steps'],
-  ['You are loved', 'You are whole', 'Love surrounds you', 'You are not alone', 'Your heart knows the way', 'You are made of stardust', 'You shine'],
-  ['Tomorrow will be a better day', 'Every day is a fresh start', 'Hope is always here', 'Joy is finding you', 'You are stronger than you know', 'You are exactly where you need to be', 'Today, I choose peace'],
-];
+import { AFFIRMATIONS, affirmationId } from '../../audio/affirmations.js';
+export { AFFIRMATIONS };
 const ALL = AFFIRMATIONS.flat();
 
 // One wave function for both the blanket and the words lying on it.
@@ -101,21 +93,23 @@ export class AffirmationScene extends BaseScene {
 
     // --- words lying across the blanket
     const atlas = textAtlas(ALL, 1024, 128, 2);
-    const N = 90, L = 140, r = Math.random;
+    // well spaced: four lanes, a word every ~18 m in each, staggered
+    const N = 36, L = 160, r = Math.random;
     const inst = new Float32Array(N * 4), meta = new Float32Array(N * 2);
-    this.words = [];
-    const lanes = [-27, -14, 0, 14, 27];
+    const lanes = [-21, -7, 7, 21];
     for (let i = 0; i < N; i++) {
-      const lane = lanes[i % lanes.length], row = Math.floor(i / lanes.length);
-      const x = lane + (r() - 0.5) * 4, z = -(row + (i % 2) * 0.5 + r() * 0.3) * (L / (N / lanes.length)), w = 7 + r() * 5;
+      const li = i % lanes.length, row = Math.floor(i / lanes.length);
+      const x = lanes[li] + (r() - 0.5) * 3, z = -((row + (li % 2) * 0.5 + (r() - 0.5) * 0.25) * (L / (N / lanes.length))), w = 7 + r() * 4;
       inst.set([x, z, w, Math.floor(r() * ALL.length)], i * 4);
       meta.set([r(), 0], i * 2);
     }
+    this.inst = inst; this.meta = meta; this.N = N; this.L = L;
     const wg = new THREE.InstancedBufferGeometry();
     wg.setAttribute('position', new THREE.Float32BufferAttribute([-0.5, -0.5, 0, 0.5, -0.5, 0, 0.5, 0.5, 0, -0.5, 0.5, 0], 3));
     wg.setIndex([0, 1, 2, 0, 2, 3]);
     wg.setAttribute('aI', new THREE.InstancedBufferAttribute(inst, 4));
-    wg.setAttribute('aM', new THREE.InstancedBufferAttribute(meta, 2));
+    this.metaAttr = new THREE.InstancedBufferAttribute(meta, 2);
+    wg.setAttribute('aM', this.metaAttr);
     wg.instanceCount = N;
     Object.assign(U, { uAtlas: { value: atlas.tex }, uRows: { value: atlas.rows }, uL: { value: L } });
     const words = new THREE.Mesh(wg, new THREE.ShaderMaterial({
@@ -135,7 +129,7 @@ export class AffirmationScene extends BaseScene {
           vUv = vec2((cell.x + position.x + 0.5) * 0.5, 1.0 - (cell.y + 0.5 - position.y) / uRows);
           vec4 mv = modelViewMatrix * vec4(p, 1.0);
           float dist = -mv.z;
-          vA = smoothstep(95.0, 40.0, dist) * smoothstep(1.5, 6.0, dist);
+          vA = smoothstep(95.0, 40.0, dist) * smoothstep(1.5, 6.0, dist) * (1.0 - aM.y);
           vS = aM.x;
           float hot = 0.0;
           for (int i = 0; i < 4; i++) { float age = uTime - uHot[i].z; hot += exp(-abs(aI.x - uHot[i].x) * 0.15) * exp(-age * 0.8) * step(0.0, age); }
@@ -176,7 +170,7 @@ export class AffirmationScene extends BaseScene {
 
     this.group.add(particles(U, { count: 500, min: [-30, -2, -80], max: [30, 10, 6], vel: [0, 0.05, 2], sway: 0.6, size: [0.02, 0.05], colors: ['#ffffff', '#ffe4ff', '#d8f4ff'], alpha: 0.7, clear: 1 }));
     this.hotI = 0;
-    this._drawHero(this._pick());
+    this._begin();
   }
 
   _drawHero(text) {
@@ -195,14 +189,39 @@ export class AffirmationScene extends BaseScene {
     this.heroTex.needsUpdate = true;
   }
 
-  // pick the next affirmation from the current theme, avoiding recent repeats
-  _pick() {
+  // Choose one of the words on the blanket ahead of you, preferring the
+  // current theme and avoiding recent repeats. It lifts off the blanket and
+  // glides up to hang in front of you.
+  _select() {
     const pool = AFFIRMATIONS[this.theme % AFFIRMATIONS.length];
-    let choice = pool.find((t) => !this.used.has(t));
-    if (!choice) { for (const t of pool) this.used.delete(t); choice = pool[Math.floor(Math.random() * pool.length)]; }
-    this.used.add(choice);
-    return choice;
+    const travel = this.uniforms.uTravel?.value || 0;
+    let best = -1, bestScore = -1e9;
+    for (let i = 0; i < this.N; i++) {
+      if (this.meta[i * 2 + 1] > 0) continue;
+      const x = this.inst[i * 4], text = ALL[this.inst[i * 4 + 3]];
+      const z = ((this.inst[i * 4 + 1] + travel) % this.L + this.L) % this.L - this.L + 12;
+      if (z > -22 || z < -60 || Math.abs(x) > 16) continue;
+      const score = (pool.includes(text) ? 10 : 0) + (this.used.has(text) ? -20 : 0) - Math.abs(z + 36) * 0.1 - Math.abs(x) * 0.05;
+      if (score > bestScore) { bestScore = score; best = i; }
+    }
+    if (best < 0) { // nothing suitable in view: fall back to the theme list
+      const choice = pool.find((t) => !this.used.has(t)) || pool[Math.floor(Math.random() * pool.length)];
+      if (!pool.some((t) => !this.used.has(t))) for (const t of pool) this.used.delete(t);
+      this.used.add(choice);
+      return { text: choice, from: new THREE.Vector3(0, -2.6, -30), i: -1 };
+    }
+    const text = ALL[this.inst[best * 4 + 3]];
+    if (pool.every((t) => this.used.has(t))) for (const t of pool) this.used.delete(t);
+    this.used.add(text);
+    this.meta[best * 2 + 1] = 1; this.metaAttr.needsUpdate = true;   // hide it on the blanket while it's up
+    const z = ((this.inst[best * 4 + 1] + travel) % this.L + this.L) % this.L - this.L + 12;
+    return { text, from: new THREE.Vector3(this.inst[best * 4], -2.9, z), i: best };
   }
+
+  // only the scene you're in makes sounds, not one fading out
+  _sfx(kind, opts) { if (this.fade > 0.5) SFX.play(kind, opts); }
+
+  _release(i) { if (i >= 0) { this.meta[i * 2 + 1] = 0; this.metaAttr.needsUpdate = true; } }
 
   onEvent(e) {
     const U = this.uniforms;
@@ -212,27 +231,59 @@ export class AffirmationScene extends BaseScene {
     if (e.type === 'note' && e.pos) { U.uHot.value[this.hotI].set(e.pos[0] * 6, 0, U.uTime.value); this.hotI = (this.hotI + 1) % 4; }
   }
 
-  // The hero affirmation: rises and fades in, holds (at least 7 s, then
-  // leaves on the next chord change, or after 16 s), drifts up and fades,
-  // then the next one rises.
+  // The hero affirmation: a word lifts off the blanket ahead and glides up
+  // to hang in front of you (in), landing with a soft thud as it is read
+  // aloud, alternately in your left and right ear (hold, at least 8 s, then
+  // leaves on the next chord change, or after 16 s); then it floats up and
+  // away with a whoosh (out), and the next word is chosen.
   update(dt, t, s) {
     const U = this.uniforms;
     U.uRip.value *= Math.exp(-dt * 1.2);
     const h = this.h;
     h.t += dt;
-    let a = 0, y = 1.75;
+    const target = new THREE.Vector3(0, 1.75, -4.8);
+    let a = 0;
+    const pos = this.hero.position;
     if (h.state === 'in') {
-      const k = Math.min(1, h.t / 2.5); a = k * k * (3 - 2 * k); y = 0.7 + a * 1.05;
-      if (k >= 1) { h.state = 'hold'; h.t = 0; this.swap = false; }
+      const k = Math.min(1, h.t / 4.5), e = k * k * (3 - 2 * k);
+      a = Math.min(1, h.t / 1.2);
+      // the world travels toward you, so the lift-off point moves with it
+      const from = this.cur.from.clone(); from.z += (U.uTravel?.value || 0) - this.cur.travel;
+      pos.lerpVectors(from, target, e);
+      pos.y += Math.sin(e * Math.PI) * 1.2;
+      this.hero.scale.setScalar(0.55 + e * 0.45);
+      if (k >= 1) {
+        h.state = 'hold'; h.t = 0; this.swap = false;
+        this.side = -(this.side || 1);   // left first, then right, then left...
+        this._sfx('thud', { pan: this.side * 0.8, decay: 0.45, gain: 0.85 });
+        const id = affirmationId(this.cur.text);
+        if (id) setTimeout(() => this.fade > 0.5 && SFX.say(id, this.side * 0.75), 280);
+      }
     } else if (h.state === 'hold') {
       a = 1;
-      if ((this.swap && h.t > 7) || h.t > 16) { h.state = 'out'; h.t = 0; }
+      pos.copy(target); pos.y += Math.sin(t * 0.5) * 0.04;
+      this.hero.scale.setScalar(1 + s.breath * 0.04);
+      if ((this.swap && h.t > 8) || h.t > 16) {
+        h.state = 'out'; h.t = 0;
+        this._sfx('whoosh', { pan: this.side * 0.6, dur: 1.8, gain: 0.75 });
+      }
     } else {
-      const k = Math.min(1, h.t / 2.2); a = 1 - k; y = 1.75 + k * 1.1;
-      if (k >= 1) { this._drawHero(this._pick()); h.state = 'in'; h.t = 0; }
+      const k = Math.min(1, h.t / 2.6), e = k * k;
+      a = 1 - k;
+      pos.set(target.x + this.side * e * 1.5, target.y + e * 2.2, target.z - e * 4);
+      this.hero.scale.setScalar(1 + e * 0.25);
+      if (k >= 1) {
+        this._release(this.cur.i);
+        this._begin();
+      }
     }
-    this.hero.position.set(0, y + Math.sin(t * 0.5) * 0.04, -4.8);
-    this.hero.scale.setScalar(1 + s.breath * 0.04);
     this.hero.material.uniforms.uA.value = a;
+  }
+
+  _begin() {
+    this.cur = this._select();
+    this.cur.travel = this.uniforms.uTravel?.value || 0;
+    this._drawHero(this.cur.text);
+    this.h = { state: 'in', t: 0 };
   }
 }

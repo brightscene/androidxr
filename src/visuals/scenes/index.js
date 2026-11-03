@@ -7,7 +7,7 @@ import { GeometryScene } from './geometry.js';
 import { MandalaScene } from './mandala.js';
 import { CymaticsScene } from './cymatics.js';
 import { MeadowScene, BeachScene, UnderwaterScene, ZenGardenScene, GlowForestScene, SnowPeaksScene, DesertNightScene } from './nature.js';
-import { LanternLakeScene, RainLakeScene, CloudFlightScene, LotusPondScene, BambooGroveScene, FloatingIslandsScene } from './skywater.js';
+import { LanternLakeScene, RainLakeScene, CloudFlightScene, LotusPondScene, BambooGroveScene } from './skywater.js';
 import { AffirmationScene } from './affirm.js';
 import { ImageCycleScene } from './imagecycle.js';
 import { TimePortalScene, KaleidosphereScene, NebulaFlightScene, WarpGateScene, MandalaBloomScene, SilkVortexScene } from './dimensions.js';
@@ -45,7 +45,6 @@ export const SCENES = {
   desert: { type: DesertNightScene, label: 'Desert night', group: 'Nature', cruise: 0, nebula: 0, world: 'bare' },
 
   clouds: { type: CloudFlightScene, label: 'Cloud flight', group: 'Sky & water', cruise: 7, nebula: 0, world: 'bare' },
-  islands: { type: FloatingIslandsScene, label: 'Floating islands', group: 'Sky & water', cruise: 0, nebula: 0, world: 'bare' },
   lanterns: { type: LanternLakeScene, label: 'Lantern lake', group: 'Sky & water', cruise: 0, nebula: 0, world: 'bare' },
   rain: { type: RainLakeScene, label: 'Rain on the lake', group: 'Sky & water', cruise: 0, nebula: 0, world: 'bare' },
   lotus: { type: LotusPondScene, label: 'Lotus pond', group: 'Sky & water', cruise: 0, nebula: 0, world: 'bare' },

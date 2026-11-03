@@ -80,6 +80,59 @@ export class AudioEngine {
     g.linearRampToValueAtTime(to, t + seconds);
   }
 
+  // Short scene sounds, panned left/right in the head (not spatialised):
+  //   'thud'  a soft, dull low thump, like something landing on a cushion
+  //   'whoosh' a breathy swell of air that drifts across
+  sfx(kind, { pan = 0, gain = 1, decay = 0.35, dur = 1.4 } = {}) {
+    if (!this.ctx || !this.master) return;
+    const ctx = this.ctx, t = ctx.currentTime + 0.01;
+    if (!this.sfxBus) { this.sfxBus = ctx.createGain(); this.sfxBus.gain.value = 0.9; this.sfxBus.connect(this.master); }
+    const p = ctx.createStereoPanner();
+    p.pan.value = Math.max(-1, Math.min(1, pan));
+    p.connect(this.sfxBus);
+    const nodes = [p];
+    const end = (sec) => setTimeout(() => nodes.forEach((n) => { try { n.disconnect(); } catch (_) {} }), sec * 1000 + 200);
+    if (kind === 'thud') {
+      const o = ctx.createOscillator(), g = ctx.createGain(), lp = ctx.createBiquadFilter();
+      o.type = 'sine';
+      o.frequency.setValueAtTime(92, t);
+      o.frequency.exponentialRampToValueAtTime(44, t + decay * 0.6);
+      lp.type = 'lowpass'; lp.frequency.value = 180;
+      g.gain.setValueAtTime(0, t);
+      g.gain.linearRampToValueAtTime(0.55 * gain, t + 0.006);
+      g.gain.exponentialRampToValueAtTime(0.0008, t + decay);
+      o.connect(lp).connect(g).connect(p);
+      // a muffled body: a puff of low noise
+      const n = ctx.createBufferSource(), nf = ctx.createBiquadFilter(), ng = ctx.createGain();
+      n.buffer = this.whiteNoise; nf.type = 'lowpass'; nf.frequency.value = 320;
+      ng.gain.setValueAtTime(0.22 * gain, t); ng.gain.exponentialRampToValueAtTime(0.0006, t + Math.min(0.09, decay * 0.4));
+      n.connect(nf).connect(ng).connect(p);
+      o.start(t); o.stop(t + decay + 0.05);
+      n.start(t, Math.random() * 4); n.stop(t + 0.12);
+      nodes.push(o, g, lp, n, nf, ng);
+      end(decay + 0.1);
+    } else if (kind === 'whoosh') {
+      const n = ctx.createBufferSource(), bp = ctx.createBiquadFilter(), g = ctx.createGain();
+      n.buffer = this.noise || this.whiteNoise;
+      bp.type = 'bandpass'; bp.Q.value = 1.6;
+      bp.frequency.setValueAtTime(260, t);
+      bp.frequency.exponentialRampToValueAtTime(1900, t + dur * 0.55);
+      bp.frequency.exponentialRampToValueAtTime(700, t + dur);
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(0.5 * gain, t + dur * 0.5);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      p.pan.setValueAtTime(p.pan.value, t);
+      p.pan.linearRampToValueAtTime(-p.pan.value * 0.6, t + dur);
+      n.connect(bp).connect(g).connect(p);
+      // a little reverb tail so it floats away
+      const send = ctx.createGain(); send.gain.value = 0.35;
+      g.connect(send).connect(this.reverbSend);
+      n.start(t, Math.random() * 3); n.stop(t + dur + 0.05);
+      nodes.push(n, bp, g, send);
+      end(dur + 0.1);
+    }
+  }
+
   duck(on) {
     if (!this.duckGain) return;
     this.duckGain.gain.setTargetAtTime(on ? 0.62 : 1, this.ctx.currentTime, on ? 0.6 : 1.8);

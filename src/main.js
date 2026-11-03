@@ -7,7 +7,7 @@ import { Voice, GuideRunner } from './audio/voice.js';
 import { bandName } from './audio/entrainment.js';
 import { decodeStrobe, flashRateAt } from './audio/strobe.js';
 import { StrobeLayer } from './visuals/strobe.js';
-import { U, damp } from './visuals/common.js';
+import { U, damp, SFX } from './visuals/common.js';
 import { World } from './visuals/world.js';
 import { SCENES } from './visuals/scenes/index.js';
 import { XRMenu } from './ui/xrMenu.js';
@@ -60,6 +60,8 @@ class App {
     this.player = null;
     this.engine = new AudioEngine();
     this.voice = new Voice(this.engine);
+    SFX.play = (kind, opts) => { if (this.playing) this.engine.sfx(kind, opts); };
+    SFX.say = (id, pan) => (this.playing ? this.voice.sayPanned(id, pan) : Promise.resolve(false));
     this.voice.setChoice(this.voiceChoice);
     this.voice.onVoices = () => this.ui?.refreshVoices();
     this.state = { energy: 0.35, breath: 0, low: 0, mid: 0, high: 0, level: 0 };
