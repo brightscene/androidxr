@@ -29,21 +29,36 @@
       <button id="close-menu" class="ghost small" title="Hide menu">Hide</button>
     </header>
 
-    <section class="selected">
-      <div id="sel-title" class="sel-title"></div>
-      <div id="sel-meta" class="sel-meta"></div>
+    <nav class="tabs" role="tablist">
+      <button data-tab="Journeys">Journeys</button><button data-tab="Scene">Scene</button><button data-tab="Sound">Sound</button><button data-tab="Lights">Lights</button><button data-tab="Voice">Voice</button><button data-tab="More">More</button>
+    </nav>
+
+    <section class="pane" data-pane="Journeys">
+      <div class="selected">
+        <div id="sel-title" class="sel-title"></div>
+        <div id="sel-meta" class="sel-meta"></div>
+      </div>
+      <div id="journeys"></div>
     </section>
 
-    <h2>Light &amp; sound</h2>
-    <section id="light-tracks" class="tracks"></section>
+    <section class="pane" data-pane="Scene">
+      <div id="scene-chips" class="chips"></div>
+      <div id="scene-cards" class="scards"></div>
+      <div class="panel"><div class="grid">
+        <label><span class="label">Deep dives</span>
+          <select id="dives">
+            <option value="gentle">Gentle</option>
+            <option value="full">Full speed</option>
+            <option value="off">Off (no motion)</option>
+          </select></label>
+        <label><span class="label">Visual quality (headset)</span>
+          <select id="quality"><option value="smooth">Smooth (best frame rate)</option><option value="balanced">Balanced</option><option value="sharp">Sharp (most detail)</option></select></label>
+      </div>
+      <p id="scene-note" class="muted note"></p></div>
+    </section>
 
-    <h2>Guided journeys</h2>
-    <section id="guided" class="tracks"></section>
-
-    <h2>Soundscapes</h2>
-    <section id="tracks" class="tracks"></section>
-
-    <section class="opts">
+    <section class="pane" data-pane="Sound">
+      <section class="opts">
       <div class="group" id="length-group">
         <span class="label">Length</span>
         <div id="durations" class="seg">
@@ -52,10 +67,7 @@
       </div>
       <label class="group vol"><span class="label">Volume</span><input id="volume" type="range" min="0" max="1" step="0.01" value="0.8" /></label>
     </section>
-
-    <details class="panel" open>
-      <summary>Scene, sound &amp; journey</summary>
-      <div class="grid">
+      <div class="panel"><div class="grid">
         <label><span class="label">Brainwave tones</span>
           <select id="entrainment">
             <option value="binaural">Binaural (headphones)</option>
@@ -77,55 +89,16 @@
             <option value="rain">Soft rain</option>
             <option value="ocean">Ocean waves</option>
           </select></label>
-        <label><span class="label">Background</span>
-          <select id="background">
-            <option value="auto">Auto (per track)</option><option value="galaxy">Galaxy voyage</option><option value="ocean">Light ocean</option>
-            <option value="orb">Breathing orb</option><option value="aurora">Aurora</option><option value="geometry">Sacred geometry</option>
-            <option value="mandala">Lotus mandala</option><option value="cymatics">Cymatics</option><option value="stars">Stars only</option>
-            <option value="off">Off (black)</option>
-          </select></label>
-        <label><span class="label">Deep dives</span>
-          <select id="dives">
-            <option value="gentle">Gentle</option>
-            <option value="full">Full speed</option>
-            <option value="off">Off (no motion)</option>
-          </select></label>
-        <label><span class="label">Visual quality (headset)</span>
-          <select id="quality"><option value="smooth">Smooth (best frame rate)</option><option value="balanced">Balanced</option><option value="sharp">Sharp (most detail)</option></select></label>
+        
+        
+        
         <label class="toggle"><input type="checkbox" id="tone" /> <span>Solfeggio tone</span></label>
       </div>
-    </details>
+    </div>
+    </section>
 
-    <details class="panel">
-      <summary>Voice</summary>
-      <div class="grid">
-        <label><span class="label">Guide voice</span><select id="voice"></select></label>
-        <label class="toggle"><input type="checkbox" id="whispers" /> <span>Voice in soundscapes (a welcome and the occasional gentle line; guided sessions always speak)</span></label>
-        <label class="toggle"><input type="checkbox" id="guide-voice" /> <span>Voice in guided sessions (turn off for music and scenes only; captions still work)</span></label>
-        <label class="toggle"><input type="checkbox" id="captions" /> <span>Show captions</span></label>
-        <label class="toggle"><input type="checkbox" id="breath-text" /> <span>Breathing guide (Breathe in · Hold · Breathe out, on screen)</span></label>
-        <button id="preview-voice" class="ghost small">Hear the voice</button>
-      </div>
-      <p id="voice-note" class="muted note"></p>
-    </details>
-
-    <details class="panel" id="mine-panel">
-      <summary>Your own affirmations</summary>
-      <p class="muted">Record a few short affirmations in your own voice (up to 20 seconds each). Speak slowly and warmly, in the present tense: "I am calm and safe", "I am enough", "Every day I feel lighter". They're kept only on this device, and played softly into your sessions every so often, alternating between your left and right ear.</p>
-      <div class="row">
-        <button id="mine-rec" class="small">● Record</button>
-        <span id="mine-status" class="muted"></span>
-      </div>
-      <ul id="mine-list" class="mine-list"></ul>
-      <div class="grid">
-        <label class="toggle"><input type="checkbox" id="mine-on" /> <span>Mix my affirmations into sessions</span></label>
-        <label><span class="label">How often</span>
-          <select id="mine-every"><option value="45">Often (about every 45 s)</option><option value="90">Now and then (about every 1½ min)</option><option value="180">Occasionally (about every 3 min)</option></select></label>
-      </div>
-    </details>
-
-    <details class="panel" id="lights-panel">
-      <summary>Lights · AudioStrobe &amp; SpectraStrobe</summary>
+    <section class="pane" data-pane="Lights">
+      <div class="panel" id="lights-panel">
       <p class="muted">Light-and-sound tracks hide light signals in the audio. MindLyte decodes them and flashes a symbol for each eye at the encoded rate and colour, like mind-machine glasses. Import an encoded track below.</p>
       <div class="grid">
         <label class="toggle"><input type="checkbox" id="lights" /> <span>Lights on</span></label>
@@ -143,21 +116,46 @@
         <label class="group"><span class="label">Brightness</span><input id="light-max" type="range" min="0.1" max="1" step="0.05" /></label>
         <label class="toggle"><input type="checkbox" id="lights-generated" /> <span>Also pulse lights with MindLyte's brainwave tones</span></label>
       </div>
-    </details>
+    </div>
+    </section>
 
-    <details class="panel">
-      <summary>Image cycling · your own images</summary>
+    <section class="pane" data-pane="Voice">
+      <div class="panel">
+      <div class="grid">
+        <label><span class="label">Guide voice</span><select id="voice"></select></label>
+        <label class="toggle"><input type="checkbox" id="whispers" /> <span>Voice in soundscapes (a welcome and the occasional gentle line; guided sessions always speak)</span></label>
+        <label class="toggle"><input type="checkbox" id="guide-voice" /> <span>Voice in guided sessions (turn off for music and scenes only; captions still work)</span></label>
+        <label class="toggle"><input type="checkbox" id="captions" /> <span>Show captions</span></label>
+        <label class="toggle"><input type="checkbox" id="breath-text" /> <span>Breathing guide (Breathe in · Hold · Breathe out, on screen)</span></label>
+        <button id="preview-voice" class="ghost small">Hear the voice</button>
+      </div>
+      <p id="voice-note" class="muted note"></p>
+    </div>
+      <div class="panel" id="mine-panel"><h3>Your own affirmations</h3>
+      <p class="muted">Record a few short affirmations in your own voice (up to 20 seconds each). Speak slowly and warmly, in the present tense: "I am calm and safe", "I am enough", "Every day I feel lighter". They're kept only on this device, and played softly into your sessions every so often, alternating between your left and right ear.</p>
+      <div class="row">
+        <button id="mine-rec" class="small">● Record</button>
+        <span id="mine-status" class="muted"></span>
+      </div>
+      <ul id="mine-list" class="mine-list"></ul>
+      <div class="grid">
+        <label class="toggle"><input type="checkbox" id="mine-on" /> <span>Mix my affirmations into sessions</span></label>
+        <label><span class="label">How often</span>
+          <select id="mine-every"><option value="45">Often (about every 45 s)</option><option value="90">Now and then (about every 1½ min)</option><option value="180">Occasionally (about every 3 min)</option></select></label>
+      </div>
+    </div>
+    </section>
+
+    <section class="pane" data-pane="More">
+      <div class="panel"><h3>Image cycling · your own images</h3>
       <p class="muted">Image cycling is a timeline journey. The glowing blanket below you is your timeline, with the past behind and the future ahead. First an old story cracks with light and shatters. Then each portal cycles real photographs of one theme (letting go, nature and paradise, love, your bright future), faster and faster until it's an overload (up to 14 images a second, then a final surge to 24 a second, with a thud in alternate ears for each one), then everything goes still as the images condense into an orb of light placed on your timeline ahead. The fast part flickers, so skip this scene if you're sensitive to flashing images. Pictures that mean something to you work best: choose up to 16 of your own and they replace the built-in photos. They're stored only on this device.</p>
       <div class="row">
         <label class="file"><input id="cycle-files" type="file" accept="image/*" multiple />Choose images…</label>
         <button id="cycle-clear" class="ghost small">Use built-in images</button>
         <span id="cycle-status" class="muted"></span>
       </div>
-      <details class="credits"><summary class="muted">Photo credits</summary><ul id="photo-credits" class="muted small"></ul></details>
-    </details>
-
-    <details class="panel">
-      <summary>Bring your own AI track</summary>
+      <details class="credits"><summary class="muted">Photo credits</summary><ul id="photo-credits" class="muted small"></ul></details></div>
+      <div class="panel"><h3>Bring your own AI track</h3>
       <p class="muted">Load a track you generated elsewhere (Suno, Udio, MP3/WAV). MindLyte analyses its beats and dynamics to key the visuals, and layers the tones underneath.</p>
       <div class="row">
         <select id="import-scene">
@@ -172,7 +170,8 @@
         <label class="file"><input id="file" type="file" accept="audio/*" />Choose audio…</label>
         <span id="import-status" class="muted"></span>
       </div>
-    </details>
+    </div>
+    </section>
 
     <section class="go">
       <button id="enter-vr" class="primary">Enter immersive</button>
@@ -202,6 +201,15 @@
   </div>
 
   <div id="toast"></div>
+
+  <div id="unlock" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="ul-title">
+    <div class="modal-card unlock-card">
+      <h3 id="ul-title">MindLyte Premium</h3>
+      <p>Every journey: light &amp; sound tracks, guided sessions, solfeggio soundscapes, image cycling and the affirmation field. New journeys as they arrive.</p>
+      <div class="go"><button class="primary buy">£4.99 / month</button><button class="primary alt buy">£39.99 / year</button><button id="ul-close" class="ghost">Not now</button></div>
+      <p id="ul-msg" class="muted note">Cancel any time.</p>
+    </div>
+  </div>
 
   <div id="strobe-warning" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="sw-title">
     <div class="modal-card">

@@ -1,5 +1,10 @@
 import { SYMBOLS } from '../visuals/strobe.js';
-import { SCENES } from '../visuals/scenes/index.js';
+import { SCENES, BACKGROUNDS } from '../visuals/scenes/index.js';
+import SCENE_PALETTES from './scenePalettes.json';
+import { PRICES } from '../journeys.js';
+
+const GROUPS = ['Simple', 'Space', 'Dimensions', 'Mind', 'Nature', 'Sky & water', 'Light journeys'];
+const groupOf = (v) => (v === 'auto' ? 'Simple' : SCENES[v]?.group || 'Simple');
 import { saveUserImages, clearUserImages, refreshImageAtlas } from '../visuals/scenes/imagecycle.js';
 
 // Flat-screen UI: the launcher you see in a browser panel on Android XR
@@ -11,7 +16,10 @@ export class DomUI {
     this.$ = (s) => document.querySelector(s);
     this.menu = this.$('#menu');
     this.session = this.$('#session');
+    this.tab = 'Journeys';
+    this._buildTabs();
     this._buildCards();
+    this._buildScenes();
     this.refreshVoices();
     this._wire();
     this._checkXR();
@@ -19,26 +27,93 @@ export class DomUI {
     this.refresh();
   }
 
+  // tabs, the same as in the headset
+  _buildTabs() {
+    this.$('.tabs').addEventListener('click', (e) => { const t = e.target.dataset.tab; if (t) this.setTab(t); });
+    this.setTab(this.tab);
+  }
+
+  setTab(name) {
+    this.tab = name;
+    for (const b of document.querySelectorAll('.tabs button')) b.classList.toggle('on', b.dataset.tab === name);
+    for (const p of document.querySelectorAll('.pane')) p.classList.toggle('on', p.dataset.pane === name);
+  }
+
+  // a journey card: moving preview on the left, then title, what it's about and its kind
   _card(tr) {
+    const app = this.app;
     const b = document.createElement('button');
-    b.className = 'card';
+    b.className = 'jcard';
     b.style.setProperty('--a', tr.palette[0]);
     b.style.setProperty('--b', tr.palette[1]);
     b.style.setProperty('--c', tr.palette[2]);
-    const f = tr.plain ? 'Music' : tr.stream || tr.strobe ? ((tr.strobe?.format || tr.format) === 'spectrastrobe' ? 'SpectraStrobe' : 'AudioStrobe') : tr.guided ? `~${Math.round((tr.estimate + (tr.guided === 'sleep' ? 0 : tr.tail || 0)) / 60)} min` : tr.buffer ? 'Your track' : `${tr.freq} Hz`;
-    b.innerHTML = `<span class="t">${escapeHtml(tr.title)}</span><span class="f">${f}</span><span class="i">${escapeHtml(tr.intent)}${tr.guided ? ` · ${tr.freq} Hz` : ''}</span>`;
-    b.addEventListener('click', () => this.app.select(tr));
+    const kind = tr.buffer ? 'Your track' : tr.free ? 'Free' : tr.plain ? 'Music' : tr.stream || tr.strobe ? 'Light & sound' : tr.guided ? `Guided · ~${Math.round(tr.estimate / 60)} min` : `Soundscape · ${tr.freq} Hz`;
+    b.innerHTML = `<span class="pv" data-scene="${escapeHtml(tr.scene)}"></span><span class="tx"><span class="t">${escapeHtml(tr.title)}</span><span class="i">${escapeHtml(tr.intent)}</span><span class="k"></span></span>`;
+    b._kind = kind;
+    b.addEventListener('click', () => app.select(tr));
     b._track = tr;
     return b;
   }
 
   _buildCards() {
-    const g = this.$('#guided'), s = this.$('#tracks'), l = this.$('#light-tracks');
-    g.innerHTML = ''; s.innerHTML = ''; l.innerHTML = '';
-    for (const tr of this.app.lightTracks) l.appendChild(this._card(tr));
-    for (const tr of this.app.guided) g.appendChild(this._card(tr));
-    for (const tr of this.app.tracks) s.appendChild(this._card(tr));
-    if (this.app.imported) s.appendChild(this._card(this.app.imported));
+    const app = this.app, root = this.$('#journeys');
+    root.innerHTML = '';
+    const section = (title, list, extra) => {
+      const h = document.createElement('div');
+      h.className = 'jhead';
+      h.innerHTML = `<h2>${title}</h2>`;
+      if (extra) extra(h);
+      const g = document.createElement('div');
+      g.className = 'jgrid';
+      for (const tr of list) g.appendChild(this._card(tr));
+      root.append(h, g);
+    };
+    section('Free', app.journeys.free);
+    section('Premium', app.journeys.premium, (h) => {
+      const pr = document.createElement('span'); pr.className = 'price'; h.append(pr); this._price = pr;
+      const u = document.createElement('button'); u.className = 'ghost small'; u.textContent = 'Unlock Premium';
+      u.addEventListener('click', () => this.showUnlock()); h.append(u); this._unlockBtn = u;
+    });
+    if (app.imported) { app.imported.free = true; section('Your track', [app.imported]); }
+    // previews load as they scroll into view
+    const io = new IntersectionObserver((es) => {
+      for (const e of es) if (e.isIntersecting) { e.target.style.backgroundImage = `url(previews/${e.target.dataset.scene}.jpg)`; io.unobserve(e.target); }
+    }, { root: this.menu, rootMargin: '200px' });
+    for (const pv of root.querySelectorAll('.pv')) io.observe(pv);
+  }
+
+  // scenes: category chips, then colour cards
+  _buildScenes() {
+    const app = this.app;
+    this.sceneGroup = groupOf(app.background);
+    const chips = this.$('#scene-chips');
+    chips.innerHTML = GROUPS.map((g) => `<button data-g="${escapeHtml(g)}">${escapeHtml(g)}</button>`).join('');
+    chips.addEventListener('click', (e) => { const g = e.target.dataset.g; if (g) { this.sceneGroup = g; this._layoutScenes(); } });
+    const cards = this.$('#scene-cards');
+    this.sceneCards = BACKGROUNDS.map(([v, label]) => {
+      const pal = SCENE_PALETTES[v === 'auto' ? 'galaxy' : v] || ['#0a0a1a', '#3a3a7a', '#c0c8ff'];
+      const b = document.createElement('button');
+      b.className = 'scard';
+      b.style.setProperty('--a', pal[0]); b.style.setProperty('--b', pal[1]); b.style.setProperty('--c', pal[2]);
+      b.innerHTML = `<span class="t">${escapeHtml(v === 'auto' ? 'Auto' : label)}</span><span class="g">${v === 'auto' ? "each journey's own world" : escapeHtml(SCENES[v]?.group || '')}</span>`;
+      b.addEventListener('click', () => app.setBackground(v));
+      b._v = v; b._g = groupOf(v);
+      cards.append(b);
+      return b;
+    });
+    this._layoutScenes();
+  }
+
+  _layoutScenes() {
+    for (const b of this.$('#scene-chips').children) b.classList.toggle('on', b.dataset.g === this.sceneGroup);
+    for (const c of this.sceneCards) { c.style.display = c._g === this.sceneGroup ? '' : 'none'; c.classList.toggle('sel', c._v === this.app.background); }
+    const v = this.app.background, tr = this.app.playing ? this.app.playingTrack : this.app.selected;
+    this.$('#scene-note').textContent = v === 'auto' ? `Auto: each journey uses its own scene (${tr.scene} for ${tr.title}).` : v === 'off' ? 'Off: pure black. Only the lights are shown.' : 'This scene is used for every journey until you switch back to Auto.';
+  }
+
+  showUnlock() {
+    this.$('#ul-msg').textContent = 'Cancel any time.';
+    this.$('#unlock').classList.remove('hidden');
   }
 
   refreshVoices() {
@@ -66,12 +141,8 @@ export class DomUI {
     on('#journey', 'change', (e) => app.setJourney(e.target.value));
     on('#nature', 'change', (e) => { app.engine.init().then(() => app.setNature(e.target.value)); });
     on('#dives', 'change', (e) => app.setDives(e.target.value));
-    {
-      const groups = {};
-      for (const [k, v] of Object.entries(SCENES)) (groups[v.group] ||= []).push(`<option value="${k}">${v.label}</option>`);
-      this.$('#background').innerHTML = '<option value="auto">Auto (per track)</option>' + Object.entries(groups).map(([g, o]) => `<optgroup label="${g}">${o.join('')}</optgroup>`).join('');
-    }
-    on('#background', 'change', (e) => app.setBackground(e.target.value));
+    for (const b of document.querySelectorAll('#unlock .buy')) b.addEventListener('click', () => { this.$('#ul-msg').textContent = 'Payments are coming soon. Thank you for your interest!'; });
+    on('#ul-close', 'click', () => this.$('#unlock').classList.add('hidden'));
     on('#voice', 'change', (e) => { app.setVoice(e.target.value); this.refreshVoices(); });
     on('#whispers', 'change', (e) => app.setWhispers(e.target.checked));
     on('#captions', 'change', (e) => app.setCaptions(e.target.checked));
@@ -188,7 +259,15 @@ export class DomUI {
 
   refresh() {
     const app = this.app;
-    for (const c of document.querySelectorAll('.card')) c.classList.toggle('sel', c._track === app.selected);
+    for (const c of document.querySelectorAll('.jcard')) {
+      const tr = c._track, locked = !tr.free && !app.premium;
+      c.classList.toggle('sel', tr === app.selected);
+      const k = c.querySelector('.k');
+      k.className = 'k' + (tr.free ? ' free' : locked ? ' lock' : '');
+      k.textContent = locked ? `🔒 ${c._kind}` : c._kind;
+    }
+    if (this._price) { this._price.textContent = app.premium ? 'Unlocked · thank you' : `${PRICES.month}  ·  ${PRICES.year}`; this._unlockBtn.hidden = app.premium; }
+    if (this.sceneCards) this._layoutScenes();
     for (const b of this.$('#durations').children) b.classList.toggle('on', Number(b.dataset.min) === app.minutes);
     this.$('#length-group').classList.toggle('disabled', !!app.selected.guided);
     this.$('#tone').checked = app.solfeggio;
@@ -196,7 +275,6 @@ export class DomUI {
     this.$('#journey').value = app.journey;
     this.$('#nature').value = app.nature;
     this.$('#dives').value = app.dives;
-    this.$('#background').value = app.background;
     this.$('#whispers').checked = app.whispers;
     this.$('#captions').checked = app.captions;
     this.$('#breath-text').checked = app.breathText;
@@ -223,7 +301,7 @@ export class DomUI {
       : tr.buffer
         ? `Your track · ${tr.intent} · ${tr.scene} scene`
         : `${tr.freq} Hz · ${tr.intent} · ${tr.scene} scene`;
-    this.$('#begin').textContent = app.playing ? (app.playingTrack === tr ? 'Resume' : 'Switch to this') : 'Begin here';
+    this.$('#begin').textContent = !tr.free && !app.premium ? 'Unlock to begin' : app.playing ? (app.playingTrack === tr ? 'Resume' : 'Switch to this') : 'Begin here';
   }
 
   // the session bar fades out after 5 s without any movement, and comes back when you move or tap
