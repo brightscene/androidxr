@@ -10,6 +10,16 @@ import { saveUserImages, clearUserImages, refreshImageAtlas } from '../visuals/s
 // Flat-screen UI: the launcher you see in a browser panel on Android XR
 // (and on phones/desktops), plus the in-session bar.
 
+// The iOS app (ios/) loads this page with ?source=ios-app and listens on
+// window.webkit.messageHandlers.mindlyte; it controls playback through window.mindlyteNative.
+const IOS_APP = (() => {
+  try {
+    if (new URLSearchParams(location.search).get('source') === 'ios-app') sessionStorage.setItem('mindlyte-ios', '1');
+    return sessionStorage.getItem('mindlyte-ios') === '1' && !!window.webkit?.messageHandlers?.mindlyte;
+  } catch { return false; }
+})();
+const toNative = (msg) => { if (IOS_APP) try { window.webkit.messageHandlers.mindlyte.postMessage(msg); } catch {} };
+
 export class DomUI {
   constructor(app) {
     this.app = app;
@@ -17,6 +27,7 @@ export class DomUI {
     this.menu = this.$('#menu');
     this.session = this.$('#session');
     this.tab = 'Journeys';
+    if (IOS_APP) this._nativeApp();
     this._buildTabs();
     this._buildCards();
     this._buildScenes();
@@ -25,6 +36,21 @@ export class DomUI {
     this._checkXR();
     this.$('#version').textContent = `MindLyte v${__BUILD__}`;
     this.refresh();
+  }
+
+  // inside the iOS app: an "App settings" button, and lock-screen controls
+  _nativeApp() {
+    const app = this.app;
+    document.body.classList.add('ios-app');
+    const b = document.createElement('button');
+    b.className = 'ghost small'; b.id = 'app-settings'; b.textContent = 'App settings';
+    b.addEventListener('click', () => toNative({ type: 'settings' }));
+    this.$('header').append(b);
+    window.mindlyteNative = {
+      pause: () => app.engine.ctx?.suspend(),
+      play: () => app.engine.ctx?.resume(),
+      end: () => app.stop(),
+    };
   }
 
   // tabs, the same as in the headset
@@ -322,6 +348,7 @@ export class DomUI {
   }
 
   onStart(track) {
+    toNative({ type: 'session', state: 'start', title: track.title });
     this.menu.classList.add('hidden');
     this.session.classList.remove('hidden');
     document.body.classList.add('playing');
@@ -335,6 +362,7 @@ export class DomUI {
   }
 
   onStop(completed) {
+    toNative({ type: 'session', state: 'end', completed: !!completed });
     this.session.classList.add('hidden');
     this.menu.classList.remove('hidden');
     document.body.classList.remove('playing');

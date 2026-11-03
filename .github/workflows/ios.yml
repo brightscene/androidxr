@@ -1,0 +1,23 @@
+name: Build iOS app
+
+on:
+  push:
+    branches: [main]
+    paths: [ios/**, .github/workflows/ios.yml]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: brew install xcodegen
+      - name: Generate the Xcode project
+        working-directory: ios
+        run: xcodegen generate
+      - name: Build for the iOS Simulator
+        working-directory: ios
+        run: |
+          set -o pipefail
+          xcodebuild -project MindLyte.xcodeproj -scheme MindLyte -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' build CODE_SIGNING_ALLOWED=NO | tail -40

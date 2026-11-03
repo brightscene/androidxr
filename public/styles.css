@@ -213,3 +213,8 @@ body:not(.playing) #close-menu { display: none; }
   .jgrid { grid-template-columns: 1fr; }
 }
 [hidden] { display: none !important; }
+
+/* inside the iOS app: no headset buttons, and room for the notch */
+body.ios-app #enter-vr, body.ios-app #enter-ar, body.ios-app #xr-note { display: none; }
+body.ios-app #menu { max-height: calc(100vh - 32px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); }
+#app-settings { margin-left: auto; }

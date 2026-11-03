@@ -1,0 +1,28 @@
+# Generate the Xcode project with:  brew install xcodegen && xcodegen
+name: MindLyte
+options:
+  bundleIdPrefix: app.mindlyte
+  deploymentTarget:
+    iOS: "16.0"
+settings:
+  base:
+    MARKETING_VERSION: "1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    SWIFT_VERSION: "5.9"
+    DEVELOPMENT_TEAM: ""   # set your Apple team in Xcode (Signing & Capabilities)
+targets:
+  MindLyte:
+    type: application
+    platform: iOS
+    sources: [MindLyte]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.mindlyte.MindLyte
+        PRODUCT_NAME: MindLyte
+        INFOPLIST_FILE: MindLyte/Info.plist
+        CODE_SIGN_ENTITLEMENTS: MindLyte/MindLyte.entitlements
+        CODE_SIGN_STYLE: Automatic
+        TARGETED_DEVICE_FAMILY: "1,2"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        GENERATE_INFOPLIST_FILE: NO
+    scheme: {}
