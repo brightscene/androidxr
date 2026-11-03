@@ -1,7 +1,7 @@
 // Network-first with offline fallback: you always get the newest version
 // (and any newly recorded voice clips) when online, and MindLyte still works
 // with no connection because everything it plays is generated on-device.
-const CACHE = 'mindlyte-v22';
+const CACHE = 'mindlyte-v23';
 const SHELL = ['./', './index.html', './app.js', './styles.css', './manifest.webmanifest', './icons/icon-192.png', './icons/icon-512.png'];
 
 self.addEventListener('install', (e) => {
