@@ -264,14 +264,15 @@ class App {
     const opts = {
       minutes: guided ? est / 60 : this.minutes,
       // light-encoded tracks carry their own entrainment programme: don't layer ours on top
-      entrainment: track.strobe ? 'off' : this.entrainment,
+      entrainment: track.strobe || track.musicOff ? 'off' : this.entrainment,
       profile: this.journey === 'auto' ? track.profile : this.journey,
-      solfeggio: track.strobe ? false : this.solfeggio,
+      solfeggio: track.strobe || track.musicOff ? false : this.solfeggio,
       dives: this.dives !== 'off',
     };
     this.player = track.stream ? new StreamPlayer(this.engine, track, opts)
       : track.buffer ? new ImportedPlayer(this.engine, track, track.buffer, opts) : new Composer(this.engine, track, opts);
     this.engine.fadeMaster(1, 3);
+    this.engine.setMusic(!track.musicOff);
     this.player.start();
     this.mine.resetSchedule();
     this.playing = true;

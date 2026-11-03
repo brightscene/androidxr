@@ -15,6 +15,7 @@ import { ReikiScene } from './reiki.js';
 import { StarGateScene } from './stargate.js';
 import { MurmurationScene, FireplaceScene } from './cozy.js';
 import { QuantumScene } from './quantum.js';
+import { WombScene } from './womb.js';
 import { DrumJourneyScene, IllusionScene, MindsEyeScene } from './lighttracks.js';
 import { TimePortalScene, KaleidosphereScene, NebulaFlightScene, WarpGateScene, MandalaBloomScene, SilkVortexScene } from './dimensions.js';
 import { MoonViewScene, FractalTunnelScene, CrystalCaveScene, NebulaScene, LightRibbonsScene, BlackHoleScene, ChakraScene } from './cosmic.js';
@@ -65,6 +66,7 @@ export const SCENES = {
   drums: { type: DrumJourneyScene, label: 'Drum circle', group: 'Light journeys', cruise: 0, nebula: 0, world: 'bare' },
   illusions: { type: IllusionScene, label: 'Audio illusions', group: 'Light journeys', cruise: 0, nebula: 0, world: 'bare' },
   mindseye: { type: MindsEyeScene, label: "Mind's eye", group: 'Light journeys', cruise: 0.6, nebula: 0, world: 'bare' },
+  womb: { type: WombScene, label: 'Womb', group: 'Mind', cruise: 0, nebula: 0, world: 'off' },
   reiki: { type: ReikiScene, label: 'Reiki symbols', group: 'Mind', cruise: 0, nebula: 0, world: 'bare' },
   orb: { type: OrbScene, label: 'Breathing orb', group: 'Mind', cruise: 0.5, nebula: 0.8, world: 'full' },
   mandala: { type: MandalaScene, label: 'Lotus mandala', group: 'Mind', cruise: 0.4, nebula: 0.7, world: 'full' },

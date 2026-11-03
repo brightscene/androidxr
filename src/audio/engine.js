@@ -83,8 +83,8 @@ export class AudioEngine {
   // Short scene sounds, panned left/right in the head (not spatialised):
   //   'thud'  a soft, dull low thump, like something landing on a cushion
   //   'whoosh' a breathy swell of air that drifts across
-  sfx(kind, { pan = 0, gain = 1, decay = 0.35, dur = 1.4, note = 1 } = {}) {
-    const opts_note = note;
+  sfx(kind, { pan = 0, gain = 1, decay = 0.35, dur = 1.4, note = 1, freq = 0 } = {}) {
+    const opts_note = note, opts_freq = freq;
     if (!this.ctx || !this.master) return;
     const ctx = this.ctx, t = ctx.currentTime + 0.01;
     if (!this.sfxBus) { this.sfxBus = ctx.createGain(); this.sfxBus.gain.value = 0.9; this.sfxBus.connect(this.master); }
@@ -151,11 +151,28 @@ export class AudioEngine {
         nodes.push(n, hp, g);
       }
       end(0.4);
+    } else if (kind === 'heart') {
+      // a heartbeat heard from inside: a deep muffled 'lub', then a softer 'dub'
+      [[0, 1], [0.27, 0.62]].forEach(([dt, a]) => {
+        const at = t + dt;
+        const o = ctx.createOscillator(), g = ctx.createGain(), lp = ctx.createBiquadFilter();
+        o.type = 'sine'; o.frequency.setValueAtTime(62, at); o.frequency.exponentialRampToValueAtTime(38, at + 0.16);
+        lp.type = 'lowpass'; lp.frequency.value = 140;
+        g.gain.setValueAtTime(0, at); g.gain.linearRampToValueAtTime(0.9 * a * gain, at + 0.018); g.gain.exponentialRampToValueAtTime(0.0008, at + 0.22);
+        o.connect(lp).connect(g).connect(p);
+        const n = ctx.createBufferSource(), nl = ctx.createBiquadFilter(), ng = ctx.createGain();
+        n.buffer = this.whiteNoise; nl.type = 'lowpass'; nl.frequency.value = 180;
+        ng.gain.setValueAtTime(0, at); ng.gain.linearRampToValueAtTime(0.5 * a * gain, at + 0.02); ng.gain.exponentialRampToValueAtTime(0.0006, at + 0.16);
+        n.connect(nl).connect(ng).connect(p);
+        o.start(at); o.stop(at + 0.3); n.start(at, Math.random() * 4); n.stop(at + 0.2);
+        nodes.push(o, g, lp, n, nl, ng);
+      });
+      end(0.7);
     } else if (kind === 'hiss') {
       // the steady soft roar and hiss of a fire, for 'dur' seconds
       const n = ctx.createBufferSource(), lp = ctx.createBiquadFilter(), g = ctx.createGain();
       n.buffer = this.noise || this.whiteNoise; n.loop = true;
-      lp.type = 'lowpass'; lp.frequency.value = 900;
+      lp.type = 'lowpass'; lp.frequency.value = opts_freq || 900;
       g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.16 * gain, t + 2);
       g.gain.setValueAtTime(0.16 * gain, t + dur - 2); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
       n.connect(lp).connect(g).connect(p);
@@ -182,6 +199,13 @@ export class AudioEngine {
       nodes.push(n, bp, g, send);
       end(dur + 0.1);
     }
+  }
+
+  // switch the generated music (and its reverb) off for tracks that are only the scene's own sounds
+  setMusic(on) {
+    if (!this.dry) return;
+    const t = this.ctx.currentTime;
+    this.dry.gain.setTargetAtTime(on ? 0.7 : 0, t, 0.5);
   }
 
   duck(on) {
