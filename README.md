@@ -71,7 +71,8 @@ MindLyte is a meditation app for Android XR. You drift slowly through a field of
 - **Nature:** Meadow (wind waves through the grass, gusts on chord changes, drifting clouds), White beach (waves roll in, break into foam and wash up the sand), Underwater kelp forest, Zen garden (raked sand, cherry blossom, lanterns; the blossom fills out as the session deepens), Glowing forest, Bamboo grove, Snowy peaks, Desert night (shooting stars on some notes).
 - **Sky & water:** Cloud flight (fly through cumulus, towers, layers and wisps, with a soft white-out inside a cloud), Floating islands, Lantern lake, Rain on the lake (from a wooden jetty), Lotus pond (flowers open as you breathe in, and more bloom each section), Light ocean.
 - **Space:** Galaxy voyage, Moon view (ringed gas giant, a blue world, a red planet and a spiral galaxy), Black hole, Nebula drift, Light ribbons, Aurora.
-- **Mind:** Fractal tunnel, Crystal cave, Chakras (the seven chakras light in turn, one per bar), Breathing orb, Lotus mandala, Sacred geometry, Cymatics.
+- **Dimensions:** **Time portal** (you travel down a softly snaking pipe of flowing aura light; every so often the exit opens and you surge through a white flash into a new dimension of colour), **Kaleidosphere** (a living kaleidoscope mirrored 48 ways all around you, which turns, breathes, changes colour with the chords and sparkles on the beat), and Fractal tunnel.
+- **Mind:** Crystal cave, Chakras (the seven chakras light in turn, one per bar), Breathing orb, Lotus mandala, Sacred geometry, Cymatics.
 - **Simple:** Stars only, Off.
 
 Each soundscape has its own default scene, for example Ground → Meadow, Undo → Zen garden, Connect → Lotus pond and Crown → Moon view. *It's Going to Be Okay* uses the beach.

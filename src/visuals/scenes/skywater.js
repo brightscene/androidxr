@@ -148,7 +148,6 @@ export class CloudFlightScene extends BaseScene {
       return m;
     };
     this.group.add(layer(-30, 0.012, 0.75, 1));
-    this.group.add(layer(45, 0.008, 0.45, 0.55));
     // cloud puffs: camera-facing soft sprites, grouped into clusters of different types
     const r = rng(12);
     const puffs = [];
@@ -169,7 +168,6 @@ export class CloudFlightScene extends BaseScene {
       cluster(lane ? (r() - 0.5) * 8 : (r() < 0.5 ? -1 : 1) * (12 + r() * 50), lane ? -2 + r() * 6 : -12 + r() * 30, -r() * L, 'cumulus');
     }
     for (let i = 0; i < 6; i++) cluster((r() < 0.5 ? -1 : 1) * (90 + r() * 60), -30, -r() * L, 'tower');
-    for (let i = 0; i < 8; i++) cluster((r() - 0.5) * 120, 22 + r() * 15, -r() * L, 'wisp');
     this.puffs = puffs;
     const g = new THREE.InstancedBufferGeometry();
     g.setAttribute('position', new THREE.Float32BufferAttribute([-0.5, -0.5, 0, 0.5, -0.5, 0, 0.5, 0.5, 0, -0.5, 0.5, 0], 3));
@@ -183,13 +181,17 @@ export class CloudFlightScene extends BaseScene {
       vertexShader: /* glsl */ `attribute vec4 aP; attribute vec2 aS; uniform float uTravel, uL; varying vec2 vUv; varying vec2 vS; varying float vA;
         void main(){
           vec3 c = aP.xyz; c.z = mod(c.z + uTravel, uL) - uL + 25.0;
-          vec4 mv = viewMatrix * vec4(c, 1.0);
-          float dist = length(mv.xyz);
-          vA = smoothstep(uL - 25.0, uL - 140.0, dist) * smoothstep(aP.w * 0.25, aP.w * 0.9, dist);
+          vec3 toCam = cameraPosition - c;
+          float dist = length(toCam);
+          // fade far away, and fade out well before a card gets close enough to look flat
+          vA = smoothstep(uL - 25.0, uL - 140.0, dist) * smoothstep(aP.w * 1.1, aP.w * 2.6, dist);
+          vec3 f = toCam / max(dist, 1e-3);
+          vec3 right = normalize(cross(vec3(0.0, 1.0, 0.0), f));
+          vec3 up = cross(f, right);
           vec2 sz = aP.w * (aS.y > 0.5 ? vec2(3.0, 0.8) : vec2(1.9, 1.5));
-          mv.xy += position.xy * sz;
+          vec3 w = c + right * position.x * sz.x + up * position.y * sz.y;
           vUv = position.xy + 0.5; vS = aS;
-          gl_Position = projectionMatrix * mv;
+          gl_Position = projectionMatrix * viewMatrix * vec4(w, 1.0);
         }`,
       fragmentShader: /* glsl */ `uniform sampler2D uAtlas; uniform vec3 uSunV; uniform float uFade; varying vec2 vUv; varying vec2 vS; varying float vA;
         void main(){
@@ -206,8 +208,8 @@ export class CloudFlightScene extends BaseScene {
     mesh.frustumCulled = false;
     this.group.add(mesh);
     // white-out when you pass through a cloud
-    this.veil = new THREE.Mesh(new THREE.PlaneGeometry(4, 4), new THREE.MeshBasicMaterial({ color: 0xf6f9ff, transparent: true, opacity: 0, depthTest: false, depthWrite: false }));
-    this.veil.position.z = -0.3;
+    // soft white-out all around you while inside a cloud (a sphere, so it has no edges)
+    this.veil = new THREE.Mesh(new THREE.SphereGeometry(0.5, 24, 16), new THREE.MeshBasicMaterial({ color: 0xf2f6fc, transparent: true, opacity: 0, depthTest: false, depthWrite: false, side: THREE.BackSide }));
     this.veil.renderOrder = 930;
     this.attached = false;
     this.veilAmt = 0;
@@ -222,10 +224,10 @@ export class CloudFlightScene extends BaseScene {
     for (const [x, y, z, s] of this.puffs) {
       const zz = ((z + travel) % this.L + this.L) % this.L - this.L + 25;
       const d = Math.hypot(x, y - 1.6, zz);
-      if (d < s * 0.6) inside = Math.max(inside, 1 - d / (s * 0.6));
+      if (d < s * 1.4) inside = Math.max(inside, 1 - d / (s * 1.4));
     }
     this.veilAmt = damp(this.veilAmt, inside, 3, dt);
-    this.veil.material.opacity = Math.min(0.85, this.veilAmt * 1.4) * this.fade;
+    this.veil.material.opacity = Math.min(0.8, this.veilAmt * 1.3) * this.fade;
   }
   dispose() { this.veil.removeFromParent(); super.dispose(); }
 }

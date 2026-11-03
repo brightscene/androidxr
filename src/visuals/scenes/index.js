@@ -8,6 +8,7 @@ import { MandalaScene } from './mandala.js';
 import { CymaticsScene } from './cymatics.js';
 import { MeadowScene, BeachScene, UnderwaterScene, ZenGardenScene, GlowForestScene, SnowPeaksScene, DesertNightScene } from './nature.js';
 import { LanternLakeScene, RainLakeScene, CloudFlightScene, LotusPondScene, BambooGroveScene, FloatingIslandsScene } from './skywater.js';
+import { TimePortalScene, KaleidosphereScene } from './dimensions.js';
 import { MoonViewScene, FractalTunnelScene, CrystalCaveScene, NebulaScene, LightRibbonsScene, BlackHoleScene, ChakraScene } from './cosmic.js';
 
 // world: what the shared space environment shows behind the scene
@@ -21,6 +22,10 @@ export const SCENES = {
   nebula: { type: NebulaScene, label: 'Nebula drift', group: 'Space', cruise: 1.5, nebula: 0, world: 'bare' },
   ribbons: { type: LightRibbonsScene, label: 'Light ribbons', group: 'Space', cruise: 0.2, nebula: 0.7, world: 'full' },
   aurora: { type: AuroraScene, label: 'Aurora', group: 'Space', cruise: 0.3, nebula: 0.5, world: 'full' },
+
+  portal: { type: TimePortalScene, label: 'Time portal', group: 'Dimensions', cruise: 4, nebula: 0, world: 'bare' },
+  kaleido: { type: KaleidosphereScene, label: 'Kaleidosphere', group: 'Dimensions', cruise: 0, nebula: 0, world: 'bare' },
+  tunnel: { type: FractalTunnelScene, label: 'Fractal tunnel', group: 'Dimensions', cruise: 2.5, nebula: 0, world: 'bare' },
 
   meadow: { type: MeadowScene, label: 'Meadow', group: 'Nature', cruise: 0, nebula: 0, world: 'bare' },
   beach: { type: BeachScene, label: 'White beach', group: 'Nature', cruise: 0, nebula: 0, world: 'bare' },
@@ -38,7 +43,7 @@ export const SCENES = {
   lotus: { type: LotusPondScene, label: 'Lotus pond', group: 'Sky & water', cruise: 0, nebula: 0, world: 'bare' },
   ocean: { type: OceanScene, label: 'Light ocean', group: 'Sky & water', cruise: 0.25, nebula: 0.55, world: 'full' },
 
-  tunnel: { type: FractalTunnelScene, label: 'Fractal tunnel', group: 'Mind', cruise: 2.5, nebula: 0, world: 'bare' },
+
   crystal: { type: CrystalCaveScene, label: 'Crystal cave', group: 'Mind', cruise: 0, nebula: 0, world: 'bare' },
   chakras: { type: ChakraScene, label: 'Chakras', group: 'Mind', cruise: 0.15, nebula: 0.6, world: 'full' },
   orb: { type: OrbScene, label: 'Breathing orb', group: 'Mind', cruise: 0.5, nebula: 0.8, world: 'full' },

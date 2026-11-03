@@ -102,37 +102,46 @@ export class FractalTunnelScene extends BaseScene {
   constructor() {
     super();
     const U = this.uniforms;
-    Object.assign(U, { uSym: { value: 6 }, uSymT: { value: 6 }, uPulse: { value: 0 } });
+    // symmetry changes crossfade between two whole-number patterns, so the
+    // kaleidoscope never shows a seam where it wraps around
+    Object.assign(U, { uSymA: { value: 6 }, uSymB: { value: 6 }, uMix: { value: 1 }, uPulse: { value: 0 } });
     const m = new THREE.Mesh(new THREE.SphereGeometry(60, 64, 48), domeMat(U, /* glsl */ `
-      uniform vec3 uC0, uC1, uC2; uniform float uTime, uTravel, uFade, uSym, uPulse, uBreath, uEnergy;
-      varying vec3 vDir; ${NOISE}
+      uniform vec3 uC0, uC1, uC2; uniform float uTime, uTravel, uFade, uSymA, uSymB, uMix, uPulse, uBreath, uEnergy;
+      varying vec3 vDir; ${NOISE} ${GRADE}
+      vec3 tunnel(vec3 d, float r, float v, float sym){
+        float seg = 6.28318 / sym;
+        float a = atan(d.y, d.x) + uTime * 0.05;
+        a = abs(mod(a + seg * 64.0, seg) - seg * 0.5);
+        vec2 q = vec2(a * 3.0, v);
+        float f = fbm(vec3(q * 1.3, uTime * 0.05)) + fbm(vec3(q * 3.1 + 7.0, uTime * 0.08)) * 0.5;
+        float rings = pow(0.5 + 0.5 * sin(v * 6.0 - uTime * 0.8), 8.0) * (0.25 + uPulse * 0.8);
+        float lines = smoothstep(0.08, 0.0, abs(fract(f * 3.0) - 0.5) - 0.42);
+        return mix(uC0 * 1.2, uC1 * 1.3, f) + uC2 * (lines * 0.45 + rings) * 0.8;
+      }
       void main(){
         vec3 d = normalize(vDir);
         float r = length(d.xy);
         float depth = max(-d.z, 0.0) / max(r, 0.03);
         float v = depth * 0.6 + uTravel * 0.25;
-        float a = atan(d.y, d.x) + uTime * 0.05;
-        float seg = 6.28318 / uSym;
-        a = abs(mod(a, seg) - seg * 0.5);
-        vec2 q = vec2(a * 3.0, v);
-        float f = fbm(vec3(q * 1.3, uTime * 0.05)) + fbm(vec3(q * 3.1 + 7.0, uTime * 0.08)) * 0.5;
-        float rings = pow(0.5 + 0.5 * sin(v * 6.0 - uTime * 0.8), 8.0) * (0.25 + uPulse * 0.8);
-        float lines = smoothstep(0.08, 0.0, abs(fract(f * 3.0) - 0.5) - 0.42);
-        vec3 c = mix(uC0 * 1.2, uC1 * 1.3, f) + uC2 * (lines * 0.45 + rings) * 0.8;
+        vec3 c = uMix >= 0.999 ? tunnel(d, r, v, uSymB) : mix(tunnel(d, r, v, uSymA), tunnel(d, r, v, uSymB), smoothstep(0.0, 1.0, uMix));
         c += vec3(1.0, 0.95, 0.9) * exp(-r * r * (60.0 - uBreath * 25.0)) * step(0.0, -d.z) * (0.7 + uEnergy * 0.5);
         c *= smoothstep(-0.2, 0.3, -d.z) * 0.85 + 0.15;
-        gl_FragColor = vec4(c * (0.75 + uEnergy * 0.4), uFade);
+        gl_FragColor = vec4(grade(c * (0.75 + uEnergy * 0.4)), uFade);
       }`));
     m.renderOrder = -5;
     this.group.add(m);
   }
   onEvent(e) {
-    if (e.type === 'chord') this.uniforms.uSymT.value = [5, 6, 8, 12][(e.index ?? 0) % 4];
-    if (e.type === 'beat') this.uniforms.uPulse.value = Math.min(1, this.uniforms.uPulse.value + (e.accent ? 0.6 : 0.2));
+    const u = this.uniforms;
+    if (e.type === 'chord') {
+      const next = [5, 6, 8, 12][(e.index ?? 0) % 4];
+      if (next !== u.uSymB.value && u.uMix.value >= 1) { u.uSymA.value = u.uSymB.value; u.uSymB.value = next; u.uMix.value = 0; }
+    }
+    if (e.type === 'beat') u.uPulse.value = Math.min(1, u.uPulse.value + (e.accent ? 0.6 : 0.2));
   }
   update(dt) {
     const u = this.uniforms;
-    u.uSym.value = damp(u.uSym.value, u.uSymT.value, 0.8, dt);
+    u.uMix.value = Math.min(1, u.uMix.value + dt / 3);
     u.uPulse.value *= Math.exp(-dt * 2.5);
   }
 }
