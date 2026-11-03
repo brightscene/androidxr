@@ -1,6 +1,8 @@
 import * as THREE from 'three';
 import { SYMBOLS } from '../visuals/strobe.js';
 import { BACKGROUNDS, SCENES } from '../visuals/scenes/index.js';
+import SCENE_PALETTES from './scenePalettes.json';
+import { PRICES } from '../journeys.js';
 
 // In-headset UI: canvas-textured panels you point at and pinch (hands) or
 // trigger (controllers). Works with any WebXR input that has a target ray,
@@ -185,7 +187,7 @@ export class XRMenu {
       c.font = `600 ${Math.round(h * 0.36)}px ${FONT}`;
       c.textAlign = 'center';
       c.textBaseline = 'middle';
-      const label = app.playing ? (app.playingTrack === app.selected ? 'Resume' : 'Play selected') : 'Begin';
+      const label = !app.selected.free && !app.premium ? 'Unlock to begin' : app.playing ? (app.playingTrack === app.selected ? 'Resume' : 'Play selected') : 'Begin';
       c.fillText(label, w / 2, h / 2 + 2);
     }, () => app.beginOrResume()), -0.55, fy);
     this._btn(this.panel, new Button(0.27, 0.09, pill('Center View'), () => app.recentre()), -0.23, fy);
@@ -231,55 +233,150 @@ export class XRMenu {
     this.setTab('Journeys');
   }
 
+  // Journeys: a list in two sections, Free and Premium. Each row has a moving
+  // preview on the left, then the title and what it's about.
   _buildJourneys() {
-    const page = this.pages.Journeys;
-    this.cardBtns = [];
-    this.cardList = [];
-    this._rebuildCards();
-    this.journeyNote = this._btn(page, new Button(1.4, 0.05, textDraw(() => {
-      const tr = this.app.selected;
-      if (tr.plain) return `${tr.title}: ${tr.intent}. Press Begin.`;
-      if (tr.strobe || tr.stream) return `${tr.title}: ${(tr.strobe?.format || tr.format) === 'spectrastrobe' ? 'full-colour SpectraStrobe' : 'AudioStrobe'} light & sound. Press Begin; adjust in the Lights tab.`;
-      if (tr.guided) return `${tr.title}: guided with voice. Voice options are in the Voice tab.`;
-      return `${tr.title}: ${tr.freq} Hz · ${tr.intent}. Import your own tracks on the flat-screen menu.`;
-    }, { alpha: 0.6, size: 0.5 })), 0, -0.505);
+    const app = this.app, page = this.pages.Journeys;
+    const J = app.journeys;
+    this.jItems = [{ header: 'Free' }, ...J.free.map((t) => ({ t })), { header: 'Premium' }, ...J.premium.map((t) => ({ t }))];
+    this.jPage = 0;
+    this.videos = new Map();
+    const PER = 6;
+    this.jSlots = [];
+    for (let k = 0; k < PER; k++) {
+      const y = 0;
+      const slot = { y, item: null };
+      // a journey row
+      slot.row = this._btn(page, new Button(1.48, 0.136, (c, w, h, b) => {
+        const it = slot.item; if (!it || !it.t) return;
+        const tr = it.t, sel = app.selected === tr, locked = !tr.free && !app.premium;
+        roundRect(c, 4, 4, w - 8, h - 8, 26);
+        const g = c.createLinearGradient(0, 0, w, 0);
+        g.addColorStop(0, tr.palette[0]); g.addColorStop(0.5, tr.palette[1]); g.addColorStop(1, 'rgba(10,10,28,0.9)');
+        c.globalAlpha = sel ? 0.95 : b.hover ? 0.8 : 0.5; c.fillStyle = g; c.fill(); c.globalAlpha = 1;
+        c.lineWidth = sel ? 7 : b.hover ? 5 : 2; c.strokeStyle = sel || b.hover ? '#fff' : 'rgba(255,255,255,0.25)'; c.stroke();
+        const x0 = w * 0.18;
+        c.textAlign = 'left'; c.fillStyle = '#fff';
+        c.font = `600 ${Math.round(h * 0.2)}px ${FONT}`;
+        c.fillText(tr.title, x0, h * 0.36);
+        c.font = `400 ${Math.round(h * 0.13)}px ${FONT}`; c.fillStyle = 'rgba(255,255,255,0.85)';
+        c.fillText(tr.intent.slice(0, 70), x0, h * 0.6);
+        const kind = tr.free ? 'Free journey' : tr.plain ? 'Music' : tr.strobe || tr.stream ? 'Light & sound' : tr.guided ? `Guided · ~${Math.round(tr.estimate / 60)} min` : `Soundscape · ${tr.freq} Hz`;
+        c.font = `500 ${Math.round(h * 0.11)}px ${FONT}`; c.fillStyle = 'rgba(255,255,255,0.6)';
+        c.fillText(kind, x0, h * 0.84);
+        // badge: free, or a padlock until Premium is unlocked
+        c.textAlign = 'right';
+        c.font = `600 ${Math.round(h * 0.13)}px ${FONT}`;
+        c.fillStyle = tr.free ? '#7ff0c8' : locked ? '#ffd27a' : '#c8b8ff';
+        c.fillText(tr.free ? 'FREE' : locked ? '🔒 PREMIUM' : 'PREMIUM', w - 34, h * 0.36);
+      }, () => { if (slot.item?.t) { app.select(slot.item.t); this.refresh(); } }), 0, y);
+      // the preview box on the left of the row
+      const pv = new THREE.Mesh(new THREE.PlaneGeometry(0.22, 0.124), new THREE.MeshBasicMaterial({ color: 0x111122 }));
+      pv.position.set(-0.74 + 0.016 + 0.11, 0, 0.003);
+      pv.renderOrder = 1001;
+      slot.row.mesh.add(pv);
+      slot.preview = pv;
+      // a section heading in place of a row
+      slot.head = this._btn(page, new Button(1.48, 0.08, (c, w, h) => {
+        const it = slot.item; if (!it || !it.header) return;
+        c.textAlign = 'left'; c.fillStyle = '#fff';
+        c.font = `600 ${Math.round(h * 0.55)}px ${FONT}`;
+        c.fillText(it.header, 10, h * 0.7);
+        if (it.header === 'Premium') {
+          c.font = `400 ${Math.round(h * 0.4)}px ${FONT}`; c.fillStyle = 'rgba(255,255,255,0.7)';
+          c.fillText(app.premium ? 'Unlocked · thank you' : `${PRICES.month}  ·  ${PRICES.year}`, 280, h * 0.68);
+        }
+      }), 0, y, false);
+      slot.unlock = this._btn(page, new Button(0.26, 0.07, pill('Unlock Premium'), () => this.showUnlock(true)), 0.6, y);
+      this.jSlots.push(slot);
+    }
+    this.jPrev = this._btn(page, new Button(0.09, 0.055, pill('‹'), () => { this.jPage--; this._layoutJourneys(); }), -0.13, -0.47);
+    this.jNext = this._btn(page, new Button(0.09, 0.055, pill('›'), () => { this.jPage++; this._layoutJourneys(); }), 0.13, -0.47);
+    this.jLabel = this._btn(page, new Button(0.16, 0.05, textDraw(() => `${this.jPage + 1} / ${this.jPages || 1}`, { alpha: 0.7 })), 0, -0.47, false);
+    this._buildUnlock();
+    this._layoutJourneys();
   }
 
-  _rebuildCards() {
-    const app = this.app;
-    const list = [...app.lightTracks, ...app.guided, ...app.tracks, ...(app.imported ? [app.imported] : [])].slice(0, 16);
-    if (list.length === this.cardList.length && list.every((t, i) => t === this.cardList[i])) return;
-    for (const b of this.cardBtns) { b.dispose(); this.buttons.splice(this.buttons.indexOf(b), 1); }
-    this.cardList = list;
-    this.cardBtns = list.map((tr, i) => {
-      const col = i % 4, row = Math.floor(i / 4);
-      const card = new Button(0.35, 0.18, (c, w, h, b) => {
-        const sel = app.selected === tr;
-        roundRect(c, 6, 6, w - 12, h - 12, 30);
-        const g = c.createLinearGradient(0, 0, w, h);
-        g.addColorStop(0, tr.palette[0]);
-        g.addColorStop(0.6, tr.palette[1]);
-        g.addColorStop(1, tr.palette[2]);
-        c.globalAlpha = sel ? 1 : b.hover ? 0.92 : 0.62;
-        c.fillStyle = g;
-        c.fill();
-        c.globalAlpha = 1;
-        c.lineWidth = sel ? 9 : b.hover ? 6 : 3;
-        c.strokeStyle = sel || b.hover ? '#fff' : 'rgba(255,255,255,0.35)';
-        c.stroke();
-        c.fillStyle = '#fff';
-        c.textAlign = 'left';
-        c.font = `600 ${Math.round(h * 0.16)}px ${FONT}`;
-        c.fillText(tr.title.slice(0, 22), 28, h * 0.3);
-        c.font = `300 ${Math.round(h * 0.24)}px ${FONT}`;
-        const big = tr.plain ? 'Music' : tr.strobe || tr.stream ? ((tr.strobe?.format || tr.format) === 'spectrastrobe' ? 'SpectraStrobe' : 'AudioStrobe') : tr.guided ? `~${Math.round(tr.estimate / 60)} min` : tr.buffer ? 'Your track' : `${tr.freq} Hz`;
-        c.fillText(big, 28, h * 0.6);
-        c.font = `400 ${Math.round(h * 0.1)}px ${FONT}`;
-        c.fillStyle = 'rgba(255,255,255,0.88)';
-        c.fillText((tr.guided ? `Guided · ${tr.intent}` : tr.intent).slice(0, 40), 28, h * 0.84);
-      }, () => app.select(tr));
-      return this._btn(this.pages.Journeys, card, (col - 1.5) * 0.37, 0.33 - row * 0.2);
+  _video(scene) {
+    if (!this.videos.has(scene)) {
+      const v = document.createElement('video');
+      v.src = `previews/${scene}.mp4`; v.muted = true; v.loop = true; v.playsInline = true; v.crossOrigin = 'anonymous'; v.preload = 'auto';
+      const tex = new THREE.VideoTexture(v); tex.colorSpace = THREE.SRGBColorSpace;
+      this.videos.set(scene, { v, tex });
+    }
+    return this.videos.get(scene);
+  }
+
+  _layoutJourneys() {
+    // pack rows and headings into pages that fit the panel
+    if (!this.jBreaks) {
+      this.jBreaks = [0];
+      let y = 0.47;
+      this.jItems.forEach((it, i) => {
+        const h = it.header ? 0.09 : 0.148;
+        if (y - h < -0.42 || (it.header && y - h - 0.148 < -0.42)) { this.jBreaks.push(i); y = 0.47; }
+        y -= h;
+      });
+    }
+    this.jPages = this.jBreaks.length;
+    this.jPage = Math.max(0, Math.min(this.jPages - 1, this.jPage));
+    const from = this.jBreaks[this.jPage], to = this.jBreaks[this.jPage + 1] ?? this.jItems.length;
+    const showing = new Set();
+    let y = 0.47;
+    this.jSlots.forEach((slot, k) => {
+      const it = from + k < to ? this.jItems[from + k] : null;
+      slot.item = it;
+      slot.row.mesh.visible = !!(it && it.t);
+      slot.head.mesh.visible = !!(it && it.header);
+      slot.unlock.mesh.visible = !!(it && it.header === 'Premium' && !this.app.premium);
+      if (it) {
+        const h = it.header ? 0.09 : 0.148;
+        const cy = y - h / 2;
+        slot.row.mesh.position.y = cy; slot.head.mesh.position.y = cy; slot.unlock.mesh.position.y = cy;
+        y -= h;
+      }
+      if (it && it.t) {
+        const vid = this._video(it.t.scene);
+        slot.preview.material.map = vid.tex; slot.preview.material.color.set(0xffffff); slot.preview.material.needsUpdate = true;
+        showing.add(it.t.scene);
+      }
+      slot.row.redraw(); slot.head.redraw();
     });
+    // only the previews on this page play
+    for (const [scene, { v }] of this.videos) { if (showing.has(scene) && this.visible && this.tab === 'Journeys') v.play().catch(() => {}); else v.pause(); }
+    this.jPrev.mesh.visible = this.jNext.mesh.visible = this.jLabel.mesh.visible = this.jPages > 1;
+    this.jLabel.redraw();
+  }
+
+  // the Premium offer
+  _buildUnlock() {
+    const app = this.app;
+    this.unlockGroup = new THREE.Group();
+    this.unlockGroup.visible = false;
+    this.unlockGroup.position.z = 0.01;
+    this.panel.add(this.unlockGroup);
+    const add = (btn, x, y) => { btn.mesh.position.set(x, y, 0); btn.mesh.renderOrder = 1100; this.unlockGroup.add(btn.mesh); this.buttons.push(btn); return btn; };
+    add(new Button(1.2, 0.9, (c, w, h) => {
+      roundRect(c, 0, 0, w, h, 40); c.fillStyle = 'rgba(12,10,32,0.97)'; c.fill();
+      c.strokeStyle = 'rgba(255,255,255,0.3)'; c.lineWidth = 4; c.stroke();
+      c.textAlign = 'center'; c.fillStyle = '#fff';
+      c.font = `600 ${Math.round(h * 0.075)}px ${FONT}`; c.fillText('MindLyte Premium', w / 2, h * 0.16);
+      c.font = `400 ${Math.round(h * 0.042)}px ${FONT}`; c.fillStyle = 'rgba(255,255,255,0.85)';
+      ['Every journey: light & sound tracks, guided sessions,', 'solfeggio soundscapes, image cycling and the affirmation field.', 'New journeys as they arrive.'].forEach((l, i) => c.fillText(l, w / 2, h * (0.28 + i * 0.07)));
+      c.fillStyle = this.unlockMsg ? '#ffd27a' : 'rgba(255,255,255,0.5)';
+      c.fillText(this.unlockMsg || 'Cancel any time.', w / 2, h * 0.84);
+    }), 0, 0);
+    const buy = (label) => () => { this.unlockMsg = 'Payments are coming soon. Thank you for your interest!'; this.unlockCard.redraw(); };
+    this.unlockCard = this.buttons[this.buttons.length - 1];
+    add(new Button(0.42, 0.11, pill(PRICES.month), buy('month')), -0.23, -0.12);
+    add(new Button(0.42, 0.11, pill(PRICES.year), buy('year')), 0.23, -0.12);
+    add(new Button(0.24, 0.08, pill('Not now'), () => this.showUnlock(false)), 0, -0.3);
+  }
+
+  showUnlock(on) {
+    this.unlockGroup.visible = on;
+    this.unlockMsg = '';
+    this.unlockCard.redraw();
   }
 
   _buildScene() {
@@ -292,38 +389,30 @@ export class XRMenu {
     GROUPS.forEach((g, i) => {
       this._btn(p, new Button(gw, 0.065, pill(g, () => this.sceneGroup === g), () => { this.sceneGroup = g; this.scenePage = 0; this._layoutScenes(); }), LX + gw / 2 + i * (gw + 0.012), 0.42);
     });
-    // scenes as picture cards, like the journeys: twelve to a page
-    const thumbs = new Map();
-    const thumb = (v, redraw) => {
-      if (!thumbs.has(v)) { const im = new Image(); im.onload = () => redraw(); im.src = `thumbs/${v === 'auto' ? 'galaxy' : v}.jpg`; thumbs.set(v, im); }
-      return thumbs.get(v);
-    };
+    // scenes as coloured cards, in the style of the journey cards: twelve to a page
     this.scenePage = 0;
     this.sceneBtns = BACKGROUNDS.map(([v, label]) => {
-      let btn;
-      btn = new Button(0.35, 0.197, (c, w, h, b) => {
+      const pal = SCENE_PALETTES[v === 'auto' ? 'galaxy' : v] || ['#0a0a1a', '#3a3a7a', '#c0c8ff'];
+      const btn = new Button(0.35, 0.197, (c, w, h, b) => {
         const sel = app.background === v;
-        c.save();
-        roundRect(c, 6, 6, w - 12, h - 12, 26); c.clip();
-        const im = thumb(v, () => btn.redraw());
-        if (im.complete && im.naturalWidth) c.drawImage(im, 0, 0, w, h); else { c.fillStyle = '#1a1830'; c.fillRect(0, 0, w, h); }
-        const g = c.createLinearGradient(0, h * 0.45, 0, h);
-        g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(0,0,0,0.78)');
-        c.fillStyle = g; c.fillRect(0, 0, w, h);
-        if (!sel && !b.hover) { c.fillStyle = 'rgba(0,0,0,0.22)'; c.fillRect(0, 0, w, h); }
-        c.restore();
-        roundRect(c, 6, 6, w - 12, h - 12, 26);
+        roundRect(c, 6, 6, w - 12, h - 12, 30);
+        const g = c.createLinearGradient(0, 0, w, h);
+        g.addColorStop(0, pal[0]); g.addColorStop(0.6, pal[1]); g.addColorStop(1, pal[2]);
+        c.globalAlpha = sel ? 1 : b.hover ? 0.92 : 0.62;
+        c.fillStyle = g; c.fill();
+        c.globalAlpha = 1;
         c.lineWidth = sel ? 9 : b.hover ? 6 : 3;
-        c.strokeStyle = sel || b.hover ? '#fff' : 'rgba(255,255,255,0.3)';
+        c.strokeStyle = sel || b.hover ? '#fff' : 'rgba(255,255,255,0.35)';
         c.stroke();
         c.fillStyle = '#fff'; c.textAlign = 'left';
-        // shrink long names to fit the card
         const name = v === 'auto' ? 'Auto' : label;
-        let fs = Math.round(h * 0.15);
+        let fs = Math.round(h * 0.17);
         c.font = `600 ${fs}px ${FONT}`;
-        while (c.measureText(name).width > w - 50 && fs > 14) { fs -= 2; c.font = `600 ${fs}px ${FONT}`; }
-        c.fillText(name, 26, h - 30);
-        if (v === 'auto') { c.font = `400 ${Math.round(h * 0.1)}px ${FONT}`; c.fillStyle = 'rgba(255,255,255,0.85)'; c.fillText("each journey's own world", 26, h - 74); }
+        while (c.measureText(name).width > w - 56 && fs > 14) { fs -= 2; c.font = `600 ${fs}px ${FONT}`; }
+        c.fillText(name, 28, h * 0.42);
+        c.font = `400 ${Math.round(h * 0.11)}px ${FONT}`;
+        c.fillStyle = 'rgba(255,255,255,0.85)';
+        c.fillText(v === 'auto' ? "each journey's own world" : (SCENES[v]?.group || ''), 28, h * 0.72);
       }, () => app.setBackground(v));
       return { g: groupOf(v), b: this._btn(p, btn, 0, 0) };
     });
@@ -467,6 +556,7 @@ export class XRMenu {
   setTab(name) {
     this.tab = name;
     for (const [t, g] of Object.entries(this.pages)) g.visible = t === name;
+    this._layoutJourneys?.();   // start or pause the journey previews
     if (name === 'Scene' && this._layoutScenes) {
       const v = this.app.background;
       this.sceneGroup = v === 'auto' ? 'Simple' : SCENES[v]?.group || this.sceneGroup;
@@ -476,7 +566,6 @@ export class XRMenu {
   }
 
   refresh() {
-    this._rebuildCards?.();
     for (const b of this.buttons) if (b.dynamic !== false) b.redraw();
     if (this.endBtn) {
       this.endBtn.mesh.visible = this.app.playing;
@@ -498,6 +587,7 @@ export class XRMenu {
   show(on) {
     this.visible = on;
     this.panel.visible = on;
+    this._layoutJourneys?.();
     this.orb.mesh.visible = !on && (this.app.playing || this.app.xrIdle);
     if (!on) this.warn.visible = false;
     this.app.getHead((h, f) => this.placeInFront(h, f));

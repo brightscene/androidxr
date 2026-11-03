@@ -77,7 +77,7 @@ export const TRACKS = [
   {
     id: 'undo', title: 'Undo', freq: 417, intent: 'Facilitating change',
     bpm: 60, scale: 'dorian', progression: [0, 3, 4, 6], barsPerChord: 2,
-    profile: 'meditate', scene: 'zen', seed: 417,
+    profile: 'meditate', scene: 'forest', seed: 417,
     palette: ['#120a1f', '#d4a373', '#fefae0'], breath: [5, 0, 5, 0], arc: ARC,
   },
   {

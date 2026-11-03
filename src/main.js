@@ -13,6 +13,7 @@ import { U, damp, SFX, INPUT } from './visuals/common.js';
 import { World } from './visuals/world.js';
 import { SCENES } from './visuals/scenes/index.js';
 import { XRMenu } from './ui/xrMenu.js';
+import { buildJourneys, premiumUnlocked } from './journeys.js';
 import { DomUI } from './ui/dom.js';
 
 const PHASE_TEXT = { in: 'Breathe in', hold: 'Hold', out: 'Breathe out', rest: 'Rest' };
@@ -36,7 +37,9 @@ class App {
     for (const t of LIGHT_TRACKS) t.loading = this._loadLightTrack(t);
     for (const g of GUIDED) g.estimate = estimateSeconds(SCRIPTS[g.guided]);
     const p = loadPrefs();
-    this.selected = [...LIGHT_TRACKS, ...TRACKS, ...GUIDED].find((t) => t.id === p.selected) || TRACKS.find((t) => t.id === 'intuition');
+    this.journeys = buildJourneys();
+    this.premium = premiumUnlocked();
+    this.selected = this.journeys.all.find((t) => t.id === p.selected) || this.journeys.free[0];
     this.minutes = p.minutes || 10;
     this.entrainment = p.entrainment || 'binaural';
     this.journey = p.journey || 'auto';
@@ -233,6 +236,8 @@ class App {
   // ------------------------------------------------------------ playback
   beginOrResume() {
     this.voice.unlock(); // inside the user gesture
+    // a Premium journey without Premium: show the offer instead
+    if (!this.selected.free && !this.premium) { this.menu.showUnlock?.(true); this.ui.showUnlock?.(); return; }
     if (this.playing && this.playingTrack === this.selected) { this.menu.show(false); return; }
     return this.start(this.selected);
   }
