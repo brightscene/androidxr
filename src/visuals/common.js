@@ -64,13 +64,38 @@ vec3 grade(vec3 c){ c = c / (1.0 + c * 0.16) * 1.08; return c + (hash3(vec3(gl_F
 `;
 
 // Point size in pixels for a given world-space size, correct in both eyes.
+// Points never draw smaller than 2.5 px: a 1-2 px point renders as a hard
+// square, so tiny ones are drawn as a soft 2.5 px dot and dimmed by vPtA to
+// keep the same brightness.
 export const POINT_SIZE = /* glsl */ `
-float pointPx(float worldSize, vec4 mv){ return worldSize * projectionMatrix[1][1] * uViewH / max(0.05, -mv.z); }
+varying float vPtA;
+float pointPx(float worldSize, vec4 mv){
+  float px = worldSize * projectionMatrix[1][1] * uViewH / max(0.05, -mv.z);
+  vPtA = clamp(px * px / 6.25, 0.0, 1.0);
+  return max(px, 2.5);
+}
+`;
+
+// Round, anti-aliased stars on a sky sphere. A star is a jittered point inside
+// each lit grid cell, drawn as a soft disc around it, so stars stay round from
+// every angle (lighting whole grid cells made squares and triangles).
+// Returns (brightness, random value for colour and twinkle).
+export const STARS = /* glsl */ `
+float sdHash(vec3 p){ p = fract(p * vec3(0.1031, 0.1030, 0.0973)); p += dot(p, p.yxz + 33.33); return fract((p.x + p.y) * p.z); }
+vec2 starDot(vec3 d, float scale, float thresh){
+  vec3 p = d * scale; vec3 c = floor(p);
+  float r = sdHash(c);
+  if (r < thresh) return vec2(0.0);
+  vec3 o = 0.45 + 0.1 * vec3(sdHash(c + 11.3), sdHash(c + 27.1), sdHash(c + 3.7));
+  float s = smoothstep(0.45, 0.05, length(fract(p) - o));
+  return vec2(s * (0.85 + 0.45 * fract(r * 37.0)), fract(r * 91.7));
+}
 `;
 
 // Soft round sprite for gl_PointCoord.
 export const SOFT_DOT = /* glsl */ `
-float softDot(){ vec2 c = gl_PointCoord - 0.5; float d = length(c) * 2.0; return smoothstep(1.0, 0.0, d) * smoothstep(1.0, 0.2, d); }
+varying float vPtA;
+float softDot(){ vec2 c = gl_PointCoord - 0.5; float d = length(c) * 2.0; return smoothstep(1.0, 0.0, d) * smoothstep(1.0, 0.2, d) * vPtA; }
 `;
 
 export function sharedUniforms(extra = {}) {

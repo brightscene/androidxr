@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { BaseScene, NOISE, GRADE, POINT_SIZE, additive, damp } from '../common.js';
+import { BaseScene, NOISE, GRADE, STARS, POINT_SIZE, additive, damp } from '../common.js';
 import { sky, terrain, particles, solidMat, noise2, rng, mix3, hex, clamp01 } from './kit.js';
 import { mergeGeos } from './nature.js';
 import { galaxyGeometry } from './galaxy.js';
@@ -154,10 +154,10 @@ export class CrystalCaveScene extends BaseScene {
     super();
     const U = this.uniforms;
     const cave = new THREE.Mesh(new THREE.SphereGeometry(26, 64, 48), domeMat(U, /* glsl */ `
-      uniform vec3 uC1; uniform float uTime, uFade; varying vec3 vDir; ${NOISE} ${GRADE}
+      uniform vec3 uC1; uniform float uTime, uFade; varying vec3 vDir; ${NOISE} ${GRADE} ${STARS}
       void main(){ vec3 d = normalize(vDir); float n = fbm(d * 6.0) + fbm(d * 17.0) * 0.4;
         vec3 c = mix(vec3(0.03, 0.02, 0.05), vec3(0.12, 0.08, 0.16), n) + uC1 * 0.06 * n;
-        c += vec3(step(0.996, hash3(floor(d * 300.0)))) * 0.6 * (0.5 + 0.5 * sin(uTime * 2.0 + hash3(floor(d * 300.0)) * 40.0));
+        vec2 st = starDot(d, 300.0, 0.9945); c += vec3(st.x) * 0.6 * (0.5 + 0.5 * sin(uTime * 2.0 + st.y * 40.0));
         gl_FragColor = vec4(grade(c), uFade); }`));
     cave.renderOrder = -5;
     this.group.add(cave);
@@ -215,7 +215,7 @@ export class NebulaScene extends BaseScene {
     const U = this.uniforms;
     const m = new THREE.Mesh(new THREE.SphereGeometry(70, 48, 32), domeMat(U, /* glsl */ `
       uniform vec3 uC0, uC1, uC2; uniform float uTime, uTravel, uFade, uBreath, uEnergy, uBeat;
-      varying vec3 vDir; ${NOISE} ${GRADE}
+      varying vec3 vDir; ${NOISE} ${GRADE} ${STARS}
       float n2(vec3 p){ return vnoise(p) * 0.65 + vnoise(p * 2.1) * 0.35; }
       void main(){
         vec3 d = normalize(vDir);
@@ -230,7 +230,7 @@ export class NebulaScene extends BaseScene {
           trans *= 1.0 - den * 0.18;
         }
         vec3 c = uC0 * 0.4 + acc * (0.8 + uEnergy * 0.4 + uBreath * 0.15 + uBeat * 0.1);
-        c += vec3(step(0.997, hash3(floor(d * 280.0)))) * trans;
+        c += vec3(starDot(d, 280.0, 0.9958).x) * trans;
         gl_FragColor = vec4(grade(c), uFade);
       }`));
     m.renderOrder = -5;

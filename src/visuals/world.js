@@ -141,8 +141,8 @@ export class World {
           gl_PointSize = max(1.5, pointPx(0.05, mv));
           gl_Position = projectionMatrix * mv;
         }`,
-      fragmentShader: /* glsl */ `uniform vec3 uC2; uniform float uNeb; varying float vA; varying float vS;
-        void main(){ float d = length(gl_PointCoord - 0.5) * 2.0; float a = smoothstep(1.0, 0.0, d);
+      fragmentShader: /* glsl */ `uniform vec3 uC2; uniform float uNeb; varying float vA; varying float vS; varying float vPtA;
+        void main(){ float d = length(gl_PointCoord - 0.5) * 2.0; float a = smoothstep(1.0, 0.0, d) * vPtA;
           vec3 c = vS < 0.55 ? vec3(0.45, 1.0, 0.6) : (vS < 0.8 ? uC2 : vec3(1.0));
           gl_FragColor = vec4(c * a * vA * (0.4 + uNeb * 0.6), 1.0); }`,
     }));

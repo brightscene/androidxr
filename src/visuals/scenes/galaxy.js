@@ -77,9 +77,9 @@ export class GalaxyScene extends BaseScene {
           gl_Position = projectionMatrix * mv;
         }`,
       fragmentShader: /* glsl */ `uniform vec3 uC1, uC2, uHue; uniform float uFade, uBright, uEnergy, uCore;
-        varying float vR; varying float vS; varying float vA; varying float vW;
+        varying float vR; varying float vS; varying float vA; varying float vW; varying float vPtA;
         void main(){
-          float d = length(gl_PointCoord - 0.5) * 2.0; float a = smoothstep(1.0, 0.0, d);
+          float d = length(gl_PointCoord - 0.5) * 2.0; float a = smoothstep(1.0, 0.0, d) * vPtA;
           vec3 core = vec3(1.0, 0.92, 0.78);
           vec3 arm = mix(uC2, uC1 * 1.6, vS) * uHue;
           vec3 c = mix(core, arm, smoothstep(0.05, 0.45, vR));

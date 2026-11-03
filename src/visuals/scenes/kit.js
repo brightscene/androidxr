@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { NOISE, GRADE, POINT_SIZE, SOFT_DOT } from '../common.js';
+import { NOISE, GRADE, STARS, POINT_SIZE, SOFT_DOT } from '../common.js';
 
 // Shared building blocks for the environment scenes: a procedural sky (with
 // sun, clouds, stars and a galaxy band), heightfield terrain, water with sun
@@ -27,7 +27,7 @@ export function sky(uni, o = {}) {
       uniform float uSunSize, uCloud, uCloudSpeed, uStars, uBand, uMoon, uFade, uTime, uBreath, uEnergy;
       varying vec3 vDir;
       ${NOISE}
-      ${GRADE}
+      ${GRADE} ${STARS}
       void main(){
         vec3 d = normalize(vDir);
         float h = d.y;
@@ -36,17 +36,16 @@ export function sky(uni, o = {}) {
         float sd = max(dot(d, uSunDir), 0.0);
         c += uSunCol * (pow(sd, 900.0 / uSunSize) * 3.0 + pow(sd, 16.0) * 0.3 + pow(sd, 3.0) * 0.12);
         if (uStars > 0.0) {
-          vec3 q = floor(d * 260.0);
-          float r = hash3(q);
-          float tw = 0.6 + 0.4 * sin(uTime * (1.0 + r * 3.0) + r * 60.0);
-          c += vec3(step(0.9965, r) * uStars * tw * smoothstep(-0.02, 0.25, h));
+          vec2 st = starDot(d, 260.0, 0.995);
+          float tw = 0.6 + 0.4 * sin(uTime * (1.0 + st.y * 3.0) + st.y * 60.0);
+          c += vec3(st.x * uStars * tw * smoothstep(-0.02, 0.25, h));
         }
         if (uBand > 0.0) { // milky-way band across the sky
           vec3 bn = normalize(vec3(0.35, 0.9, 0.25));
           float b = exp(-pow(dot(d, bn) * 4.0, 2.0));
           float n = fbm(d * 5.0) * fbm(d * 11.0 + 3.0);
           c += uBandCol * b * n * uBand * 1.6 * smoothstep(-0.05, 0.2, h);
-          c += vec3(step(0.985, hash3(floor(d * 420.0))) * b * uBand * 0.9);
+          c += vec3(starDot(d, 420.0, 0.978).x * b * uBand * 0.9);
         }
         if (uMoon > 0.0) {
           float md = dot(d, uMoonDir);

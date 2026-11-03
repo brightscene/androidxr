@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { BaseScene, NOISE, GRADE, damp } from '../common.js';
+import { BaseScene, NOISE, GRADE, STARS, damp } from '../common.js';
 import { particles } from './kit.js';
 
 const dome = (U, frag, radius = 60) => {
@@ -23,7 +23,8 @@ vec3 nebula(float t){
   if (t < 0.75) return mix(c2, c3, (t - 0.5) / 0.25);
   return mix(c3, c4, (t - 0.75) / 0.25);
 }
-float stars(vec3 d){ float r = hash3(floor(d * 300.0)); return step(0.9965, r) * (0.55 + 0.45 * sin(uTime * (1.0 + r * 3.0) + r * 60.0)); }`;
+${STARS}
+float stars(vec3 d){ vec2 s = starDot(d, 300.0, 0.995); return s.x * (0.55 + 0.45 * sin(uTime * (1.0 + s.y * 3.0) + s.y * 60.0)); }`;
 
 // ===================================================================== Time portal
 // Travelling down a softly snaking pipe of flowing aura light toward a bright
@@ -172,7 +173,7 @@ export class NebulaFlightScene extends BaseScene {
     Object.assign(U, { uGlow: { value: 0 } });
     this.group.add(dome(U, /* glsl */ `
       uniform vec3 uC1; uniform float uTime, uTravel, uFade, uBreath, uEnergy, uGlow;
-      varying vec3 vDir; ${NOISE} ${GRADE}
+      varying vec3 vDir; ${NOISE} ${GRADE} ${STARS}
       void main(){
         vec3 d = normalize(vDir);
         vec3 ro = vec3(sin(uTime * 0.02) * 0.6, 0.0, -uTravel * 0.07);
@@ -192,8 +193,8 @@ export class NebulaFlightScene extends BaseScene {
           T *= 1.0 - den * 0.2;
         }
         vec3 c = vec3(0.008, 0.008, 0.035) + acc * (0.95 + uEnergy * 0.3 + uBreath * 0.1);
-        float st = hash3(floor(d * 320.0));
-        c += mix(vec3(0.7, 0.9, 1.0), vec3(1.0, 0.75, 0.45), fract(st * 13.0)) * step(0.9972, st) * (0.4 + 0.6 * T);
+        vec2 st = starDot(d, 320.0, 0.996);
+        c += mix(vec3(0.7, 0.9, 1.0), vec3(1.0, 0.75, 0.45), st.y) * st.x * (0.4 + 0.6 * T);
         gl_FragColor = vec4(grade(c), uFade);
       }`));
     this.group.add(particles(U, { count: 500, min: [-12, -4, -60], max: [12, 8, 4], vel: [0, 0, 3], sway: 0.3, size: [0.02, 0.05], colors: ['#bff4ff', '#ffd2a0'], alpha: 0.7 }));
