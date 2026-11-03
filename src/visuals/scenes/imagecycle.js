@@ -4,23 +4,23 @@ import { particles } from './kit.js';
 import { makeBlanket } from './affirm.js';
 
 // Image cycling, after the visualisation practice of cycling rapidly through
-// vivid, emotionally charged images of the life you want. Here the images
-// surround you instead of living only in your mind.
+// vivid, emotionally charged images of the life you want, framed as a Time Line
+// Therapy journey. The aura blanket below is your timeline: the past behind
+// you, the future ahead. The first station is a dark obstacle that cracks with
+// light and shatters (letting the old story go); then each station cycles
+// photographs of one positive theme for 30 seconds, accelerating with the
+// music, condenses them into an orb of light, and places that orb into your
+// future on the timeline ahead, where it keeps glowing as you fly on.
 //
-// The journey: fly over the aura blanket toward a glowing portal; it stops in
-// front of you and positive images cycle inside it for 30 seconds, starting
-// slowly and accelerating with the music, echoed by a ring of frames around
-// you; the set condenses into a single glowing orb that settles into the
-// blanket; then you fly on to the next portal and its theme.
-//
-// Built-in images are painted in code. Add your own photos on the flat-screen
-// menu (Image cycling panel) and the cycling uses those instead.
+// Photos (Wikimedia Commons, credited in public/photos/photos.json) load from
+// the site; painted images are the offline fallback; your own images, added on
+// the flat-screen menu, replace both.
 
 const SETS = [
-  { name: 'Wellbeing', items: ['Peace', 'Health', 'Rest', 'Nature'] },
-  { name: 'Love', items: ['Love', 'Together', 'Home', 'Kindness'] },
-  { name: 'Abundance', items: ['Abundance', 'Gift', 'Growth', 'Open doors'] },
-  { name: 'Joy & freedom', items: ['Freedom', 'Joy', 'Achievement', 'Transformation'] },
+  { title: 'Let the past go', items: ['Peace', 'Rest', 'Open doors', 'Transformation'] },
+  { title: 'Return to nature', items: ['Nature', 'Health', 'Growth', 'Freedom'] },
+  { title: 'You are loved', items: ['Love', 'Together', 'Home', 'Kindness'] },
+  { title: 'Your bright future', items: ['Abundance', 'Gift', 'Joy', 'Achievement'] },
 ];
 
 // ---------------------------------------------------------------- painter
@@ -50,42 +50,91 @@ const PAINT = {
   Transformation(c, S) { P.bg(c, S, '#1a2a5a', '#7a4ab8'); P.glow(c, S * 0.5, S * 0.5, S * 0.4, 'rgba(180,220,255,0.5)'); for (const [sx, col] of [[-1, '#58c8ff'], [1, '#c084ff']]) { c.fillStyle = col; c.beginPath(); c.ellipse(S * (0.5 + sx * 0.13), S * 0.44, S * 0.13, S * 0.1, sx * 0.5, 0, 7); c.fill(); c.beginPath(); c.ellipse(S * (0.5 + sx * 0.1), S * 0.6, S * 0.08, S * 0.07, -sx * 0.4, 0, 7); c.fill(); } c.fillStyle = '#2a1a3a'; c.fillRect(S * 0.49, S * 0.38, S * 0.02, S * 0.28); },
 };
 
-function cell(c, S, i, ox, oy, draw, label) {
+function cell(c, S, ox, oy, draw, label) {
   c.save();
   c.translate(ox, oy);
   c.beginPath(); c.rect(0, 0, S, S); c.clip();
   draw(c, S);
   if (label) {
+    // a soft scrim keeps the caption readable on bright photos
+    const g = c.createLinearGradient(0, S * 0.66, 0, S);
+    g.addColorStop(0, 'rgba(8,6,24,0)'); g.addColorStop(1, 'rgba(8,6,24,0.62)');
+    c.fillStyle = g; c.fillRect(0, S * 0.66, S, S * 0.34);
     c.textAlign = 'center'; c.textBaseline = 'middle';
-    c.font = `500 ${S * 0.075}px "Inter", "Roboto", system-ui, sans-serif`;
-    c.shadowColor = 'rgba(0,0,0,0.55)'; c.shadowBlur = S * 0.03;
+    let size = S * 0.066;
+    const font = (z) => `400 ${z}px "Jost", "Inter", "Roboto", system-ui, sans-serif`;
+    c.font = font(size);
+    while (c.measureText(label).width > S * 0.66 && size > 14) { size -= 1; c.font = font(size); }
+    c.shadowColor = 'rgba(0,0,0,0.6)'; c.shadowBlur = S * 0.025;
     c.fillStyle = '#ffffff';
-    c.fillText(label, S / 2, S * 0.91);
+    c.fillText(label, S / 2, S * 0.83);
   }
   c.restore();
 }
 
-export function buildAtlas(userImages) {
-  const S = 512, cv = document.createElement('canvas');
-  cv.width = cv.height = S * 4;
+function cover(img) {
+  return (cc, S) => {
+    const k = Math.max(S / img.width, S / img.height);
+    cc.drawImage(img, (S - img.width * k) / 2, (S - img.height * k) / 2, img.width * k, img.height * k);
+  };
+}
+
+// sets: [{ title, items: [{ draw, label }] }] -> one texture atlas plus where each set lives in it
+function packAtlas(sets, kind) {
+  const S = 512;
+  const total = sets.reduce((n, s) => n + s.items.length, 0);
+  const G = Math.max(2, Math.ceil(Math.sqrt(total)));
+  const cv = document.createElement('canvas');
+  cv.width = cv.height = S * G;
   const c = cv.getContext('2d');
-  const labels = [];
-  if (userImages && userImages.length) {
-    userImages.slice(0, 16).forEach((img, i) => {
-      cell(c, S, i, (i % 4) * S, Math.floor(i / 4) * S, (cc) => {
-        const k = Math.max(S / img.width, S / img.height);
-        cc.drawImage(img, (S - img.width * k) / 2, (S - img.height * k) / 2, img.width * k, img.height * k);
-      }, null);
-      labels.push('');
-    });
-  } else {
-    let i = 0;
-    for (const set of SETS) for (const name of set.items) { cell(c, S, i, (i % 4) * S, Math.floor(i / 4) * S, PAINT[name], name); labels.push(name); i++; }
+  c.fillStyle = '#0b0a1f'; c.fillRect(0, 0, cv.width, cv.height);
+  const out = [];
+  let i = 0;
+  for (const set of sets) {
+    const base = i;
+    for (const it of set.items) { cell(c, S, (i % G) * S, Math.floor(i / G) * S, it.draw, it.label); i++; }
+    out.push({ title: set.title, base, n: set.items.length });
   }
   const tex = new THREE.CanvasTexture(cv);
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.anisotropy = 8;
-  return { tex, count: labels.length, builtin: !(userImages && userImages.length) };
+  tex.generateMipmaps = true;
+  return { tex, grid: G, sets: out, kind };
+}
+
+export function buildAtlas(userImages, photoSets) {
+  if (userImages && userImages.length) {
+    return packAtlas([{ title: 'Your vision', items: userImages.slice(0, 16).map((img) => ({ draw: cover(img), label: '' })) }], 'user');
+  }
+  if (photoSets && photoSets.length) {
+    return packAtlas(photoSets.map((s) => ({ title: s.title, items: s.items.map((it) => ({ draw: cover(it.img), label: it.cap })) })), 'photo');
+  }
+  return packAtlas(SETS.map((s) => ({ title: s.title, items: s.items.map((name) => ({ draw: PAINT[name], label: name })) })), 'painted');
+}
+
+// ---------------------------------------------------------------- photographs shipped with the site
+let photoSets = null, photoPromise = null;
+function loadImage(src) {
+  return new Promise((res, rej) => { const im = new Image(); im.decoding = 'async'; im.onload = () => res(im); im.onerror = rej; im.src = src; });
+}
+export function loadPhotoSets() {
+  if (!photoPromise) {
+    photoPromise = (async () => {
+      try {
+        const man = await (await fetch('photos/photos.json')).json();
+        const sets = [];
+        for (const s of man.sets) {
+          const items = (await Promise.all(s.items.map(async (it) => {
+            try { return { ...it, img: await loadImage('photos/' + it.f) }; } catch { return null; }
+          }))).filter(Boolean);
+          if (items.length >= 2) sets.push({ title: s.title, items });
+        }
+        photoSets = sets.length ? sets : null;
+      } catch { photoSets = null; }
+      return photoSets;
+    })();
+  }
+  return photoPromise;
 }
 
 // ---------------------------------------------------------------- user images (kept on this device)
@@ -110,43 +159,174 @@ export async function loadUserImages() {
 }
 let shared = null;
 export async function refreshImageAtlas() {
-  const imgs = await loadUserImages();
-  shared = buildAtlas(imgs);
+  const [imgs, photos] = await Promise.all([loadUserImages(), loadPhotoSets()]);
+  const next = buildAtlas(imgs, photos);
+  if (shared && shared !== next) shared.tex.dispose();
+  shared = next;
   for (const s of live) s.setAtlas(shared);
   return imgs.length;
 }
 const live = new Set();
 
 // ---------------------------------------------------------------- scene
-const FRAME_FRAG = /* glsl */ `uniform sampler2D uAtlas; uniform float uA, uB, uMix, uCount, uFade, uGlow, uTime, uRing, uEcho;
+const FRAME_FRAG = /* glsl */ `uniform sampler2D uAtlas; uniform float uA, uB, uMix, uGrid, uFade, uGlow, uTime, uRing, uEcho;
   varying vec2 vUv;
-  vec4 img(float i, vec2 uv){ i = mod(i, uCount); vec2 c = vec2(mod(i, 4.0), floor(i / 4.0)); return texture2D(uAtlas, vec2((c.x + uv.x) * 0.25, 1.0 - (c.y + 1.0 - uv.y) * 0.25)); }
+  vec4 img(float i, vec2 uv){ vec2 c = vec2(mod(i, uGrid), floor(i / uGrid)); return texture2D(uAtlas, vec2((c.x + uv.x) / uGrid, 1.0 - (c.y + 1.0 - uv.y) / uGrid)); }
   void main(){
     vec2 p = vUv - 0.5; float r = length(p) * 2.0;
     float inside = smoothstep(0.86, 0.82, r);
-    vec2 uv = (vUv - 0.5) * 1.18 + 0.5;
+    vec2 uv = clamp((vUv - 0.5) * 1.18 + 0.5, 0.004, 0.996);
     vec3 c = mix(img(uA, uv).rgb, img(uB, uv).rgb, uMix);
     float ring = exp(-pow((r - 0.9) * 18.0, 2.0));
     float h = 0.5 + 0.5 * sin(atan(p.y, p.x) * 2.0 + uTime * 0.5);
-    vec3 aura = mix(mix(vec3(0.62, 0.36, 1.0), vec3(1.0, 0.55, 0.82), h), vec3(0.45, 0.9, 1.0), 0.5 + 0.5 * sin(atan(p.y, p.x) * 3.0 - uTime * 0.3)) ;
-    vec3 col = c * inside * (0.85 + uGlow * 0.3) + aura * ring * (0.9 + uRing) + aura * exp(-max(r - 0.9, 0.0) * 6.0) * 0.25 * step(0.9, r);
+    vec3 aura = mix(mix(vec3(0.62, 0.36, 1.0), vec3(1.0, 0.55, 0.82), h), vec3(0.45, 0.9, 1.0), 0.5 + 0.5 * sin(atan(p.y, p.x) * 3.0 - uTime * 0.3));
+    vec3 col = c * inside * (0.9 + uGlow * 0.25) + aura * ring * (0.9 + uRing) + aura * exp(-max(r - 0.9, 0.0) * 6.0) * 0.25 * step(0.9, r);
     float a = max(inside, ring * 0.9) * uFade * uEcho;
     gl_FragColor = vec4(col * uEcho, a);
   }`;
+
+const VERT_UV = 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }';
+
+// A dark disc of shards: the old story. Light builds up behind it, leaks
+// through the cracks, then it bursts outward and dissolves.
+function makeObstacle(U) {
+  const rings = [0, 0.42, 0.82, 1.2, 1.56, 1.85], SEC = 16;
+  const rnd = (i) => { const x = Math.sin(i * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); };
+  const V = (ri, si) => {
+    if (ri === 0) return [0, 0];
+    const k = ri * 100 + (si % SEC);
+    const r = rings[ri] + (ri < rings.length - 1 ? (rnd(k) - 0.5) * 0.18 : 0);
+    const a = ((si % SEC) + (rnd(k + 7) - 0.5) * 0.5 + ri * 0.37) / SEC * Math.PI * 2;
+    return [Math.cos(a) * r, Math.sin(a) * r];
+  };
+  const pos = [], cen = [], dir = [], tone = [];
+  let n = 0;
+  const tri = (A, B, C) => {
+    const cx = (A[0] + B[0] + C[0]) / 3, cy = (A[1] + B[1] + C[1]) / 3;
+    const z = (rnd(n + 3) - 0.5) * 0.12;
+    const len = Math.hypot(cx, cy) || 1;
+    const sp = 2.5 + rnd(n + 11) * 4;
+    const d = [cx / len * sp + (rnd(n + 5) - 0.5) * 2, cy / len * sp + (rnd(n + 9) - 0.5) * 2, 1.5 + rnd(n + 13) * 5];
+    const spin = (rnd(n + 17) - 0.5) * 8;
+    for (const P of [A, B, C]) {
+      pos.push(cx + (P[0] - cx) * 0.93, cy + (P[1] - cy) * 0.93, z);
+      cen.push(cx, cy, z); dir.push(d[0], d[1], d[2]); tone.push(rnd(n + 1), spin);
+    }
+    n++;
+  };
+  for (let ri = 0; ri < rings.length - 1; ri++) {
+    for (let si = 0; si < SEC; si++) {
+      const a = V(ri, si), b = V(ri, si + 1), c = V(ri + 1, si), d = V(ri + 1, si + 1);
+      if (ri === 0) tri(a, c, d); else { tri(a, c, d); tri(a, d, b); }
+    }
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute('aCen', new THREE.Float32BufferAttribute(cen, 3));
+  g.setAttribute('aDir', new THREE.Float32BufferAttribute(dir, 3));
+  g.setAttribute('aTone', new THREE.Float32BufferAttribute(tone, 2));
+  const u = { uBreak: { value: 0 }, uCrack: { value: 0 }, uShow: { value: 0 } };
+  const shards = new THREE.Mesh(g, new THREE.ShaderMaterial({
+    transparent: true, depthWrite: false, side: THREE.DoubleSide,
+    uniforms: { ...U, ...u },
+    vertexShader: /* glsl */ `attribute vec3 aCen, aDir; attribute vec2 aTone; uniform float uBreak, uTime; varying float vT, vR, vB;
+      void main(){
+        vec3 p = position - aCen;
+        float b = uBreak;
+        float a = aTone.y * b;
+        p.xy = mat2(cos(a), -sin(a), sin(a), cos(a)) * p.xy;
+        p.yz = mat2(cos(a * 0.7), -sin(a * 0.7), sin(a * 0.7), cos(a * 0.7)) * p.yz;
+        p *= 1.0 - smoothstep(0.1, 0.9, b) * 0.85;
+        vec3 c = aCen + aDir * (b * 1.6 + b * b * 2.2);
+        c += vec3(0.0, 0.0, sin(uTime * 0.7 + aTone.x * 6.0) * 0.015);
+        vT = aTone.x; vR = length(aCen.xy); vB = b;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(c + p, 1.0);
+      }`,
+    fragmentShader: /* glsl */ `uniform float uFade, uShow, uCrack, uBreak; varying float vT, vR, vB;
+      void main(){
+        vec3 base = mix(vec3(0.035, 0.03, 0.06), vec3(0.09, 0.075, 0.13), vT);
+        vec3 hot = mix(vec3(1.0, 0.82, 0.55), vec3(0.75, 0.6, 1.0), vT);
+        vec3 col = mix(base + hot * uCrack * 0.18, hot * (0.9 + 0.5 * vT), smoothstep(0.0, 0.35, vB));
+        float a = uShow * uFade * (1.0 - smoothstep(0.12, 0.8, vB)) * (1.0 - 0.35 * smoothstep(0.0, 0.2, vB)) * smoothstep(1.95, 1.75, vR);
+        gl_FragColor = vec4(col, a);
+      }`,
+  }));
+  shards.renderOrder = 13;
+  // the light gathering behind the shards
+  const glow = new THREE.Mesh(new THREE.PlaneGeometry(6, 6), new THREE.ShaderMaterial({
+    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+    uniforms: { ...U, ...u },
+    vertexShader: VERT_UV,
+    fragmentShader: /* glsl */ `uniform float uFade, uShow, uCrack, uBreak, uTime; varying vec2 vUv;
+      void main(){
+        vec2 p = (vUv - 0.5) * 2.0; float r = length(p);
+        float rays = 0.65 + 0.35 * sin(atan(p.y, p.x) * 9.0 + uTime * 0.4);
+        float core = exp(-r * r * 9.0) + exp(-r * 3.2) * 0.45 * rays;
+        float flash = exp(-pow(uBreak - 0.12, 2.0) * 60.0) * step(0.001, uBreak);
+        vec3 col = mix(vec3(1.0, 0.86, 0.6), vec3(0.8, 0.7, 1.0), r) * core * (uCrack * 1.4 + flash * 1.5) * (1.0 - smoothstep(0.6, 1.6, uBreak) * 0.85);
+        gl_FragColor = vec4(col * uShow * uFade, 1.0);
+      }`,
+  }));
+  glow.renderOrder = 11;
+  glow.position.z = -0.25;
+  const grp = new THREE.Group();
+  grp.add(glow, shards);
+  grp.userData.u = u;
+  return grp;
+}
+
+function textPlane(U, w, h) {
+  const cv = document.createElement('canvas');
+  cv.width = 2048; cv.height = Math.round(2048 * h / w);
+  const tex = new THREE.CanvasTexture(cv);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = 8;
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.ShaderMaterial({
+    transparent: true, depthWrite: false, depthTest: false, blending: THREE.AdditiveBlending,
+    uniforms: { ...U, uTex: { value: tex }, uA: { value: 0 } },
+    vertexShader: VERT_UV,
+    fragmentShader: /* glsl */ `uniform sampler2D uTex; uniform float uA, uFade, uTime; varying vec2 vUv;
+      void main(){ vec4 t = texture2D(uTex, vUv);
+        vec3 tint = mix(vec3(0.86, 0.82, 1.0), vec3(0.78, 0.98, 0.96), 0.5 + 0.5 * sin(vUv.x * 3.0 + uTime * 0.3));
+        gl_FragColor = vec4(tint * t.a * uA * 1.4 * uFade, 1.0); }`,
+  }));
+  m.renderOrder = 20;
+  let current = null;
+  m.userData.set = (text) => {
+    if (text === current) return;
+    current = text;
+    const c = cv.getContext('2d');
+    c.clearRect(0, 0, cv.width, cv.height);
+    if (!text) { tex.needsUpdate = true; return; }
+    c.textAlign = 'center'; c.textBaseline = 'middle';
+    let size = cv.height * 0.62;
+    const font = (z) => `300 ${z}px "Jost", "Inter", "Roboto", "Segoe UI", system-ui, sans-serif`;
+    c.font = font(size);
+    while (c.measureText(text).width > cv.width * 0.92) { size -= 4; c.font = font(size); }
+    c.shadowColor = 'rgba(255,255,255,0.8)'; c.shadowBlur = size * 0.25;
+    c.fillStyle = '#fff';
+    c.fillText(text, cv.width / 2, cv.height / 2);
+    tex.needsUpdate = true;
+  };
+  return m;
+}
+
+const PLACE_LINES = ['Placed in your future', 'It is already on its way', 'Your timeline glows brighter', 'Let it unfold'];
 
 export class ImageCycleScene extends BaseScene {
   constructor() {
     super();
     const U = this.uniforms;
     this.group.add(makeBlanket(U));
-    if (!shared) { shared = buildAtlas(null); refreshImageAtlas(); }
+    if (!shared) shared = buildAtlas(null, null);
+    refreshImageAtlas();
     live.add(this);
-    this.builtin = shared.builtin;
+    this.atlas = shared;
     const mk = (size, echo) => {
       const m = new THREE.Mesh(new THREE.PlaneGeometry(size, size), new THREE.ShaderMaterial({
         transparent: true, depthWrite: false,
-        uniforms: { ...U, uFade: { value: 0 }, uAtlas: { value: shared.tex }, uCount: { value: shared.count }, uA: { value: 0 }, uB: { value: 1 }, uMix: { value: 0 }, uGlow: { value: 0 }, uRing: { value: 0 }, uEcho: { value: echo } },
-        vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
+        uniforms: { ...U, uFade: { value: 0 }, uAtlas: { value: shared.tex }, uGrid: { value: shared.grid }, uA: { value: 0 }, uB: { value: 1 }, uMix: { value: 0 }, uGlow: { value: 0 }, uRing: { value: 0 }, uEcho: { value: echo } },
+        vertexShader: VERT_UV,
         fragmentShader: FRAME_FRAG,
       }));
       m.renderOrder = 12;
@@ -155,30 +335,50 @@ export class ImageCycleScene extends BaseScene {
     };
     this.frame = mk(3.6, 1);
     this.echoes = Array.from({ length: 8 }, () => mk(1.6, 0.5));
-    // the condensed icon orb
+    this.obstacle = makeObstacle(U);
+    this.group.add(this.obstacle);
+    this.title = textPlane(U, 5.2, 0.62);
+    this.group.add(this.title);
+    // the condensed orb
     this.orb = new THREE.Mesh(new THREE.SphereGeometry(0.22, 32, 24), new THREE.MeshBasicMaterial({ color: 0xfff0d8, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false }));
     this.group.add(this.orb);
     this.orbGlow = particles(U, { count: 260, min: [-0.6, -0.6, -0.6], max: [0.6, 0.6, 0.6], vel: [0, 0, 0], sway: 0.25, size: [0.02, 0.05], colors: ['#fff2d0', '#ffd6ff', '#d6f6ff'] });
     this.orbGlow.userData.u.uAlpha.value = 0;
     this.group.add(this.orbGlow);
+    // beacons: the orbs you have placed in your future, glowing on the timeline ahead
+    this.beacons = Array.from({ length: 6 }, (_, i) => {
+      const b = new THREE.Mesh(new THREE.SphereGeometry(0.42, 24, 16), new THREE.MeshBasicMaterial({ color: [0xffe9c2, 0xd9c8ff, 0xc2fff6, 0xffd0ee][i % 4], transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false }));
+      const halo = particles(U, { count: 120, min: [-0.9, -0.4, -0.9], max: [0.9, 1.6, 0.9], vel: [0, 0.12, 0], sway: 0.3, size: [0.02, 0.06], colors: ['#fff2d0', '#e4d8ff', '#d6fff8'] });
+      halo.userData.u.uAlpha.value = 0;
+      b.add(halo);
+      b.userData = { on: 0, halo, x: [-3.2, 3.4, -1.4, 2.0, -3.8, 1.0][i], z: -26 - i * 7 };
+      this.group.add(b);
+      return b;
+    });
+    this.placed = 0;
     this.group.add(particles(U, { count: 500, min: [-30, -2, -80], max: [30, 10, 6], vel: [0, 0.05, 2], sway: 0.6, size: [0.02, 0.05], colors: ['#ffffff', '#ffe4ff', '#d8f4ff'], alpha: 0.7, clear: 1 }));
-    this.set = 0;
+    this.station = 0;
     this.st = { phase: 'fly', t: 0 };
-    this.img = { cur: 0, next: 1, mix: 0, timer: 0 };
+    this._resetImages();
   }
 
-  setAtlas(a) { this.builtin = a.builtin; for (const m of [this.frame, ...this.echoes]) { m.material.uniforms.uAtlas.value = a.tex; m.material.uniforms.uCount.value = a.count; } }
+  setAtlas(a) {
+    this.atlas = a;
+    for (const m of [this.frame, ...this.echoes]) { m.material.uniforms.uAtlas.value = a.tex; m.material.uniforms.uGrid.value = a.grid; }
+    this._resetImages();
+  }
+
+  _set() { const s = this.atlas.sets; return s[this.station % s.length]; }
+  _resetImages() { const { base, n } = this._set(); this.img = { cur: base, next: base + (n > 1 ? 1 : 0), mix: 0, timer: 0 }; }
+  _wrap(i) { const { base, n } = this._set(); return base + (((i - base) % n) + n) % n; }
 
   onEvent(e) {
     if (e.type === 'beat' && e.accent) { this.frame.material.uniforms.uRing.value = 1; this.uniforms.uRip.value = 1; }
     if (e.type === 'beat' && this.st.phase === 'cycle' && this.rate < 2.2) this.advance = true;   // slow cycling follows the beat
+    if (e.type === 'beat' && e.accent && this.st.phase === 'obstacle' && this.st.t > 5) this.breakNow = true;
   }
 
-  _range() {
-    const count = this.frame.material.uniforms.uCount.value;
-    if (this.builtin) { const base = (this.set % 4) * 4; return [base, 4]; }
-    return [0, count];
-  }
+  _next(phase) { this.st.phase = phase; this.st.t = 0; }
 
   update(dt, t, s) {
     const U = this.uniforms, st = this.st;
@@ -186,14 +386,36 @@ export class ImageCycleScene extends BaseScene {
     U.uRip.value *= Math.exp(-dt * 1.2);
     const fu = this.frame.material.uniforms;
     fu.uRing.value *= Math.exp(-dt * 2.5);
-    let z = -5, scale = 1, show = 1, warp = 0.6;
+    const ou = this.obstacle.userData.u;
+    let z = -5, scale = 1, show = 1, warp = 0.6, titleA = 0, title = this._set().title;
+    const firstStation = this.station % this.atlas.sets.length === 0;
+    let obst = 0;
     if (st.phase === 'fly') {
       const k = Math.min(1, st.t / 14);
       const e = 1 - Math.pow(1 - k, 3);
       z = -70 + e * 65;
       warp = 6 * (1 - e) + 0.6;
-      show = Math.min(1, st.t / 3);
-      if (k >= 1) { st.phase = 'cycle'; st.t = 0; this.img.timer = 0; }
+      if (firstStation) { show = 0; obst = Math.min(1, st.t / 3); title = 'Let the old story go'; ou.uBreak.value = 0; ou.uCrack.value = 0; }
+      else show = Math.min(1, st.t / 3);
+      titleA = Math.max(0, Math.min(1, (st.t - 7) / 3));
+      if (k >= 1) this._next(firstStation ? 'obstacle' : 'cycle');
+      if (k >= 1) this.img.timer = 0;
+    } else if (st.phase === 'obstacle') {
+      // light gathers behind the old story until a strong beat (or 11 s) breaks it open
+      show = 0; obst = 1;
+      if (!this.broke) {
+        ou.uCrack.value = Math.min(1, st.t / 8);
+        title = st.t < 6 ? 'Let the old story go' : 'Break through';
+        titleA = 1;
+        if (this.breakNow || st.t > 11) { this.broke = true; this.breakAt = st.t; U.uRip.value = 1.5; }
+      } else {
+        const b = (st.t - this.breakAt) / 3.2;
+        ou.uBreak.value = b;
+        ou.uCrack.value = Math.max(0, 1 - b);
+        title = 'Break through'; titleA = Math.max(0, 1 - b * 2);
+        show = Math.min(1, Math.max(0, (b - 0.25) * 1.6));
+        if (b >= 1.25) { this.broke = false; this.breakNow = false; this._next('cycle'); this.img.timer = 0; }
+      }
     } else if (st.phase === 'cycle') {
       // accelerate from about one image every 1.5 s to six a second
       const k = Math.min(1, st.t / 30);
@@ -201,34 +423,53 @@ export class ImageCycleScene extends BaseScene {
       const im = this.img;
       im.timer += dt;
       if ((this.rate >= 2.2 && im.timer > 1 / this.rate) || (this.advance && im.timer > 0.35) || im.timer > 1 / this.rate + 0.6) {
-        const [base, n] = this._range();
         im.cur = im.next;
-        im.next = base + ((im.next - base + 1) % n);
+        im.next = this._wrap(im.next + 1);
         im.mix = 0; im.timer = 0;
       }
       this.advance = false;
       im.mix = Math.min(1, im.mix + dt * Math.max(6, this.rate * 4));
       fu.uGlow.value = Math.min(1, k * 1.2);
-      if (k >= 1) { st.phase = 'condense'; st.t = 0; }
+      titleA = Math.max(0, 1 - st.t / 6);
+      obst = firstStation ? 1 : 0;
+      if (k >= 1) this._next('condense');
     } else if (st.phase === 'condense') {
       const k = Math.min(1, st.t / 5);
       scale = Math.max(0.001, 1 - k * 1.2);
       show = 1 - k;
-      this.orb.material.opacity = Math.sin(Math.min(1, k * 1.4) * Math.PI * 0.5) * (1 - Math.max(0, k - 0.7) / 0.3);
-      if (k >= 1) { st.phase = 'settle'; st.t = 0; }
-    } else { // the orb drifts down into the blanket, then on to the next portal
-      const k = Math.min(1, st.t / 4);
-      this.orb.position.set(0, 1.7 - k * 4.8, -5 - k * 3);
-      this.orb.material.opacity = 1 - k;
+      this.orb.material.opacity = Math.sin(Math.min(1, k * 1.4) * Math.PI * 0.5) * (1 - Math.max(0, k - 0.85) / 0.15 * 0.3);
+      if (k >= 1) this._next('place');
+    } else { // place the orb into your future: it arcs ahead and settles onto the timeline
+      const k = Math.min(1, st.t / 6);
+      const bi = this.placed % this.beacons.length;
+      const B = this.beacons[bi].userData;
+      const e = k * k * (3 - 2 * k);
+      this.orb.position.set(B.x * e, 1.7 + Math.sin(e * Math.PI) * 1.4 - e * 4.6, -5 + (B.z + 5) * e);
+      this.orb.material.opacity = 1 - Math.max(0, k - 0.8) / 0.2;
       show = 0;
-      warp = 0.6 + k * 4;
-      if (k >= 1) { st.phase = 'fly'; st.t = 0; this.set++; const [b] = this._range(); this.img = { cur: b, next: b + 1, mix: 0, timer: 0 }; }
+      warp = 0.6 + k * 2;
+      title = PLACE_LINES[this.placed % PLACE_LINES.length]; titleA = Math.sin(Math.min(1, k * 1.2) * Math.PI);
+      if (k >= 1) {
+        B.on = 1; this.placed++;
+        this.station++;
+        if (this.station % this.atlas.sets.length === 0) for (const b of this.beacons) b.userData.on = 0;   // a fresh timeline each round
+        this._resetImages();
+        this._next('fly');
+      }
     }
-    if (st.phase !== 'settle') this.orb.position.set(0, 1.7, z + 0.1);
-    if (st.phase === 'fly' || st.phase === 'cycle') this.orb.material.opacity = 0;
+    if (st.phase !== 'place') this.orb.position.set(0, 1.7, z + 0.1);
+    if (st.phase === 'fly' || st.phase === 'cycle' || st.phase === 'obstacle') this.orb.material.opacity = 0;
     this.orbGlow.position.copy(this.orb.position);
     this.orbGlow.userData.u.uAlpha.value = this.orb.material.opacity;
     U.uWarp.value += dt * warp;
+    // obstacle
+    ou.uShow.value = obst;
+    this.obstacle.position.set(0, 1.7, z + 0.15);
+    this.obstacle.visible = obst > 0.001;
+    // title, above the portal
+    this.title.userData.set(title);
+    this.title.material.uniforms.uA.value = damp(this.title.material.uniforms.uA.value, titleA, 3, dt);
+    this.title.position.set(0, st.phase === 'place' ? 2.3 : 3.95, st.phase === 'place' ? -6 : z);
     // portal and echo ring
     fu.uA.value = this.img.cur; fu.uB.value = this.img.next; fu.uMix.value = this.img.mix;
     this.frame.position.set(0, 1.7, z);
@@ -240,11 +481,19 @@ export class ImageCycleScene extends BaseScene {
       m.position.set(Math.cos(a) * r, 1.7 + Math.sin(a) * r * 0.75, z - 1.2);
       m.scale.setScalar(scale);
       const u = m.material.uniforms;
-      const [base, n] = this._range();
-      u.uA.value = base + ((this.img.cur - base - 1 - i % 3 + n * 4) % n);
-      u.uB.value = base + ((this.img.next - base - 1 - i % 3 + n * 4) % n);
+      u.uA.value = this._wrap(this.img.cur - 1 - (i % 3));
+      u.uB.value = this._wrap(this.img.next - 1 - (i % 3));
       u.uMix.value = this.img.mix;
       u.uFade.value = this.fade * (st.phase === 'cycle' ? Math.min(1, st.t / 4) : show * (st.phase === 'condense' ? 1 : 0));
+    });
+    // beacons breathe on the timeline ahead
+    this.beacons.forEach((b, i) => {
+      const d = b.userData;
+      const target = d.on ? 0.85 + 0.15 * Math.sin(t * 1.3 + i) : 0;
+      b.material.opacity = damp(b.material.opacity, target * this.fade, 1.5, dt);
+      d.halo.userData.u.uAlpha.value = b.material.opacity;
+      b.position.set(d.x, -1.9 + Math.sin(t * 0.6 + i) * 0.08, d.z);
+      b.scale.setScalar(1 + s.breath * 0.12);
     });
   }
 

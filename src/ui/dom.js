@@ -88,7 +88,7 @@ export class DomUI {
     on('#light-dim', 'change', (e) => app.setLightOpt('lightDim', Number(e.target.value)));
     on('#light-max', 'input', (e) => app.setLightOpt('lightMax', Number(e.target.value)));
     on('#lights-generated', 'change', (e) => app.setLightOpt('lightsGenerated', e.target.checked));
-    const cycStatus = (n) => { this.$('#cycle-status').textContent = n ? `Using your ${n} image${n > 1 ? 's' : ''}` : 'Using the built-in images'; };
+    const cycStatus = (n) => { this.$('#cycle-status').textContent = n ? `Using your ${n} image${n > 1 ? 's' : ''}` : 'Using the built-in photos'; };
     refreshImageAtlas().then(cycStatus);
     on('#cycle-files', 'change', async (e) => {
       const files = [...e.target.files].slice(0, 16);
@@ -97,6 +97,16 @@ export class DomUI {
       await saveUserImages(files);
       cycStatus(await refreshImageAtlas());
     });
+    fetch('photos/photos.json').then((r) => r.json()).then((m) => {
+      const ul = this.$('#photo-credits');
+      for (const set of m.sets) for (const it of set.items) {
+        const li = document.createElement('li');
+        const a = document.createElement('a');
+        a.href = it.src; a.target = '_blank'; a.rel = 'noopener'; a.textContent = it.cap;
+        li.append(a, ` by ${it.by}, ${it.lic}, via Wikimedia Commons (cropped)`);
+        ul.append(li);
+      }
+    }).catch(() => {});
     on('#cycle-clear', 'click', async () => { await clearUserImages(); cycStatus(await refreshImageAtlas()); });
     on('#sw-accept', 'click', () => app.acceptStrobe());
     on('#sw-cancel', 'click', () => app.declineStrobe());

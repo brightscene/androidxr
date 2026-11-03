@@ -111,3 +111,12 @@ body:not(.playing) #close-menu { display: none; }
 .modal-card h3 { margin: 0 0 10px; font-weight: 500; font-size: 20px; }
 .modal-card ul { padding-left: 18px; margin: 10px 0; }
 .modal-card li { margin: 6px 0; font-size: 14.5px; }
+
+.credits { margin-top: 10px; }
+.credits ul { max-height: 220px; overflow: auto; padding-left: 18px; margin: 6px 0 0; }
+.small { font-size: 0.82em; }
+
+.brand { display: flex; align-items: center; gap: 10px; font-family: "Comfortaa", "Jost", system-ui, sans-serif; font-weight: 300; letter-spacing: 0; }
+.brand img { flex: none; }
+.brand .lyte { font-weight: 500; background: linear-gradient(90deg, #5ED6D0 0%, #A493FF 55%, #F29BD0 100%); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }

@@ -6,7 +6,10 @@
   <meta name="theme-color" content="#07071a" />
   <title>MindLyte · XR meditation</title>
   <link rel="manifest" href="manifest.webmanifest" />
-  <link rel="icon" href="icons/icon-192.png" />
+  <link rel="icon" href="icons/mark.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="icons/icon-192.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Comfortaa:wght@300;500&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
@@ -15,7 +18,7 @@
   <main id="menu">
     <header>
       <div>
-        <h1>MindLyte</h1>
+        <h1 class="brand"><img src="icons/mark.svg" alt="" width="52" height="52" /><span class="sr-only">MindLyte</span><span aria-hidden="true">mind<span class="lyte">lyte</span></span></h1>
         <p class="lede">Drift through galaxies on generative soundscapes tuned to the solfeggio frequencies, with brainwave tones and a gentle voice to guide you.</p>
       </div>
       <button id="close-menu" class="ghost small" title="Hide menu">Hide</button>
@@ -123,12 +126,13 @@
 
     <details class="panel">
       <summary>Image cycling · your own images</summary>
-      <p class="muted">The Image cycling scene cycles through positive images, faster and faster, inside a portal you fly toward. It works best with pictures that mean something to you: the life, people, places and feelings you want more of. Choose up to 16 photos. They're stored only on this device.</p>
+      <p class="muted">Image cycling is a timeline journey. The glowing blanket below you is your timeline, with the past behind and the future ahead. First an old story cracks with light and shatters. Then each portal cycles real photographs of one theme (letting go, nature and paradise, love, your bright future), faster and faster, condenses them into an orb of light and places it on your timeline ahead. Pictures that mean something to you work best: choose up to 16 of your own and they replace the built-in photos. They're stored only on this device.</p>
       <div class="row">
         <label class="file"><input id="cycle-files" type="file" accept="image/*" multiple />Choose images…</label>
         <button id="cycle-clear" class="ghost small">Use built-in images</button>
         <span id="cycle-status" class="muted"></span>
       </div>
+      <details class="credits"><summary class="muted">Photo credits</summary><ul id="photo-credits" class="muted small"></ul></details>
     </details>
 
     <details class="panel">
