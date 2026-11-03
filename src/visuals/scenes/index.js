@@ -26,6 +26,7 @@ import { DroneShowScene } from './drones.js';
 import { SkiScene } from './ski.js';
 import { RainbowRoadScene } from './rainbow.js';
 import { SleepScene } from './sleep.js';
+import { StarsScene } from './stars.js';
 import { DrumJourneyScene, IllusionScene, MindsEyeScene } from './lighttracks.js';
 import { TimePortalScene, KaleidosphereScene, NebulaFlightScene, WarpGateScene, MandalaBloomScene, SilkVortexScene } from './dimensions.js';
 import { MoonViewScene, FractalTunnelScene, CrystalCaveScene, NebulaScene, LightRibbonsScene, BlackHoleScene, ChakraScene } from './cosmic.js';
@@ -101,7 +102,7 @@ export const SCENES = {
   geometry: { type: GeometryScene, label: 'Sacred geometry', group: 'Mind', cruise: 0.45, nebula: 0.7, world: 'full' },
   cymatics: { type: CymaticsScene, label: 'Cymatics', group: 'Mind', cruise: 0.4, nebula: 0.7, world: 'full' },
 
-  stars: { type: BaseScene, label: 'Stars only', group: 'Simple', cruise: 0, nebula: 0, world: 'stars' },
+  stars: { type: StarsScene, label: 'Stars only', group: 'Simple', cruise: 0, nebula: 0, world: 'off' },
   off: { type: BaseScene, label: 'Off (black)', group: 'Simple', cruise: 0, nebula: 0, world: 'off' },
 };
 
