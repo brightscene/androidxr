@@ -11,7 +11,6 @@ import { U, damp, SFX, INPUT } from './visuals/common.js';
 import { World } from './visuals/world.js';
 import { SCENES } from './visuals/scenes/index.js';
 import { XRMenu } from './ui/xrMenu.js';
-import { VoiceCommands } from './ui/voiceCommands.js';
 import { DomUI } from './ui/dom.js';
 
 const PHASE_TEXT = { in: 'Breathe in', hold: 'Hold', out: 'Breathe out', rest: 'Rest' };
@@ -41,7 +40,6 @@ class App {
     this.background = p.background || 'auto';
     this.quality = p.quality || 'balanced'; // smooth | balanced | sharp
     this.breathText = p.breathGuide ?? false;
-    this.voiceCmd = p.voiceCmd ?? true;   // listen for "Centre view" in the headset   // breathing guide text, off unless chosen
     this.perf = { avg: 1 / 72, level: 0, t: 0 };
     this.volume = p.volume ?? 0.8;
     // light (AudioStrobe / SpectraStrobe) settings
@@ -62,10 +60,9 @@ class App {
     this.player = null;
     this.engine = new AudioEngine();
     this.voice = new Voice(this.engine);
-    this.commands = new VoiceCommands(this);
-    if (this.voiceCmd) this.commands.askPermission();   // ask on app start, not as the headset view opens
     SFX.play = (kind, opts) => { if (this.playing) this.engine.sfx(kind, opts); };
-    SFX.say = (id, pan) => (this.playing ? this.voice.sayPanned(id, pan) : Promise.resolve(false));
+    SFX.say = (id, pan, text) => (this.playing ? this.voice.sayPanned(id, pan, text) : Promise.resolve(false));
+    SFX.preload = (id) => this.voice.preload(id);
     this.voice.setChoice(this.voiceChoice);
     this.voice.onVoices = () => this.ui?.refreshVoices();
     this.state = { energy: 0.35, breath: 0, low: 0, mid: 0, high: 0, level: 0 };
@@ -123,7 +120,7 @@ class App {
       localStorage.setItem('mindlyte', JSON.stringify({
         selected: this.selected.id === 'import' ? undefined : this.selected.id, minutes: this.minutes, entrainment: this.entrainment,
         journey: this.journey, solfeggio: this.solfeggio, voiceInSoundscapes: this.whispers, captions: this.captions,
-        dives: this.dives, nature: this.nature, voice: this.voiceChoice, volume: this.volume, background: this.background, quality: this.quality, breathGuide: this.breathText, voiceCmd: this.voiceCmd,
+        dives: this.dives, nature: this.nature, voice: this.voiceChoice, volume: this.volume, background: this.background, quality: this.quality, breathGuide: this.breathText,
         strobeAccepted: this.strobeAccepted, lights: this.lights, lightStyle: this.lightStyle, lightColour: this.lightColour,
         v: 2, lightLayout: this.lightLayout, lightDim: this.lightDim,
         lightMax: this.lightMax, lightMode: this.lightMode, lightsGenerated: this.lightsGenerated, lightSymbol: this.lightSymbol,
@@ -369,7 +366,6 @@ class App {
   // ------------------------------------------------------------ XR
   async enterXR(mode) {
     this.voice.unlock();
-    if (this.voiceCmd) this.commands.start();   // inside the click, so the mic permission can be asked
     this._applyQuality();
     await this.engine.init();
     const session = await navigator.xr.requestSession(mode, {
@@ -391,14 +387,6 @@ class App {
     this._placeMenuIn = 4;
     this.strobe.setXR(true);
     this.ui.setXR(true);
-  }
-
-  setVoiceCmd(on) {
-    this.voiceCmd = on;
-    if (on) this.commands.askPermission();
-    if (on && this.renderer.xr.isPresenting) this.commands.start();
-    if (!on) this.commands.stop();
-    this._changed();
   }
 
   // Turn the world so that "straight ahead" is wherever you're looking now,
@@ -424,7 +412,6 @@ class App {
   }
 
   _onXREnd() {
-    this.commands.stop();
     this.world.setPassthrough(false);
     this.renderer.setClearColor(0x000000, 1);
     this.menu.group.visible = false;

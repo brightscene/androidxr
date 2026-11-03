@@ -152,8 +152,11 @@ export class Voice {
 
   // A recorded clip placed to one side (pan -1 left .. 1 right). Plays on top of
   // the music without interrupting anything; skipped while the guide speaks.
-  async sayPanned(id, pan = 0) {
-    if (this.speaking || !this.clips.has(id) || this.userVoiceURI || !this.e.ctx) return false;
+  async sayPanned(id, pan = 0, text = '') {
+    if (this.speaking || !this.e.ctx) return false;
+    await this.ready;
+    // no recording (or you've chosen a device voice): say it with the device voice, centred
+    if (!this.clips.has(id) || this.userVoiceURI) { if (text) this.speak(id, text); return !!text; }
     await this.preload(id);
     const buf = this.buffers.get(id);
     if (!buf || this.speaking) return false;

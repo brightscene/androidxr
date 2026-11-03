@@ -7,7 +7,7 @@
 // after the line. Rows starting with @ are cues that weave the scene into
 // the meditation:
 //   @scene <name>                 move to another scene (when Background is Auto)
-//   @cue <name>                   a scene moment: wave, calm (beach), gust (meadow), bloom (lotus)
+//   @cue <name>                   a scene moment: wave, calm (beach), gust (meadow)
 //   @dive <seconds> <intensity>   a slow dive through the stars
 //   @dim <0..1> <seconds>         slowly dim the whole view (for sleep)
 //
@@ -18,7 +18,7 @@ import { AFFIRMATIONS } from './affirmations.js';
 
 const RAW = {
   sleep: `
-@scene lotus
+@scene aurora
 Hello, and welcome. [3]
 This is your time to rest. [4]
 Let yourself settle in, in whatever way feels comfortable tonight. [5]
@@ -49,7 +49,6 @@ Your legs, heavy and warm. [4]
 Your feet, completely at rest. [8]
 Your whole body is held now. [4]
 There's nothing left to hold up. [8]
-@cue bloom
 In a moment, I'll count slowly down from ten to one. [4]
 With each number, you might drift a little deeper. [4]
 And if your mind wanders, that's perfectly fine. Just let the numbers find you again. [6]

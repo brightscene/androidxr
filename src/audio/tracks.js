@@ -83,7 +83,7 @@ export const TRACKS = [
   {
     id: 'connect', title: 'Connect', freq: 639, intent: 'Harmony · relationships',
     bpm: 62, scale: 'majorPent', progression: [0, 3, 2, 4], barsPerChord: 2,
-    profile: 'relax', scene: 'lotus', seed: 639,
+    profile: 'relax', scene: 'mindseye', seed: 639,
     palette: ['#071a1a', '#3a9d8f', '#f2e3bc'], breath: [5, 2, 5, 2], arc: ARC,
   },
   {
@@ -111,7 +111,7 @@ export const GUIDED = [
   {
     id: 'sleep', title: 'Drift to Sleep', freq: 174, intent: 'Hypnotic sleep journey',
     guided: 'sleep', tail: 480, fadeOut: 40, bpm: 46, scale: 'minorPent', progression: [0, 3, 2, 1], barsPerChord: 4,
-    profile: 'sleep', scene: 'lotus', seed: 1174, dives: false,
+    profile: 'sleep', scene: 'aurora', seed: 1174, dives: false,
     palette: ['#03030c', '#2b2d6e', '#9fb4ff'], breath: [4, 0, 8, 0], arc: SLEEP_ARC,
   },
   {

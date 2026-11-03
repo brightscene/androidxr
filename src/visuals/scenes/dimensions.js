@@ -230,13 +230,13 @@ export class NebulaFlightScene extends BaseScene {
   constructor() {
     super();
     const U = this.uniforms;
-    Object.assign(U, { uGlow: { value: 0 } });
+    Object.assign(U, { uGlow: { value: 0 }, uFly: { value: 0 } });
     this.group.add(dome(U, /* glsl */ `
-      uniform vec3 uC1; uniform float uTime, uTravel, uFade, uBreath, uEnergy, uGlow;
+      uniform vec3 uC1; uniform float uTime, uTravel, uFade, uBreath, uEnergy, uGlow, uFly;
       varying vec3 vDir; ${NOISE} ${GRADE} ${STARS}
       void main(){
         vec3 d = normalize(vDir);
-        vec3 ro = vec3(sin(uTime * 0.02) * 0.6, 0.0, -uTravel * 0.07);
+        vec3 ro = vec3(sin(uTime * 0.02) * 0.6, cos(uTime * 0.017) * 0.3, -uFly);   // flying forward into the nebula
         vec3 acc = vec3(0.0); float T = 1.0;
         // even steps (no per-pixel jitter: that left a fixed grain over your view)
         for (int i = 0; i < 16; i++) {
@@ -257,10 +257,23 @@ export class NebulaFlightScene extends BaseScene {
         c += mix(vec3(0.7, 0.9, 1.0), vec3(1.0, 0.75, 0.45), st.y) * st.x * (0.4 + 0.6 * T);
         gl_FragColor = vec4(grade(c), uFade);
       }`));
-    this.group.add(particles(U, { count: 500, min: [-12, -4, -60], max: [12, 8, 4], vel: [0, 0, 3], sway: 0.3, size: [0.02, 0.05], colors: ['#bff4ff', '#ffd2a0'], alpha: 0.7 }));
+    // stars rushing toward you as you fly in, like the time portal
+    this.stars = particles(U, { count: 1400, min: [-7, -3, -90], max: [7, 7, 4], vel: [0, 0, 15], sway: 0.05, size: [0.02, 0.05], colors: ['#ffffff', '#d8f0ff', '#ffe0c0', '#c8d8ff'], alpha: 0.9 });
+    this.group.add(this.stars);
+    this.group.add(particles(U, { count: 400, min: [-14, -5, -60], max: [14, 9, 4], vel: [0, 0, 4], sway: 0.3, size: [0.02, 0.05], colors: ['#bff4ff', '#ffd2a0'], alpha: 0.6 }));
+    this.speed = 0.4; this.speedT = 0.4; this.next = 12;
   }
   onEvent(e) { if (e.type === 'note' || (e.type === 'beat' && e.accent)) this.uniforms.uGlow.value = Math.min(1.2, this.uniforms.uGlow.value + 0.4); }
-  update(dt) { this.uniforms.uGlow.value *= Math.exp(-dt * 1.5); }
+  update(dt) {
+    const U = this.uniforms;
+    U.uGlow.value *= Math.exp(-dt * 1.5);
+    // glide, cruise or surge deeper into the clouds every so often
+    this.next -= dt;
+    if (this.next <= 0) { this.speedT = [0.25, 0.45, 0.8][Math.floor(Math.random() * 3)]; this.next = 12 + Math.random() * 10; }
+    this.speed = damp(this.speed, this.speedT + U.uGlow.value * 0.15, 0.5, dt);
+    U.uFly.value += dt * this.speed;
+    this.stars.userData.u.uBoost.value = Math.max(0, this.speed - 0.4) * 1.2;
+  }
 }
 
 // ===================================================================== Warp gate

@@ -202,7 +202,7 @@ export class LabyrinthScene extends BaseScene {
         this.cur.wall = [wx, wz];
         this._sfx('thud', { pan: 0, decay: 0.55, gain: 1.6 });
         const id = affirmationId(words);
-        if (id && this.fade > 0.5) setTimeout(() => SFX.say(id, 0), 350);
+        if (id && this.fade > 0.5) setTimeout(() => SFX.say(id, 0, words), 350);
       }
     }
     const c = this.cur;

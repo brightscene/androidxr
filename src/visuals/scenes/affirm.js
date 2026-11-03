@@ -257,7 +257,7 @@ export class AffirmationScene extends BaseScene {
         this.side = -(this.side || 1);   // left first, then right, then left...
         this._sfx('thud', { pan: this.side * 0.8, decay: 0.45, gain: 0.85 });
         const id = affirmationId(this.cur.text);
-        if (id) setTimeout(() => this.fade > 0.5 && SFX.say(id, this.side * 0.75), 280);
+        if (id) setTimeout(() => this.fade > 0.5 && SFX.say(id, this.side * 0.75, this.cur.text), 280);
       }
     } else if (h.state === 'hold') {
       a = 1;
@@ -285,5 +285,7 @@ export class AffirmationScene extends BaseScene {
     this.cur.travel = this.uniforms.uTravel?.value || 0;
     this._drawHero(this.cur.text);
     this.h = { state: 'in', t: 0 };
+    const id = affirmationId(this.cur.text);
+    if (id) SFX.preload(id);   // fetch the recording while the words are still gliding in
   }
 }

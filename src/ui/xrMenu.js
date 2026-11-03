@@ -272,7 +272,7 @@ export class XRMenu {
     const rows = Math.ceil(BACKGROUNDS.length / 5);
     this._row(p, rows * 0.82 + 0.1, 'Deep dives', [['Gentle', 'gentle'], ['Full speed', 'full'], ['Off', 'off']], () => app.dives, (v) => app.setDives(v));
     this._row(p, rows * 0.82 + 1.05, 'Visual quality', [['Smooth', 'smooth'], ['Balanced', 'balanced'], ['Sharp', 'sharp']], () => app.quality, (v) => app.setQuality(v));
-    this._row(p, rows * 0.82 + 2.0, 'Centre view', [['Centre now', 'now'], ['Voice: On', true], ['Voice: Off', false]], () => app.voiceCmd, (v) => (v === 'now' ? app.recentre() : app.setVoiceCmd(v)));
+    this._row(p, rows * 0.82 + 2.0, 'Centre view', [['Centre now', 'now']], () => null, () => app.recentre(), [0.28]);
     this._btn(p, new Button(1.46, 0.06, textDraw(() => {
       const b = app.background;
       if (b === 'off') return app.xrMode === 'immersive-ar' ? 'Off: only your room and the lights.' : 'Off: pure black. Only the lights (and this menu) are shown.';
@@ -427,15 +427,12 @@ export class XRMenu {
   attachControllers(renderer, scene) {
     for (let i = 0; i < 2; i++) {
       const ctl = renderer.xr.getController(i);
-      const ray = new THREE.Line(
-        new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, -1)]),
-        new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.5, depthWrite: false })
-      );
-      ray.scale.z = 2;
+      // a glowing light-saber pointer: a bright core inside a soft coloured
+      // glow, fading in from a small emitter at your hand to a glowing tip
+      const ray = makeSaber();
       ray.visible = false;
       ctl.add(ray);
-      const dot = new THREE.Mesh(new THREE.SphereGeometry(0.007, 12, 8), new THREE.MeshBasicMaterial({ color: 0xffffff, depthTest: false }));
-      dot.renderOrder = 1003;
+      const dot = makeTip();
       dot.visible = false;
       scene.add(dot);
       ctl.userData = { ray, dot, connected: false };
@@ -475,20 +472,64 @@ export class XRMenu {
     for (const ctl of this.controllers) {
       const u = ctl.userData;
       if (!u.connected) continue;
-      const showRay = this.visible || this.orb.mesh.visible;
+      const showRay = this.visible || this.orb.mesh.visible || !!this.app.active?.wantsPointer;
       this.raycaster.setFromXRController(ctl);
       const hits = this.raycaster.intersectObjects(this._interactive(), false);
       u.ray.visible = showRay && u.mode !== 'gaze' && u.mode !== 'transient-pointer';
-      if (hits.length) {
-        hovered.add(hits[0].object.userData.button);
-        u.ray.scale.z = hits[0].distance;
-        u.dot.position.copy(hits[0].point);
-        u.dot.visible = true;
-      } else {
-        u.ray.scale.z = 2;
-        u.dot.visible = false;
-      }
+      const len = hits.length ? hits[0].distance : 1.6;
+      u.ray.userData.beam.scale.z = len;
+      if (hits.length) hovered.add(hits[0].object.userData.button);
+      // the glowing tip sits where the beam ends (on a button, or at full length)
+      u.dot.position.copy(this.raycaster.ray.origin).addScaledVector(this.raycaster.ray.direction, len);
+      u.dot.visible = u.ray.visible;
+      u.dot.scale.setScalar(hits.length ? 1.25 : 1);
     }
     for (const b of [...this.buttons, ...this.warnButtons]) if (b.onSelect) b.setHover(hovered.has(b));
   }
+}
+
+// ---- light-saber pointer pieces
+const SABER_GLOW = new THREE.Color(0.62, 0.55, 1.0);
+function makeSaber() {
+  const g = new THREE.Group();
+  const geo = (r) => { const c = new THREE.CylinderGeometry(r, r, 1, 20, 1, true); c.rotateX(-Math.PI / 2); c.translate(0, 0, -0.5); return c; };
+  const mat = (core) => new THREE.ShaderMaterial({
+    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+    uniforms: { uCol: { value: core ? new THREE.Color(1, 1, 1) : SABER_GLOW }, uCore: { value: core ? 1 : 0 } },
+    vertexShader: 'varying vec3 vN; varying vec3 vV; varying float vZ; void main(){ vN = normalize(normalMatrix * normal); vec4 mv = modelViewMatrix * vec4(position,1.0); vV = normalize(-mv.xyz); vZ = -position.z; gl_Position = projectionMatrix * mv; }',
+    fragmentShader: `uniform vec3 uCol; uniform float uCore; varying vec3 vN; varying vec3 vV; varying float vZ;
+      void main(){
+        float face = abs(dot(normalize(vN), normalize(vV)));          // bright in the middle, soft at the edges
+        float a = uCore > 0.5 ? pow(face, 1.5) : pow(face, 2.2) * 1.1;
+        a *= smoothstep(0.0, 0.06, vZ);                                // fades in just in front of your hand
+        gl_FragColor = vec4(uCol * a, 1.0);
+      }`,
+  });
+  const core = new THREE.Mesh(geo(0.0035), mat(true));
+  const glow = new THREE.Mesh(geo(0.02), mat(false));
+  core.renderOrder = 1002; glow.renderOrder = 1001;
+  core.frustumCulled = glow.frustumCulled = false;
+  g.add(glow, core);
+  // the emitter at your hand: a small glowing ring
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(0.008, 0.0018, 8, 24), new THREE.MeshBasicMaterial({ color: SABER_GLOW, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false }));
+  ring.position.z = -0.01;
+  const holder = new THREE.Group();
+  holder.add(g);
+  // the emitter stays unscaled on the holder; only the beam stretches to length
+  holder.userData.beam = g;
+  holder.add(ring);
+  return holder;
+}
+function makeTip() {
+  const g = new THREE.Group();
+  const core = new THREE.Mesh(new THREE.SphereGeometry(0.006, 16, 12), new THREE.MeshBasicMaterial({ color: 0xffffff, depthTest: false }));
+  const halo = new THREE.Mesh(new THREE.SphereGeometry(0.032, 20, 14), new THREE.ShaderMaterial({
+    transparent: true, depthTest: false, depthWrite: false, blending: THREE.AdditiveBlending,
+    uniforms: { uCol: { value: SABER_GLOW } },
+    vertexShader: 'varying vec3 vN; varying vec3 vV; void main(){ vN = normalize(normalMatrix * normal); vec4 mv = modelViewMatrix * vec4(position,1.0); vV = normalize(-mv.xyz); gl_Position = projectionMatrix * mv; }',
+    fragmentShader: 'uniform vec3 uCol; varying vec3 vN; varying vec3 vV; void main(){ float f = pow(abs(dot(normalize(vN), normalize(vV))), 2.5); gl_FragColor = vec4(uCol * f * 1.4, 1.0); }',
+  }));
+  core.renderOrder = 1004; halo.renderOrder = 1003;
+  g.add(halo, core);
+  return g;
 }
