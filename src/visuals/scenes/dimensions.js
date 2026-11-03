@@ -60,18 +60,24 @@ export class TimePortalScene extends BaseScene {
         c += mix(aura, vec3(1.0), 0.6) * fil * 0.8;
         float ring = pow(0.5 + 0.5 * sin(Z * 1.2 - uTime * 2.0), 24.0);
         c += vec3(1.0) * ring * (0.12 + uPulse * 0.9) * smoothstep(30.0, 2.0, z);
+        // The far end fades into a deep, coloured distance rather than white,
+        // so you can see a long way down the tube; only a small point of light
+        // marks the exit until a portal opens.
         vec3 exitCol = hsv(fract(uHue + 0.5), 0.35, 1.0);
-        c = mix(c, exitCol * 1.15, smoothstep(6.0, 40.0, z));
-        float open = exp(-r * r * (80.0 - uPortal * 76.0)) * step(0.0, fwd);
-        c += exitCol * open * (1.1 + uPortal * 2.6);
+        vec3 deep = hsv(fract(uHue + 0.62), 0.75, 0.32);
+        c = mix(c, deep, smoothstep(14.0, 70.0, z));
+        float open = exp(-r * r * (900.0 - uPortal * 860.0)) * step(0.0, fwd);
+        c += exitCol * open * (0.55 + uPortal * 2.4);
         c *= mix(0.22, 1.0, smoothstep(-0.6, 0.2, fwd));
-        c = mix(c, vec3(1.0, 0.98, 0.96), uFlash);
+        c = mix(c, mix(exitCol, vec3(1.0), 0.3) * 0.9, uFlash);   // a soft wash of the next dimension's colour, not a white-out
         gl_FragColor = vec4(grade(c * (0.75 + uEnergy * 0.35)), uFade);
       }`));
     this.motes = particles(U, { count: 700, min: [-1.4, 0.3, -70], max: [1.4, 2.9, 4], vel: [0, 0, 9], sway: 0.25, size: [0.012, 0.03], colors: ['#ffffff', '#ffe8ff', '#d8f6ff'], alpha: 0.8 });
     this.group.add(this.motes);
     this.next = 40;
     this.phase = null;
+    // cruising speed changes every so often: drifting, gliding or rushing
+    this.speed = 2; this.speedTarget = 2; this.speedNext = 10;
   }
   // open a portal: the exit widens, you speed through, flash, new dimension
   _portal() { if (!this.phase) this.phase = { t: 0 }; }
@@ -80,26 +86,34 @@ export class TimePortalScene extends BaseScene {
     if (e.type === 'beat') this.uniforms.uPulse.value = Math.min(1, this.uniforms.uPulse.value + (e.accent ? 0.6 : 0.2));
   }
   onCue(name) { if (name === 'portal') this._portal(); }
-  update(dt, t) {
+  update(dt, t, s) {
     const U = this.uniforms;
     U.uPulse.value *= Math.exp(-dt * 2.5);
     this.next -= dt;
     if (this.next <= 0) { this._portal(); this.next = 55 + Math.random() * 25; }
+    this.speedNext -= dt;
+    if (this.speedNext <= 0) {
+      const speeds = [0.8, 2.5, 6, 12];
+      let n; do { n = speeds[Math.floor(Math.random() * speeds.length)]; } while (n === this.speedTarget);
+      this.speedTarget = n; this.speedNext = 12 + Math.random() * 10;
+    }
+    this.speed = damp(this.speed, this.speedTarget + (s?.energy || 0) * 2 + U.uPulse.value * 1.5, 0.6, dt);
+    U.uWarp.value += dt * this.speed;
     const p = this.phase;
     if (p) {
       p.t += dt;
       const open = Math.min(1, p.t / 7);
       U.uPortal.value = open * open;
       U.uWarp.value += dt * (2 + 30 * open * open);              // surge forward as it opens
-      if (p.t > 7 && p.t < 8.2) U.uFlash.value = Math.min(1, (p.t - 7) / 0.6) * 0.92;
+      if (p.t > 7 && p.t < 8.2) U.uFlash.value = Math.min(1, (p.t - 7) / 0.6) * 0.5;
       if (p.t >= 7.6 && !p.swapped) { p.swapped = true; U.uHue.value = (U.uHue.value + 0.28 + Math.random() * 0.3) % 1; }
       if (p.t >= 8.2) {
-        U.uFlash.value = Math.max(0, U.uFlash.value - dt * 0.45);
+        U.uFlash.value = Math.max(0, U.uFlash.value - dt * 0.7);
         U.uPortal.value = damp(U.uPortal.value, 0, 1.5, dt);
         if (U.uFlash.value <= 0 && U.uPortal.value < 0.02) this.phase = null;
       }
     }
-    this.motes.userData.u.uBoost.value = U.uPortal.value * 1.5;
+    this.motes.userData.u.uBoost.value = U.uPortal.value * 1.5 + Math.max(0, this.speed - 2) * 0.12;
   }
 }
 
