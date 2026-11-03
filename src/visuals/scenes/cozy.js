@@ -66,7 +66,7 @@ export class MurmurationScene extends BaseScene {
     g.setAttribute('aSeed', new THREE.BufferAttribute(seed, 1));
     this.flock = new THREE.Points(g, new THREE.ShaderMaterial({
       transparent: true, depthWrite: false, blending: black ? THREE.NormalBlending : THREE.AdditiveBlending, uniforms: U,
-      vertexShader: /* glsl */ `attribute float aSeed; uniform float uTime, uViewH, uFlock, uWave; varying float vA; varying float vS; varying float vFlap; varying vec3 vCol;
+      vertexShader: /* glsl */ `attribute float aSeed; uniform float uTime, uViewH, uFlock, uWave; varying float vA; varying float vS; varying float vFlap; varying vec3 vCol; varying float vHead;
         ${NOISE} ${POINT_SIZE}
         vec3 rotY(vec3 p, float a){ float c = cos(a), s = sin(a); return vec3(c * p.x + s * p.z, p.y, -s * p.x + c * p.z); }
         vec3 rotX(vec3 p, float a){ float c = cos(a), s = sin(a); return vec3(p.x, c * p.y - s * p.z, s * p.y + c * p.z); }
@@ -74,9 +74,8 @@ export class MurmurationScene extends BaseScene {
         vec3 aura(float h){ h = fract(h);
           vec3 a = vec3(0.62, 0.45, 1.0), b = vec3(0.35, 0.9, 1.0), c = vec3(1.0, 0.5, 0.82), d = vec3(1.0, 0.8, 0.45);
           return h < 0.25 ? mix(a, b, h * 4.0) : h < 0.5 ? mix(b, c, h * 4.0 - 1.0) : h < 0.75 ? mix(c, d, h * 4.0 - 2.0) : mix(d, a, h * 4.0 - 3.0); }
-        void main(){
-          float t = uFlock;
-          vec3 b = position;
+        // where a bird is in the flock at flock-time t
+        vec3 flockPos(float t, float tn, vec3 b, out float wave){
           // the flock glides slowly across the sky in front of you, turning gently
           // just past the edges of your view, rising and falling a little
           float sweep = sin(t * 0.045);
@@ -87,14 +86,27 @@ export class MurmurationScene extends BaseScene {
           vec3 scale = vec3(16.0 + 6.0 * sin(t * 0.09), 5.5 + 2.5 * sin(t * 0.12 + 1.0), 11.0 + 4.0 * cos(t * 0.08));
           vec3 p = b * scale;
           // smooth flowing deformation (fixed detail, so it never jumps when the quality governor changes)
-          p += (vec3(sn(b * 1.2 + vec3(t * 0.04, 0.0, 0.0)), sn(b * 1.2 + vec3(0.0, t * 0.035, 4.0)), sn(b * 1.2 + vec3(7.0, 0.0, t * 0.045))) - 0.5) * 9.0;
+          p += (vec3(sn(b * 1.2 + vec3(tn * 0.04, 0.0, 0.0)), sn(b * 1.2 + vec3(0.0, tn * 0.035, 4.0)), sn(b * 1.2 + vec3(7.0, 0.0, tn * 0.045))) - 0.5) * 9.0;
           // the flock banks the way it's heading
           float heading = cos(t * 0.045);
           p = rotX(rotY(p, heading * 0.5), sin(t * 0.05) * 0.25);
           // soft ripples of density travelling through the flock
-          float wave = sin(dot(b, vec3(3.0, 1.0, 2.0)) * 2.0 - t * 0.5);
+          wave = sin(dot(b, vec3(3.0, 1.0, 2.0)) * 2.0 - tn * 0.5);
           p += normalize(vec3(1.0, 0.3, 0.6)) * wave * (1.0 + uWave * 0.6);
-          vec4 mv = modelViewMatrix * vec4(C + p, 1.0);
+          return C + p;
+        }
+        void main(){
+          float t = uFlock;
+          vec3 b = position;
+          float wave;
+          vec3 here = flockPos(t, t, b, wave);
+          // heading follows the flock's sweep, with just a little of each bird's own wander
+          float w2; vec3 ahead = flockPos(t + 1.5, t + 0.25, b, w2);
+          vec4 mv = modelViewMatrix * vec4(here, 1.0);
+          // which way the bird is flying on screen, so it can be drawn pointing that way
+          vec4 c0 = projectionMatrix * mv, c1 = projectionMatrix * modelViewMatrix * vec4(ahead, 1.0);
+          vec2 sd = c1.xy / c1.w - c0.xy / c0.w;
+          vHead = atan(sd.y, sd.x);
           float dist = -mv.z;
           vA = 0.75 + 0.25 * wave;
           vS = aSeed;
@@ -108,15 +120,23 @@ export class MurmurationScene extends BaseScene {
           vA *= smoothstep(0.0, 6.0, dist) * clamp(px * px / 9.0, 0.35, 1.0);
           gl_Position = projectionMatrix * mv;
         }`,
-      fragmentShader: /* glsl */ `uniform float uFade, uBlack; varying float vA; varying float vS; varying float vFlap; varying vec3 vCol;
+      fragmentShader: /* glsl */ `uniform float uFade, uBlack; varying float vA; varying float vS; varying float vFlap; varying vec3 vCol; varying float vHead;
         void main(){
-          // a small bird: a body and two swept wings that beat
-          vec2 p = (gl_PointCoord - 0.5) * vec2(2.0, -2.0);
-          float wingY = 0.15 + vFlap * 0.22;
-          float body = smoothstep(0.22, 0.1, length(p * vec2(1.0, 1.6)));
-          float wl = smoothstep(0.12, 0.0, abs(p.y - wingY * abs(p.x) * 1.4 + 0.05)) * smoothstep(0.95, 0.4, abs(p.x));
-          float shape = max(body, wl);
-          float glow = exp(-dot(p, p) * 3.0) * 0.35;
+          // a small bird seen from below, pointing the way it flies: body, head, tail and
+          // swept-back wings whose span pulses as they beat
+          vec2 p0 = (gl_PointCoord - 0.5) * vec2(2.0, -2.0);
+          float cs = cos(vHead), sn = sin(vHead);
+          vec2 q = vec2(cs * p0.x + sn * p0.y, -sn * p0.x + cs * p0.y);
+          float body = smoothstep(1.0, 0.7, length(q / vec2(0.34, 0.075)));
+          float head = smoothstep(0.075, 0.045, length(q - vec2(0.3, 0.0)));
+          float tail = step(-0.46, q.x) * step(q.x, -0.24) * step(abs(q.y), 0.02 + (-0.24 - q.x) * 0.35);
+          float span = 0.88 * (0.45 + 0.55 * abs(vFlap));
+          float ay = abs(q.y);
+          float cx = 0.06 - ay * 0.42;
+          float thick = 0.11 * (1.0 - ay / span) + 0.012;
+          float wing = smoothstep(thick, thick * 0.5, abs(q.x - cx)) * step(ay, span);
+          float shape = max(max(body, head), max(tail, wing));
+          float glow = exp(-dot(p0, p0) * 3.0) * 0.35;
           if (uBlack > 0.5) { if (shape < 0.05) discard; gl_FragColor = vec4(vec3(0.015, 0.012, 0.02), shape * uFade * 0.95); return; }
           gl_FragColor = vec4(vCol * (shape + glow) * vA * uFade, 1.0);
         }`,

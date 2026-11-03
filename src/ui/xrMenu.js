@@ -194,19 +194,19 @@ export class XRMenu {
 
     // toggle orb shown during a session
     this.orb = new Button(0.14, 0.17, (c, w, h, b) => {
+      // the brand mark, with "Menu" beneath it
       c.beginPath();
       c.arc(w / 2, w / 2, w / 2 - 6, 0, Math.PI * 2);
-      c.fillStyle = b.hover ? 'rgba(255,255,255,0.4)' : 'rgba(255,255,255,0.14)';
+      c.fillStyle = b.hover ? 'rgba(40,36,80,0.85)' : 'rgba(10,10,28,0.6)';
       c.fill();
-      c.strokeStyle = 'rgba(255,255,255,0.7)';
-      c.lineWidth = 4;
-      c.stroke();
-      c.fillStyle = '#fff';
-      for (let k = -1; k <= 1; k++) c.fillRect(w * 0.3, w / 2 + k * w * 0.14 - 3, w * 0.4, 6);
+      if (b.hover) { c.strokeStyle = 'rgba(255,255,255,0.6)'; c.lineWidth = 4; c.stroke(); }
+      if (MARK.complete && MARK.naturalWidth) c.drawImage(MARK, w * 0.12, w * 0.12, w * 0.76, w * 0.76);
       c.font = `500 ${Math.round(h * 0.15)}px ${FONT}`;
       c.textAlign = 'center';
+      c.fillStyle = '#fff';
       c.fillText('Menu', w / 2, h - 8);
     }, () => this.show(true));
+    if (!MARK.complete) MARK.addEventListener('load', () => this.orb.redraw(), { once: true });
     this.group.add(this.orb.mesh);
     this.buttons.push(this.orb);
 
