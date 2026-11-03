@@ -22,8 +22,8 @@ export class Voice {
     this.e = engine;
     this.clips = new Set();
     this.buffers = new Map();
-    this.rate = 0.86;
-    this.pitch = 1.02;
+    this.rate = 0.8;
+    this.pitch = 0.96;
     this.userVoiceURI = null;
     this.ttsVoice = null;
     this.speaking = false;
@@ -138,17 +138,14 @@ export class Voice {
     const ctx = this.e.ctx;
     const src = ctx.createBufferSource();
     src.buffer = buf;
-    const p = ctx.createPanner();
-    p.panningModel = 'HRTF';
-    p.refDistance = 1;
-    p.positionX.value = 0.3; p.positionY.value = 1.55; p.positionZ.value = -1.0;
+    // centred and close, like someone sitting beside you, with a touch of room
     const g = ctx.createGain();
-    g.gain.value = 1.4;
+    g.gain.value = 1.15;
     const send = ctx.createGain();
-    send.gain.value = 0.12;
-    src.connect(g).connect(p).connect(this.e.voiceBus);
+    send.gain.value = 0.08;
+    src.connect(g).connect(this.e.voiceBus);
     g.connect(send).connect(this.e.reverbSend);
-    src.onended = () => { p.disconnect(); done(); };
+    src.onended = () => { g.disconnect(); done(); };
     this._src = src;
     src.start();
   }

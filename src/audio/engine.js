@@ -82,7 +82,7 @@ export class AudioEngine {
 
   duck(on) {
     if (!this.duckGain) return;
-    this.duckGain.gain.setTargetAtTime(on ? 0.5 : 1, this.ctx.currentTime, on ? 0.35 : 1.2);
+    this.duckGain.gain.setTargetAtTime(on ? 0.62 : 1, this.ctx.currentTime, on ? 0.6 : 1.8);
   }
 
   // Ambient nature bed, independent of the track: 'off' | 'rain' | 'ocean'

@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { BaseScene, NOISE, damp } from '../common.js';
+import { BaseScene, NOISE, GRADE, damp } from '../common.js';
 import { sky, terrain, water, particles, solidMat, noise2, rng, mix3, hex, clamp01 } from './kit.js';
 
 // ===================================================================== Meadow
@@ -34,9 +34,9 @@ export class MeadowScene extends BaseScene {
     const grass = new THREE.Mesh(g, new THREE.ShaderMaterial({
       transparent: true, side: THREE.DoubleSide, uniforms: U,
       vertexShader: /* glsl */ `attribute float aCorner; attribute vec3 aInfo; uniform float uTime, uBreath, uGust, uGustT;
-        varying float vT; varying float vS; varying float vD;
+        varying float vT; varying float vS; varying float vD; varying vec2 vXZ; varying float vBend;
         void main(){
-          float h = aInfo.x, rot = aInfo.y; vS = aInfo.z;
+          float h = aInfo.x, rot = aInfo.y; vS = aInfo.z; vXZ = position.xz;
           vec3 p = position;
           vec2 side = vec2(cos(rot), sin(rot)) * 0.028;
           float tip = step(1.5, aCorner);
@@ -46,17 +46,24 @@ export class MeadowScene extends BaseScene {
           float front = dot(p.xz, wd) + 30.0 - (uTime - uGustT) * 9.0;
           float gust = exp(-front * front * 0.02) * uGust;
           float bend = (0.25 + wave * 0.35 + gust * 1.2 + uBreath * 0.12) * tip;
+          vBend = bend;
           if (aCorner < 0.5) p.xz -= side; else if (aCorner < 1.5) p.xz += side;
           else { p.y += h * (1.0 - bend * 0.35); p.xz += wd * bend * h * 0.8; }
           vec4 mv = modelViewMatrix * vec4(p, 1.0); vD = -mv.z;
           gl_Position = projectionMatrix * mv;
         }`,
-      fragmentShader: /* glsl */ `uniform float uFade; varying float vT; varying float vS; varying float vD;
+      fragmentShader: /* glsl */ `uniform float uFade; varying float vT; varying float vS; varying float vD; varying vec2 vXZ; varying float vBend;
+        ${NOISE}
+        ${GRADE}
         void main(){
-          vec3 base = vec3(0.17, 0.32, 0.1), tipc = mix(vec3(0.62, 0.78, 0.32), vec3(0.85, 0.82, 0.45), vS * 0.5);
-          vec3 c = mix(base, tipc, vT);
-          c = mix(c, vec3(0.87, 0.9, 0.86), smoothstep(14.0, 26.0, vD) * 0.6);
-          gl_FragColor = vec4(c, uFade);
+          float clump = vnoise(vec3(vXZ * 0.18, 1.0));
+          vec3 base = vec3(0.09, 0.18, 0.05);
+          vec3 tipc = mix(vec3(0.5, 0.68, 0.24), vec3(0.78, 0.76, 0.4), smoothstep(0.35, 0.75, clump) * 0.8 + vS * 0.2);
+          vec3 c = mix(base, tipc, pow(vT, 0.8));
+          c += vec3(0.3, 0.26, 0.08) * vT * vBend * 0.35;                 // sunlit, translucent tips as they bend
+          c *= 0.85 + vS * 0.3;
+          c = mix(c, vec3(0.86, 0.88, 0.8), smoothstep(12.0, 26.0, vD) * 0.55);
+          gl_FragColor = vec4(grade(c), uFade);
         }`,
     }));
     grass.frustumCulled = false;
@@ -69,6 +76,7 @@ export class MeadowScene extends BaseScene {
     // birds drifting across the sky
     this.group.add(particles(U, { count: 14, min: [-80, 18, -90], max: [80, 30, -40], vel: [2.5, 0, 0.3], sway: 1.5, size: [0.6, 0.9], shape: 'leaf', colors: ['#2a2a30'], normal: true }));
   }
+  onCue(name) { if (name === 'gust') { this.uniforms.uGust.value = 1.6; this.uniforms.uGustT.value = this.uniforms.uTime.value; } }
   onEvent(e) {
     const U = this.uniforms;
     if (e.type === 'chord') { U.uGust.value = 1; U.uGustT.value = U.uTime.value; }
@@ -106,10 +114,10 @@ export class BeachScene extends BaseScene {
       const u = p.getX(i) + 0.5, v = p.getY(i) + 0.5;
       p.setXYZ(i, (u - 0.5) * W, 0, -5.2 - Math.pow(1 - v, 2.2) * 200);
     }
-    Object.assign(U, { uSunDir: { value: new THREE.Vector3(...sun).normalize() } });
+    Object.assign(U, { uSunDir: { value: new THREE.Vector3(...sun).normalize() }, uSwell: { value: 0 }, uCalm: { value: 0 } });
     const sea = new THREE.Mesh(g, new THREE.ShaderMaterial({
       transparent: true, side: THREE.DoubleSide, uniforms: U,
-      vertexShader: /* glsl */ `uniform float uTime, uBreath; varying vec3 vW; varying float vH; varying float vD; varying float vBreak;
+      vertexShader: /* glsl */ `uniform float uTime, uBreath, uSwell, uCalm; varying vec3 vW; varying float vH; varying float vD; varying float vBreak;
         const float K = 6.2832 / 15.0; const float OM = K * 2.1;
         void main(){
           vec3 p = position;
@@ -118,7 +126,7 @@ export class BeachScene extends BaseScene {
           float ph = K * d + OM * uTime + lat;
           float shoal = smoothstep(60.0, 9.0, d) * smoothstep(-0.5, 4.0, d);
           float crest = pow(0.5 + 0.5 * sin(ph), 2.0 + shoal * 6.0);
-          float amp = 0.18 + shoal * 0.95 * (0.85 + uBreath * 0.25);
+          float amp = (0.18 + shoal * 0.95 * (0.85 + uBreath * 0.25)) * (1.0 + uSwell * 0.7) * (1.0 - uCalm * 0.45);
           float h = crest * amp + sin(p.x * 0.2 + uTime * 0.7 + p.z * 0.1) * 0.05;
           vBreak = shoal * smoothstep(0.75, 1.0, crest);
           p.y = -0.32 + h - (1.0 - smoothstep(0.0, 3.0, d)) * 0.1;
@@ -126,7 +134,7 @@ export class BeachScene extends BaseScene {
           gl_Position = projectionMatrix * viewMatrix * vec4(vW, 1.0);
         }`,
       fragmentShader: /* glsl */ `uniform vec3 uSunDir; uniform float uTime, uFade; varying vec3 vW; varying float vH; varying float vD; varying float vBreak;
-        ${NOISE}
+        ${NOISE} ${GRADE}
         void main(){
           vec3 n = normalize(cross(dFdx(vW), dFdy(vW))); if (n.y < 0.0) n = -n;
           vec3 v = normalize(vW - cameraPosition);
@@ -144,7 +152,7 @@ export class BeachScene extends BaseScene {
           c = mix(c, vec3(0.97, 0.98, 1.0), clamp(foam, 0.0, 1.0));
           c = mix(c, vec3(0.85, 0.93, 0.98), smoothstep(80.0, 200.0, vD));
           float edge = smoothstep(0.0, 0.8, vD);
-          gl_FragColor = vec4(c, uFade * edge);
+          gl_FragColor = vec4(grade(c), uFade * edge);
         }`,
     }));
     sea.frustumCulled = false;
@@ -158,7 +166,7 @@ export class BeachScene extends BaseScene {
       transparent: true, depthWrite: false, uniforms: U,
       vertexShader: /* glsl */ `varying vec3 vW; void main(){ vec3 p = position; p.y = (p.z > -1.0 ? 0.04 : 0.04 + (p.z + 1.0) * 0.07) + 0.012; vW = (modelMatrix * vec4(p,1.0)).xyz; gl_Position = projectionMatrix * viewMatrix * vec4(vW, 1.0); }`,
       fragmentShader: /* glsl */ `uniform float uTime, uFade; varying vec3 vW;
-        ${NOISE}
+        ${NOISE} ${GRADE}
         const float K = 6.2832 / 15.0; const float OM = K * 2.1;
         void main(){
           float lat = sin(vW.x * 0.045) * 0.9 + sin(vW.x * 0.11 + 1.3) * 0.35;
@@ -170,7 +178,7 @@ export class BeachScene extends BaseScene {
           float lace = smoothstep(0.5, 0.7, fbm(vec3(vW.xz * 3.0, uTime * 0.6))) * behind * 0.6;
           vec3 c = mix(vec3(0.55, 0.85, 0.85), vec3(1.0), clamp(line + lace, 0.0, 1.0));
           float a = clamp(behind * 0.45 + line + lace, 0.0, 1.0) * smoothstep(-5.9, -5.4, vW.z) + smoothstep(-5.3, -6.0, vW.z) * 0.0;
-          gl_FragColor = vec4(c, a * uFade);
+          gl_FragColor = vec4(grade(c), a * uFade);
         }`,
     }));
     swash.frustumCulled = false;
@@ -181,8 +189,20 @@ export class BeachScene extends BaseScene {
     this.group.add(this.spray);
     this.group.add(particles(U, { count: 10, min: [-60, 9, -70], max: [60, 18, -20], vel: [1.8, 0, -0.2], sway: 2, size: [0.5, 0.8], shape: 'leaf', colors: ['#f4f4f4'], normal: true }));
   }
+  // a bigger set of waves rolls in on 'wave'; the sea settles on 'calm'
+  onCue(name) {
+    if (name === 'wave') { this.swellT = 1; this.calmT = 0; }
+    if (name === 'calm') { this.calmT = 1; this.swellT = 0; }
+  }
   onEvent(e) { if (e.type === 'note') this.spray.userData.u.uBoost.value = 0.8; }
-  update(dt) { this.spray.userData.u.uBoost.value *= Math.exp(-dt * 2); }
+  update(dt) {
+    const U = this.uniforms;
+    this.swellT = (this.swellT || 0) * Math.exp(-dt * 0.08);
+    this.calmT = (this.calmT || 0) * Math.exp(-dt * 0.03);
+    U.uSwell.value = damp(U.uSwell.value, this.swellT, 0.6, dt);
+    U.uCalm.value = damp(U.uCalm.value, this.calmT, 0.4, dt);
+    this.spray.userData.u.uBoost.value = Math.max(this.spray.userData.u.uBoost.value * Math.exp(-dt * 2), U.uSwell.value * 0.5);
+  }
 }
 
 // ===================================================================== Underwater
@@ -196,7 +216,7 @@ export class UnderwaterScene extends BaseScene {
     const dome = new THREE.Mesh(new THREE.SphereGeometry(120, 48, 32), new THREE.ShaderMaterial({
       side: THREE.BackSide, transparent: true, depthWrite: false, uniforms: U,
       vertexShader: 'varying vec3 vDir; void main(){ vDir = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
-      fragmentShader: /* glsl */ `uniform float uTime, uFade, uFlare, uBreath; varying vec3 vDir; ${NOISE}
+      fragmentShader: /* glsl */ `uniform float uTime, uFade, uFlare, uBreath; varying vec3 vDir; ${NOISE} ${GRADE}
         void main(){ vec3 d = normalize(vDir);
           vec3 c = mix(vec3(0.0, 0.09, 0.16), vec3(0.08, 0.55, 0.68), smoothstep(-0.4, 0.9, d.y));
           float win = smoothstep(0.82, 0.92, d.y);
@@ -204,7 +224,7 @@ export class UnderwaterScene extends BaseScene {
           c += vec3(0.7, 0.95, 1.0) * win * (0.5 + rip * 0.8);
           float rays = pow(fbm(vec3(atan(d.z, d.x) * 6.0, uTime * 0.15, 0.0)), 3.0) * smoothstep(0.0, 0.8, d.y);
           c += vec3(0.4, 0.8, 0.9) * rays * (0.6 + uFlare + uBreath * 0.2);
-          gl_FragColor = vec4(c, uFade); }`,
+          gl_FragColor = vec4(grade(c), uFade); }`,
     }));
     dome.renderOrder = -5;
     this.group.add(dome);
@@ -213,7 +233,7 @@ export class UnderwaterScene extends BaseScene {
     const floor = new THREE.Mesh(new THREE.PlaneGeometry(200, 200, 140, 140).rotateX(-Math.PI / 2), new THREE.ShaderMaterial({
       transparent: true, uniforms: U,
       vertexShader: 'varying vec3 vW; void main(){ vW = (modelMatrix * vec4(position,1.0)).xyz; gl_Position = projectionMatrix * viewMatrix * vec4(vW,1.0); }',
-      fragmentShader: /* glsl */ `uniform float uTime, uFade; varying vec3 vW; ${NOISE}
+      fragmentShader: /* glsl */ `uniform float uTime, uFade; varying vec3 vW; ${NOISE} ${GRADE}
         void main(){
           vec2 p = vW.xz * 0.9;
           float c1 = abs(sin(fbm(vec3(p, uTime * 0.35)) * 12.0));
@@ -223,7 +243,7 @@ export class UnderwaterScene extends BaseScene {
           vec3 c = sand * 0.5 + vec3(0.6, 0.95, 1.0) * caustic * 0.6;
           float dist = length(vW - cameraPosition);
           c = mix(c, vec3(0.0, 0.18, 0.26), smoothstep(6.0, 45.0, dist));
-          gl_FragColor = vec4(c, uFade);
+          gl_FragColor = vec4(grade(c), uFade);
         }`,
     }));
     floor.geometry.attributes.position.array.forEach((_, i, a) => { if (i % 3 === 1) a[i] = floorH(a[i - 1], a[i + 1]); });
@@ -291,7 +311,7 @@ export class ZenGardenScene extends BaseScene {
     const sand = new THREE.Mesh(new THREE.CircleGeometry(13, 96).rotateX(-Math.PI / 2), new THREE.ShaderMaterial({
       transparent: true, uniforms: U,
       vertexShader: 'varying vec3 vW; void main(){ vW = (modelMatrix * vec4(position,1.0)).xyz; gl_Position = projectionMatrix * viewMatrix * vec4(vW,1.0); }',
-      fragmentShader: /* glsl */ `uniform vec3 uStones[4]; uniform float uFade; varying vec3 vW; ${NOISE}
+      fragmentShader: /* glsl */ `uniform vec3 uStones[4]; uniform float uFade; varying vec3 vW; ${NOISE} ${GRADE}
         void main(){
           float best = 99.0; float ring = 0.0;
           for (int i = 0; i < 4; i++) { float d = length(vW.xz - uStones[i].xy) - uStones[i].z; if (d < best) best = d; }
@@ -301,7 +321,7 @@ export class ZenGardenScene extends BaseScene {
           float ridge = mix(lines, rings, t);
           vec3 c = vec3(0.9, 0.87, 0.8) * (0.86 + 0.14 * ridge) * (0.95 + 0.1 * fbm(vec3(vW.xz * 4.0, 0.0)));
           c *= smoothstep(13.0, 11.5, length(vW.xz)) * 0.25 + 0.75;
-          gl_FragColor = vec4(c, uFade);
+          gl_FragColor = vec4(grade(c), uFade);
         }`,
     }));
     sand.position.y = 0.005;
@@ -389,7 +409,7 @@ export class SnowPeaksScene extends BaseScene {
     const ridge = (x, z) => { let t = 0, a = 1, f = 0.012; for (let i = 0; i < 5; i++) { t += (1 - Math.abs(n(x * f, z * f))) ** 2 * a; a *= 0.5; f *= 2.1; } return t; };
     this.group.add(terrain(U, {
       size: 420, seg: 220, height: (x, z) => { const r = Math.hypot(x, z); return ridge(x, z) * 38 * THREE.MathUtils.smoothstep(r, 22, 110) + n(x * 0.1, z * 0.1) * 0.3; },
-      sunDir: sun, fog: '#d4d8ec', fogNear: 70, fogFar: 280, ambient: 0.68, tint: '#f6f2ff',
+      sunDir: sun, fog: '#d9d6e6', fogNear: 140, fogFar: 460, ambient: 0.55, tint: '#fbf6ff',
       color: (x, z, y, slope) => (slope > 0.5 && y > 6 ? mix3(hex('#6a6f82'), hex('#8c90a2'), clamp01(y / 40)) : mix3(hex('#eef2fa'), hex('#ffffff'), clamp01(y / 30))),
     }));
     this.snow = particles(U, { count: 2200, min: [-20, 0, -20], max: [20, 12, 20], vel: [0.15, -0.6, 0.05], sway: 0.5, size: [0.02, 0.05], shape: 'flake', colors: ['#ffffff'], alpha: 0.85 });

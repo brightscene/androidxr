@@ -38,6 +38,9 @@ class App {
     this.nature = p.nature || 'off';
     this.voiceChoice = p.voice || 'auto';
     this.background = p.background || 'auto';
+    this.quality = p.quality || 'balanced'; // smooth | balanced | sharp
+    this.breathText = p.breathText ?? true;
+    this.perf = { avg: 1 / 72, level: 0, t: 0 };
     this.volume = p.volume ?? 0.8;
     // light (AudioStrobe / SpectraStrobe) settings
     this.strobeAccepted = p.strobeAccepted ?? false;
@@ -69,7 +72,8 @@ class App {
     r.setSize(window.innerWidth, window.innerHeight);
     r.xr.enabled = true;
     r.xr.setReferenceSpaceType('local-floor');
-    r.xr.setFoveation(1);
+    // light foveation only: high values make the edges of view visibly blocky
+    r.xr.setFoveation(0.25);
     r.setClearColor(0x000000, 1); // opaque black behind everything (passthrough switches to transparent)
     document.getElementById('stage').appendChild(r.domElement);
 
@@ -112,7 +116,7 @@ class App {
       localStorage.setItem('mindlyte', JSON.stringify({
         selected: this.selected.id === 'import' ? undefined : this.selected.id, minutes: this.minutes, entrainment: this.entrainment,
         journey: this.journey, solfeggio: this.solfeggio, whispers: this.whispers, captions: this.captions,
-        dives: this.dives, nature: this.nature, voice: this.voiceChoice, volume: this.volume, background: this.background,
+        dives: this.dives, nature: this.nature, voice: this.voiceChoice, volume: this.volume, background: this.background, quality: this.quality, breathText: this.breathText,
         strobeAccepted: this.strobeAccepted, lights: this.lights, lightStyle: this.lightStyle, lightColour: this.lightColour,
         v: 2, lightLayout: this.lightLayout, lightDim: this.lightDim,
         lightMax: this.lightMax, lightMode: this.lightMode, lightsGenerated: this.lightsGenerated, lightSymbol: this.lightSymbol,
@@ -140,6 +144,16 @@ class App {
   setDives(d) { this.dives = d; this.world.voyage.comfort = COMFORT[d]; this._changed(); }
   setNature(n) { this.nature = n; this.engine.setNature(n); this._changed(); }
   setVoice(v) { this.voiceChoice = v; this.voice.setChoice(v); this._changed(); }
+  setQuality(q) { this.quality = q; this._applyQuality(); this._changed(); }
+  setBreathText(on) { this.breathText = on; this._changed(); }
+
+  _applyQuality() {
+    const q = { smooth: [0.75, 0.45], balanced: [0.9, 0.25], sharp: [1.0, 0.1] }[this.quality] || [0.9, 0.25];
+    if (!this.renderer.xr.isPresenting) this.renderer.xr.setFramebufferScaleFactor(q[0]);
+    this.renderer.xr.setFoveation(q[1]);
+    this.perf.level = 0; U.uOct.value = 4;
+  }
+
   setVolume(v) { this.volume = v; this.engine.setVolume(v); this.savePrefs(); }
   // Lights are photosensitive content: they stay off until the warning is accepted.
   setLights(on) {
@@ -250,6 +264,7 @@ class App {
     this.playing = true;
     this.playingTrack = track;
     this.caption = '';
+    this.dimTarget = 0;
     this.whisperQueue = shuffle(WHISPERS.map((t, i) => ({ id: `whisper-${i + 1}`, text: t })));
     const w = Math.floor(Math.random() * WELCOMES.length);
     this.welcome = { id: `welcome-${w + 1}`, text: WELCOMES[w] };
@@ -267,9 +282,7 @@ class App {
     this.guide = new GuideRunner(this.voice, SCRIPTS[track.guided], {
       startDelay: 12,
       onLine: (text) => { this.caption = text; },
-      onMark: (m) => {
-        if (m.mark === 'dive' && this.dives !== 'off') player.dive(this.engine.now + 0.1, m.args[0] || 12, m.args[1] ?? 0.5);
-      },
+      onMark: (m) => this._cue(m, player),
       onDone: () => {
         // let the music breathe on after the last words, then close gently
         const tail = track.tail || 30;
@@ -277,6 +290,15 @@ class App {
       },
     });
     this.guide.start();
+  }
+
+  // Script cues weave the scene into the meditation.
+  _cue(m, player) {
+    const [a, b] = m.args;
+    if (m.mark === 'dive' && this.dives !== 'off') player.dive(this.engine.now + 0.1, a || 12, b ?? 0.5);
+    if (m.mark === 'scene' && this.background === 'auto') this.setScene(a);
+    if (m.mark === 'cue') this.active?.onCue?.(a);
+    if (m.mark === 'dim') { this.dimTarget = a; this.dimRate = 1 / Math.max(1, b || 30); }
   }
 
   _stopGuide() {
@@ -291,6 +313,7 @@ class App {
     this.playing = false;
     const fade = completed ? this.playingTrack.fadeOut || 5 : 4;
     this._stopGuide();
+    this.dimTarget = 0;
     this.player.stop(fade);
     this.engine.fadeMaster(0, fade);
     const p = this.player;
@@ -339,6 +362,7 @@ class App {
   // ------------------------------------------------------------ XR
   async enterXR(mode) {
     this.voice.unlock();
+    this._applyQuality();
     await this.engine.init();
     const session = await navigator.xr.requestSession(mode, {
       requiredFeatures: ['local-floor'],
@@ -394,6 +418,7 @@ class App {
       const h = (bl && (bl.framebufferHeight || bl.textureHeight)) || 1800;
       U.uViewH.value = h / 2;
       if (this._placeMenuIn > 0 && --this._placeMenuIn === 0) this.getHead((p, f) => this.menu.placeInFront(p, f));
+      this._governor(dt);
       this.menu.update();
     } else {
       U.uViewH.value = this.renderer.domElement.height / 2;
@@ -431,7 +456,7 @@ class App {
       } else {
         const count = b.left > 0.05 ? Math.ceil(b.left) : '';
         cue = `${PHASE_TEXT[b.phase]}${count ? '  ' + count : ''}`;
-        alpha = sec.index <= 1 ? 0.9 : sec.index === 4 ? 0.6 : 0.3;
+        alpha = this.breathText ? (sec.index <= 1 ? 0.6 : sec.index === 4 ? 0.4 : 0.18) : 0;
       }
       this.menu.setCue(cue, sub, this.menu.visible ? 0 : alpha);
       this.ui.setCue(cue, `${sec.name}${wave}${lr} · ${mm}:${ss} left`, this.player.progress(now), alpha);
@@ -457,7 +482,7 @@ class App {
     for (const e of events) {
       if (e.type === 'section') this.sectionEnergy = e.energy;
       if (e.type === 'beat') U.uBeat.value = Math.min(1, U.uBeat.value + (e.accent ? 0.7 : 0.3));
-      if (e.type === 'note' && (this.world.mode === 'full' || this.world.mode === 'bare')) this.world.sparks.emit(e.pos, e.vel);
+      if (e.type === 'note' && this.world.mode === 'full') this.world.sparks.emit(e.pos, e.vel);
       if (e.type === 'dive') this.world.voyage.startDive(e.duration, e.intensity);
       if (e.type === 'end') {
         if (this.guide && !this.guide.done) continue;
@@ -485,6 +510,7 @@ class App {
     });
 
     this._updateLights(dt, t);
+    this._updateDim(dt);
     this.world.update(dt, t, head.pos);
     this.renderer.render(this.scene, this.camera);
   }
@@ -525,6 +551,22 @@ class App {
     this.strobe.update(dt, t, this.rgb[0], this.rgb[1], { style: this.lightStyle, max: this.lightMax, layout: this.lightLayout, dim: this.lightDim });
   }
 
+  // A slow, head-locked dimming of the whole view (used as you fall asleep).
+  _updateDim(dt) {
+    if (!this.dimMesh) {
+      this.dimMesh = new THREE.Mesh(new THREE.PlaneGeometry(6, 6), new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0, depthTest: false, depthWrite: false }));
+      this.dimMesh.position.z = -0.4;
+      this.dimMesh.renderOrder = 935;
+      this.camera.add(this.dimMesh);
+      this.dimLevel = 0;
+    }
+    const target = this.dimTarget || 0;
+    const rate = target > this.dimLevel ? (this.dimRate || 0.05) : 0.5;
+    this.dimLevel += Math.sign(target - this.dimLevel) * Math.min(Math.abs(target - this.dimLevel), rate * dt);
+    this.dimMesh.material.opacity = this.dimLevel;
+    this.dimMesh.visible = this.dimLevel > 0.002;
+  }
+
   _colourSet(side, t) {
     const c = (this._lc ||= [new THREE.Color(), new THREE.Color()])[side];
     // fully saturated sets so the lights stand out against the stars and nebula
@@ -540,6 +582,22 @@ class App {
         return c.setHSL((hsl.h + (side ? 0.08 : 0)) % 1, 1, 0.55);
       }
     }
+  }
+
+  // Keeps the headset smooth: if frames start taking too long, quietly reduce
+  // procedural detail (and then add a little foveation); restore it when there's headroom.
+  _governor(dt) {
+    const p = this.perf;
+    p.avg += (dt - p.avg) * 0.05;
+    p.t += dt;
+    if (p.t < 2) return;
+    const target = 1 / 72;
+    if (p.avg > target * 1.12 && p.level < 3) { p.level++; p.t = 0; }
+    else if (p.avg < target * 0.8 && p.level > 0) { p.level--; p.t = -3; }
+    else return;
+    U.uOct.value = [4, 3, 2, 2][p.level];
+    const base = { smooth: 0.45, balanced: 0.25, sharp: 0.1 }[this.quality] ?? 0.25;
+    this.renderer.xr.setFoveation(Math.min(1, base + (p.level >= 3 ? 0.25 : 0)));
   }
 
   _resize() {

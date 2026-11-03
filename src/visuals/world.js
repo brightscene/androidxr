@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { U, NOISE, POINT_SIZE, SOFT_DOT, additive, damp } from './common.js';
+import { U, NOISE, GRADE, POINT_SIZE, SOFT_DOT, additive, damp } from './common.js';
 import { Voyage } from './voyage.js';
 
 // Persistent environment: sky dome, stars, drifting motes, and the
@@ -35,7 +35,7 @@ export class World {
     this.sky.visible = !this.passthrough && space;
     this.stars.visible = space;
     for (const o of [this.lasers, this.motes, this.voyage.stars, this.voyage.streaks]) o.visible = m === 'full';
-    this.sparks.points.visible = m === 'full' || m === 'bare';
+    this.sparks.points.visible = m === 'full';
     if (!this.sparks.points.visible) for (const r of this.sparks.rings) r.visible = false;
   }
 
@@ -53,6 +53,7 @@ export class World {
         uniform vec3 uC0, uC1, uC2; uniform float uTime, uEnergy, uBreath, uTravel, uNeb, uDive;
         varying vec3 vDir;
         ${NOISE}
+        ${GRADE}
         vec3 rotY(vec3 p, float a){ float c = cos(a), s = sin(a); return vec3(c*p.x + s*p.z, p.y, -s*p.x + c*p.z); }
         void main(){
           vec3 d = rotY(vDir, uTime * 0.006 + uTravel * 0.0012);
@@ -69,7 +70,7 @@ export class World {
           col += tint * glow * uNeb * (0.35 + uEnergy * 0.35 + uBreath * 0.1 + uDive * 0.4);
           col += uC2 * pow(cloud, 3.0) * uNeb * 0.25;
           col += uC1 * pow(max(0.0, 1.0 - abs(h)), 6.0) * 0.1;
-          gl_FragColor = vec4(col, 1.0);
+          gl_FragColor = vec4(grade(col), 1.0);
         }`,
     });
     this.sky = new THREE.Mesh(geo, mat);

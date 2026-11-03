@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { NOISE, POINT_SIZE, SOFT_DOT } from '../common.js';
+import { NOISE, GRADE, POINT_SIZE, SOFT_DOT } from '../common.js';
 
 // Shared building blocks for the environment scenes: a procedural sky (with
 // sun, clouds, stars and a galaxy band), heightfield terrain, water with sun
@@ -27,6 +27,7 @@ export function sky(uni, o = {}) {
       uniform float uSunSize, uCloud, uCloudSpeed, uStars, uBand, uMoon, uFade, uTime, uBreath, uEnergy;
       varying vec3 vDir;
       ${NOISE}
+      ${GRADE}
       void main(){
         vec3 d = normalize(vDir);
         float h = d.y;
@@ -56,14 +57,21 @@ export function sky(uni, o = {}) {
         }
         if (uCloud > 0.0 && h > 0.0) {
           vec2 uv = d.xz / (h + 0.18) * 1.1 + vec2(uTime * uCloudSpeed, uTime * uCloudSpeed * 0.35);
-          float n = fbm(vec3(uv, uTime * 0.008));
-          float cov = smoothstep(1.0 - uCloud, 1.0 - uCloud + 0.32, n);
-          float sh = fbm(vec3(uv * 1.3 + 0.2, uTime * 0.008 + 4.0));
-          vec3 cc = mix(uCloudCol, uCloudCol * 0.72, smoothstep(0.4, 0.8, sh));
-          cc += uSunCol * pow(sd, 12.0) * 0.3;
-          c = mix(c, cc, cov * smoothstep(0.0, 0.12, h));
+          vec3 q = vec3(uv, uTime * 0.008);
+          float base = fbm(q) + (fbm(q * 2.7 + 5.0) - 0.5) * 0.18;
+          float cov = smoothstep(1.0 - uCloud, 1.0 - uCloud + 0.26, base);
+          vec2 toSun = normalize(uSunDir.xz + vec2(1e-4)) * 0.09;
+          float toward = fbm(q + vec3(toSun, 0.0));
+          float shade = clamp((toward - base) * 5.0, -1.0, 1.0);          // denser toward the sun = in shadow
+          float thick = smoothstep(1.0 - uCloud, 1.0 + 0.1, base);
+          vec3 lit = uCloudCol * (1.04 - 0.28 * shade);
+          vec3 dark = mix(uCloudCol * 0.6, uTop * 0.7 + uHor * 0.25, 0.35);
+          vec3 cc = mix(lit, dark, clamp(thick * 0.5 + max(shade, 0.0) * 0.3, 0.0, 1.0));
+          cc += uSunCol * pow(sd, 7.0) * (1.0 - thick) * 0.55;            // silver lining on thin edges
+          cc = mix(cc, uHor, smoothstep(0.22, 0.0, h) * 0.55);            // haze toward the horizon
+          c = mix(c, cc, cov * smoothstep(0.0, 0.08, h));
         }
-        gl_FragColor = vec4(c * (0.92 + uBreath * 0.08), uFade);
+        gl_FragColor = vec4(grade(c * (0.92 + uBreath * 0.08)), uFade);
       }`,
   }));
   m.renderOrder = -5;
@@ -97,13 +105,17 @@ export function terrain(uni, o) {
     transparent: true, uniforms: u,
     vertexShader: /* glsl */ `attribute vec3 color; varying vec3 vC; varying vec3 vN; varying float vD; varying vec3 vW;
       void main(){ vC = color; vN = normal; vec4 w = modelMatrix * vec4(position,1.0); vW = w.xyz; vec4 mv = viewMatrix * w; vD = -mv.z; gl_Position = projectionMatrix * mv; }`,
-    fragmentShader: /* glsl */ `uniform vec3 uSun, uFog, uTint; uniform float uFogNear, uFogFar, uAmb, uFade, uBreath;
+    fragmentShader: /* glsl */ `uniform vec3 uSun, uFog, uTint; uniform float uFogNear, uFogFar, uAmb, uFade, uBreath, uTime;
       varying vec3 vC; varying vec3 vN; varying float vD; varying vec3 vW;
+      ${NOISE}
+      ${GRADE}
       void main(){
-        float l = uAmb + (1.0 - uAmb) * max(dot(normalize(vN), uSun), 0.0);
-        vec3 c = vC * l * uTint;
-        c = mix(c, uFog, smoothstep(uFogNear, uFogFar, vD));
-        gl_FragColor = vec4(c, uFade);
+        vec3 n = normalize(vN);
+        float l = uAmb + (1.0 - uAmb) * max(dot(n, uSun), 0.0);
+        float detail = mix(vnoise(vW * 0.9) * 0.6 + vnoise(vW * 3.7) * 0.4, 0.5, smoothstep(10.0, 60.0, vD));
+        vec3 c = vC * l * uTint * (0.84 + detail * 0.32);
+        c = mix(c, uFog, smoothstep(uFogNear, uFogFar, vD) * 0.96);
+        gl_FragColor = vec4(grade(c), uFade);
       }`,
   }));
   m.renderOrder = -4;
@@ -132,6 +144,7 @@ export function water(uni, o = {}) {
       uniform vec4 uRip[6];
       varying vec3 vW;
       ${NOISE}
+      ${GRADE}
       vec2 waves(vec2 p){
         vec2 g = vec2(0.0); float t = uTime;
         vec2 k1 = vec2(0.31, 0.12), k2 = vec2(-0.18, 0.27), k3 = vec2(0.53, -0.41), k4 = vec2(-0.9, 0.7);
@@ -176,7 +189,7 @@ export function water(uni, o = {}) {
           c = mix(c, vec3(0.95), foam * 0.7);
         }
         c = mix(c, uHor, smoothstep(uFogFar * 0.4, uFogFar, dist));
-        gl_FragColor = vec4(c, uFade);
+        gl_FragColor = vec4(grade(c), uFade);
       }`,
   }));
   m.renderOrder = -3;
@@ -304,6 +317,7 @@ export function solidMat(uni, o = {}) {
     fragmentShader: /* glsl */ `uniform vec3 uCol, uCol2, uSun, uFog, uEmit; uniform float uAmb, uFogFar, uEmitAmt, uPulse, uFade, uTime, uBeat;
       varying vec3 vN; varying vec3 vW; varying vec3 vL;
       ${NOISE}
+      ${GRADE}
       void main(){
         vec3 n = normalize(vN); vec3 v = normalize(cameraPosition - vW);
         float nz = fbm(vW * 0.8);
@@ -313,7 +327,7 @@ export function solidMat(uni, o = {}) {
         float veins = smoothstep(0.035, 0.0, abs(fbm(vL * 2.2 + vec3(0.0, uTime * 0.05, 0.0)) - 0.5));
         c += uEmit * uEmitAmt * (veins * (0.6 + uPulse) + 0.08);
         c = mix(c, uFog, smoothstep(uFogFar * 0.3, uFogFar, length(vW - cameraPosition)));
-        gl_FragColor = vec4(c, uFade);
+        gl_FragColor = vec4(grade(c), uFade);
       }`,
   });
 }

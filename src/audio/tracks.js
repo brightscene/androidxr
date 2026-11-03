@@ -105,19 +105,19 @@ export const GUIDED = [
   {
     id: 'sleep', title: 'Drift to Sleep', freq: 174, intent: 'Hypnotic sleep journey',
     guided: 'sleep', tail: 480, fadeOut: 40, bpm: 46, scale: 'minorPent', progression: [0, 3, 2, 1], barsPerChord: 4,
-    profile: 'sleep', scene: 'galaxy', seed: 1174, dives: false,
+    profile: 'sleep', scene: 'lotus', seed: 1174, dives: false,
     palette: ['#03030c', '#2b2d6e', '#9fb4ff'], breath: [4, 0, 8, 0], arc: SLEEP_ARC,
   },
   {
     id: 'abundance', title: 'Abundance', freq: 528, intent: 'Manifesting story · money',
     guided: 'abundance', tail: 40, bpm: 56, scale: 'lydian', progression: [0, 4, 1, 5], barsPerChord: 2,
-    profile: 'meditate', scene: 'galaxy', seed: 1528,
+    profile: 'meditate', scene: 'meadow', seed: 1528, dives: false,
     palette: ['#0f0817', '#b07d2b', '#ffe8a8'], breath: [4, 2, 6, 0], arc: GUIDED_ARC,
   },
   {
     id: 'okay', title: "It's Going to Be Okay", freq: 639, intent: 'Comfort & reassurance',
     guided: 'okay', tail: 40, bpm: 54, scale: 'majorPent', progression: [0, 3, 1, 2], barsPerChord: 2,
-    profile: 'relax', scene: 'beach', seed: 1639,
+    profile: 'relax', scene: 'beach', seed: 1639, dives: false,
     palette: ['#060f17', '#3a8fb7', '#ffd9c2'], breath: [4, 2, 6, 0], arc: GUIDED_ARC,
   },
 ];

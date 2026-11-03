@@ -82,6 +82,8 @@
             <option value="full">Full speed</option>
             <option value="off">Off (no motion)</option>
           </select></label>
+        <label><span class="label">Visual quality (headset)</span>
+          <select id="quality"><option value="smooth">Smooth (best frame rate)</option><option value="balanced">Balanced</option><option value="sharp">Sharp (most detail)</option></select></label>
         <label class="toggle"><input type="checkbox" id="tone" /> <span>Solfeggio tone</span></label>
       </div>
     </details>
@@ -92,6 +94,7 @@
         <label><span class="label">Guide voice</span><select id="voice"></select></label>
         <label class="toggle"><input type="checkbox" id="whispers" /> <span>Whispers in soundscapes</span></label>
         <label class="toggle"><input type="checkbox" id="captions" /> <span>Show captions</span></label>
+        <label class="toggle"><input type="checkbox" id="breath-text" /> <span>Breath prompts on screen</span></label>
         <button id="preview-voice" class="ghost small">Hear the voice</button>
       </div>
       <p id="voice-note" class="muted note"></p>

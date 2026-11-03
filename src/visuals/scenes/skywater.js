@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { BaseScene, NOISE, damp } from '../common.js';
+import { BaseScene, NOISE, GRADE, damp } from '../common.js';
 import { sky, terrain, water, particles, rain, solidMat, noise2, rng, mix3, hex, clamp01 } from './kit.js';
 import { mergeGeos } from './nature.js';
 
@@ -71,6 +71,54 @@ export class RainLakeScene extends BaseScene {
   onEvent(e) { if (e.type === 'note') this.water.userData.ripple(e.pos[0] * 1.5, e.pos[2] * 1.5 - 4, 0.5 + e.vel); }
 }
 
+// Soft cloud sprites painted once into a 2x2 atlas: three cumulus shapes and a wisp.
+function cloudAtlas() {
+  const S = 512, cv = document.createElement('canvas');
+  cv.width = cv.height = S * 2;
+  const c = cv.getContext('2d');
+  const r = rng(99);
+  const g = () => (r() + r() + r() - 1.5) / 1.5;
+  for (let cell = 0; cell < 4; cell++) {
+    const ox = (cell % 2) * S, oy = Math.floor(cell / 2) * S;
+    c.save();
+    c.beginPath(); c.rect(ox, oy, S, S); c.clip();
+    const wisp = cell === 3;
+    const n = wisp ? 90 : 140;
+    for (let i = 0; i < n; i++) {
+      let x, y, rad;
+      if (wisp) { x = 0.5 + g() * 0.32; y = 0.5 + g() * 0.06; rad = 0.05 + r() * 0.08; }
+      else {
+        const t = r();
+        x = 0.5 + g() * (0.22 + t * 0.1);
+        y = 0.62 - Math.abs(g()) * (0.18 + (1 - Math.abs(x - 0.5) * 2) * 0.22);  // domed top, flat base
+        rad = 0.05 + r() * 0.11 * (1 - Math.abs(x - 0.5));
+      }
+      const px = ox + x * S, py = oy + y * S, pr = rad * S;
+      const gr = c.createRadialGradient(px, py, 0, px, py, pr);
+      gr.addColorStop(0, 'rgba(255,255,255,0.45)');
+      gr.addColorStop(0.55, 'rgba(255,255,255,0.22)');
+      gr.addColorStop(1, 'rgba(255,255,255,0)');
+      c.fillStyle = gr;
+      if (wisp) { c.save(); c.translate(px, py); c.scale(3.2, 0.7); c.translate(-px, -py); }
+      c.beginPath(); c.arc(px, py, pr, 0, Math.PI * 2); c.fill();
+      if (wisp) c.restore();
+    }
+    if (!wisp) { // soften the flat base
+      const fade = c.createLinearGradient(0, oy + S * 0.6, 0, oy + S * 0.72);
+      fade.addColorStop(0, 'rgba(0,0,0,0)');
+      fade.addColorStop(1, 'rgba(0,0,0,1)');
+      c.globalCompositeOperation = 'destination-out';
+      c.fillStyle = fade;
+      c.fillRect(ox, oy + S * 0.6, S, S * 0.4);
+    }
+    c.restore();
+  }
+  const tex = new THREE.CanvasTexture(cv);
+  tex.generateMipmaps = true;
+  tex.minFilter = THREE.LinearMipmapLinearFilter;
+  return tex;
+}
+
 // ===================================================================== Cloud flight
 // Flying through a sky full of different white clouds: puffy cumulus, tall
 // towers on the horizon, flat layers above and below, and wisps. Pass
@@ -86,13 +134,13 @@ export class CloudFlightScene extends BaseScene {
       const m = new THREE.Mesh(new THREE.PlaneGeometry(600, 600).rotateX(-Math.PI / 2), new THREE.ShaderMaterial({
         transparent: true, depthWrite: false, side: THREE.DoubleSide, uniforms: { ...U, uY: { value: y } },
         vertexShader: 'varying vec3 vW; void main(){ vW = (modelMatrix * vec4(position,1.0)).xyz; gl_Position = projectionMatrix * viewMatrix * vec4(vW,1.0); }',
-        fragmentShader: /* glsl */ `uniform float uTime, uTravel, uFade, uY; varying vec3 vW; ${NOISE}
+        fragmentShader: /* glsl */ `uniform float uTime, uTravel, uFade, uY; varying vec3 vW; ${NOISE} ${GRADE}
           void main(){ vec2 p = vW.xz * ${scale.toFixed(4)} + vec2(0.0, -uTravel * ${scale.toFixed(4)});
             float n = fbm(vec3(p, uTime * 0.01)) + fbm(vec3(p * 3.1, 1.0)) * 0.25;
             float c = smoothstep(${(1 - cov).toFixed(2)}, ${(1 - cov + 0.3).toFixed(2)}, n);
             float lit = mix(0.78, 1.0, smoothstep(0.4, 0.9, n));
             float far = 1.0 - smoothstep(120.0, 290.0, length(vW.xz - cameraPosition.xz));
-            gl_FragColor = vec4(vec3(lit) * (uY > 0.0 ? vec3(0.95, 0.97, 1.0) : vec3(1.0)), c * ${alpha.toFixed(2)} * far * uFade); }`,
+            gl_FragColor = vec4(grade(vec3(lit) * (uY > 0.0 ? vec3(0.95, 0.97, 1.0) : vec3(1.0))), c * ${alpha.toFixed(2)} * far * uFade); }`,
       }));
       m.position.y = y;
       m.renderOrder = -2;
@@ -129,7 +177,7 @@ export class CloudFlightScene extends BaseScene {
     g.setAttribute('aP', new THREE.InstancedBufferAttribute(new Float32Array(puffs.flatMap((p) => p.slice(0, 4))), 4));
     g.setAttribute('aS', new THREE.InstancedBufferAttribute(new Float32Array(puffs.flatMap((p) => [p[4], p[5]])), 2));
     g.instanceCount = puffs.length;
-    Object.assign(U, { uSunV: { value: new THREE.Vector3(...sun).normalize() }, uL: { value: L } });
+    Object.assign(U, { uSunV: { value: new THREE.Vector3(...sun).normalize() }, uL: { value: L }, uAtlas: { value: cloudAtlas() } });
     const mesh = new THREE.Mesh(g, new THREE.ShaderMaterial({
       transparent: true, depthWrite: false, uniforms: U,
       vertexShader: /* glsl */ `attribute vec4 aP; attribute vec2 aS; uniform float uTravel, uL; varying vec2 vUv; varying vec2 vS; varying float vA;
@@ -138,20 +186,21 @@ export class CloudFlightScene extends BaseScene {
           vec4 mv = viewMatrix * vec4(c, 1.0);
           float dist = length(mv.xyz);
           vA = smoothstep(uL - 25.0, uL - 140.0, dist) * smoothstep(aP.w * 0.25, aP.w * 0.9, dist);
-          vec2 sz = aP.w * (aS.y > 0.5 ? vec2(2.4, 0.5) : vec2(1.0));
+          vec2 sz = aP.w * (aS.y > 0.5 ? vec2(3.0, 0.8) : vec2(1.9, 1.5));
           mv.xy += position.xy * sz;
           vUv = position.xy + 0.5; vS = aS;
           gl_Position = projectionMatrix * mv;
         }`,
-      fragmentShader: /* glsl */ `uniform float uTime, uFade; varying vec2 vUv; varying vec2 vS; varying float vA; ${NOISE}
+      fragmentShader: /* glsl */ `uniform sampler2D uAtlas; uniform vec3 uSunV; uniform float uFade; varying vec2 vUv; varying vec2 vS; varying float vA;
         void main(){
-          vec2 p = vUv - 0.5;
-          float n = fbm(vec3(vUv * 3.0 + vS.x * 17.0, uTime * 0.02 + vS.x));
-          float d = length(p * vec2(1.0, vS.y > 0.5 ? 1.0 : 1.1)) * 2.0 + (n - 0.5) * 0.9;
-          float a = smoothstep(1.0, 0.35, d);
-          float lit = mix(0.72, 1.0, smoothstep(-0.2, 0.35, p.y + (n - 0.5) * 0.4));
-          vec3 c = vec3(lit) * vec3(0.97, 0.98, 1.0) + vec3(0.04, 0.03, 0.0) * smoothstep(0.2, 0.5, p.y);
-          gl_FragColor = vec4(c, a * vA * 0.9 * uFade);
+          float cell = vS.y > 0.5 ? 3.0 : floor(vS.x * 2.999);
+          vec2 uv = vec2((mod(cell, 2.0) + vUv.x) * 0.5, 0.5 - floor(cell / 2.0) * 0.5 + vUv.y * 0.5);
+          float a = texture2D(uAtlas, uv).a;
+          float up = clamp(vUv.y * 1.25 - 0.05, 0.0, 1.0);
+          float side = 0.5 + 0.5 * dot(normalize(vec2(vUv.x - 0.5, 0.35)), normalize(uSunV.xy + vec2(0.0, 0.3)));
+          vec3 shadow = vec3(0.72, 0.77, 0.86), lit = vec3(1.0, 0.99, 0.97);
+          vec3 c = mix(shadow, lit, clamp(up * 0.75 + side * 0.25 + (1.0 - a) * 0.35, 0.0, 1.0));
+          gl_FragColor = vec4(c, clamp(a * 1.6, 0.0, 1.0) * vA * uFade);
         }`,
     }));
     mesh.frustumCulled = false;
@@ -232,8 +281,9 @@ export class LotusPondScene extends BaseScene {
     this.group.add(particles(U, { count: 160, min: [-15, 0.1, -15], max: [15, 3, 15], vel: [0.08, 0.04, 0.05], sway: 0.8, size: [0.03, 0.05], shape: 'firefly', colors: ['#e6ff8a'], glow: 1.5 }));
     this.bloom = 6;
   }
+  onCue(name) { if (name === 'bloom') this.bloom = 22; }
   onEvent(e) {
-    if (e.type === 'section') this.bloom = [6, 10, 15, 22, 22][e.index] ?? 22;
+    if (e.type === 'section') this.bloom = Math.max(this.bloom, [6, 10, 15, 22, 22][e.index] ?? 22);
     if (e.type === 'note') this.water.userData.ripple(e.pos[0], e.pos[2], 0.5 + e.vel);
   }
   update(dt, t, s) {

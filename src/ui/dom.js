@@ -74,6 +74,8 @@ export class DomUI {
     on('#voice', 'change', (e) => { app.setVoice(e.target.value); this.refreshVoices(); });
     on('#whispers', 'change', (e) => app.setWhispers(e.target.checked));
     on('#captions', 'change', (e) => app.setCaptions(e.target.checked));
+    on('#breath-text', 'change', (e) => app.setBreathText(e.target.checked));
+    on('#quality', 'change', (e) => app.setQuality(e.target.value));
     on('#preview-voice', 'click', () => app.previewVoice());
     this.$('#light-symbol').innerHTML = ['<option value="-1">Cycle through all</option>', ...SYMBOLS.map((n, i) => `<option value="${i}">${n}</option>`)].join('');
     on('#lights', 'change', (e) => { app.setLights(e.target.checked); this.refresh(); });
@@ -143,6 +145,8 @@ export class DomUI {
     this.$('#background').value = app.background;
     this.$('#whispers').checked = app.whispers;
     this.$('#captions').checked = app.captions;
+    this.$('#breath-text').checked = app.breathText;
+    this.$('#quality').value = app.quality;
     this.$('#volume').value = app.volume;
     this.$('#lights').checked = app.lights;
     this.$('#light-style').value = app.lightStyle;

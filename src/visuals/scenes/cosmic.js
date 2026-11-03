@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { BaseScene, NOISE, POINT_SIZE, additive, damp } from '../common.js';
+import { BaseScene, NOISE, GRADE, POINT_SIZE, additive, damp } from '../common.js';
 import { sky, terrain, particles, solidMat, noise2, rng, mix3, hex, clamp01 } from './kit.js';
 import { mergeGeos } from './nature.js';
 import { galaxyGeometry } from './galaxy.js';
@@ -41,29 +41,29 @@ export class MoonViewScene extends BaseScene {
     }));
     const LIT = /* glsl */ `float lit(vec3 n){ return smoothstep(-0.15, 0.35, dot(n, uSunW)); }
       float rim(vec3 n, vec3 w){ return pow(1.0 - max(dot(n, normalize(cameraPosition - w)), 0.0), 3.0); }`;
-    this.giant = planet(34, /* glsl */ `uniform vec3 uSunW; uniform float uTime, uFade; varying vec3 vN; varying vec3 vP; varying vec3 vW; ${NOISE} ${LIT}
+    this.giant = planet(34, /* glsl */ `uniform vec3 uSunW; uniform float uTime, uFade; varying vec3 vN; varying vec3 vP; varying vec3 vW; ${NOISE} ${GRADE} ${LIT}
       void main(){ vec3 p = normalize(vP); float lat = p.y;
         float bands = sin(lat * 22.0 + fbm(p * 4.0 + vec3(uTime * 0.01, 0.0, 0.0)) * 3.0);
         vec3 c = mix(vec3(0.85, 0.66, 0.45), vec3(0.98, 0.9, 0.75), 0.5 + 0.5 * bands);
         c = mix(c, vec3(0.7, 0.42, 0.3), smoothstep(0.6, 0.9, fbm(p * 9.0)) * 0.35);
         float l = lit(normalize(vN));
         c = c * l + vec3(1.0, 0.85, 0.6) * rim(normalize(vN), vW) * l * 0.4;
-        gl_FragColor = vec4(c, uFade); }`);
+        gl_FragColor = vec4(grade(c), uFade); }`);
     this.giant.position.set(-95, 55, -170);
     this.giant.rotation.z = 0.35;
     this.group.add(this.giant);
     const ring = new THREE.Mesh(new THREE.RingGeometry(44, 70, 160, 1), new THREE.ShaderMaterial({
       transparent: true, side: THREE.DoubleSide, depthWrite: false, uniforms: U,
       vertexShader: 'varying vec2 vP; void main(){ vP = position.xy; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
-      fragmentShader: /* glsl */ `uniform float uFade; varying vec2 vP; ${NOISE}
+      fragmentShader: /* glsl */ `uniform float uFade; varying vec2 vP; ${NOISE} ${GRADE}
         void main(){ float r = length(vP); float b = 0.5 + 0.5 * sin(r * 1.7) * sin(r * 0.43 + 1.0); float gap = smoothstep(57.5, 58.5, r) * smoothstep(60.5, 59.5, r);
           vec3 c = mix(vec3(0.75, 0.62, 0.5), vec3(0.95, 0.88, 0.76), b);
-          gl_FragColor = vec4(c, (0.35 + b * 0.5) * (1.0 - gap * 0.9) * uFade); }`,
+          gl_FragColor = vec4(grade(c), (0.35 + b * 0.5) * (1.0 - gap * 0.9) * uFade); }`,
     }));
     ring.position.copy(this.giant.position);
     ring.rotation.set(-1.25, 0.2, 0.35);
     this.group.add(ring);
-    this.earth = planet(16, /* glsl */ `uniform vec3 uSunW; uniform float uTime, uFade; varying vec3 vN; varying vec3 vP; varying vec3 vW; ${NOISE} ${LIT}
+    this.earth = planet(16, /* glsl */ `uniform vec3 uSunW; uniform float uTime, uFade; varying vec3 vN; varying vec3 vP; varying vec3 vW; ${NOISE} ${GRADE} ${LIT}
       void main(){ vec3 p = normalize(vP);
         float land = smoothstep(0.52, 0.56, fbm(p * 2.4 + 3.0));
         vec3 c = mix(vec3(0.03, 0.15, 0.42), mix(vec3(0.2, 0.45, 0.18), vec3(0.6, 0.55, 0.35), fbm(p * 6.0)), land);
@@ -72,7 +72,7 @@ export class MoonViewScene extends BaseScene {
         c = mix(c, vec3(1.0), cloud * 0.85);
         vec3 n = normalize(vN); float l = lit(n);
         c = c * l + vec3(0.35, 0.6, 1.0) * rim(n, vW) * (0.3 + l);
-        gl_FragColor = vec4(c, uFade); }`);
+        gl_FragColor = vec4(grade(c), uFade); }`);
     this.earth.position.set(70, 30, -120);
     this.group.add(this.earth);
     const mars = planet(5, /* glsl */ `uniform vec3 uSunW; uniform float uFade; varying vec3 vN; varying vec3 vP; varying vec3 vW; ${NOISE} ${LIT}
@@ -145,11 +145,11 @@ export class CrystalCaveScene extends BaseScene {
     super();
     const U = this.uniforms;
     const cave = new THREE.Mesh(new THREE.SphereGeometry(26, 64, 48), domeMat(U, /* glsl */ `
-      uniform vec3 uC1; uniform float uTime, uFade; varying vec3 vDir; ${NOISE}
+      uniform vec3 uC1; uniform float uTime, uFade; varying vec3 vDir; ${NOISE} ${GRADE}
       void main(){ vec3 d = normalize(vDir); float n = fbm(d * 6.0) + fbm(d * 17.0) * 0.4;
         vec3 c = mix(vec3(0.03, 0.02, 0.05), vec3(0.12, 0.08, 0.16), n) + uC1 * 0.06 * n;
         c += vec3(step(0.996, hash3(floor(d * 300.0)))) * 0.6 * (0.5 + 0.5 * sin(uTime * 2.0 + hash3(floor(d * 300.0)) * 40.0));
-        gl_FragColor = vec4(c, uFade); }`));
+        gl_FragColor = vec4(grade(c), uFade); }`));
     cave.renderOrder = -5;
     this.group.add(cave);
     const n = noise2(71);
@@ -206,7 +206,7 @@ export class NebulaScene extends BaseScene {
     const U = this.uniforms;
     const m = new THREE.Mesh(new THREE.SphereGeometry(70, 48, 32), domeMat(U, /* glsl */ `
       uniform vec3 uC0, uC1, uC2; uniform float uTime, uTravel, uFade, uBreath, uEnergy, uBeat;
-      varying vec3 vDir; ${NOISE}
+      varying vec3 vDir; ${NOISE} ${GRADE}
       float n2(vec3 p){ return vnoise(p) * 0.65 + vnoise(p * 2.1) * 0.35; }
       void main(){
         vec3 d = normalize(vDir);
@@ -222,7 +222,7 @@ export class NebulaScene extends BaseScene {
         }
         vec3 c = uC0 * 0.4 + acc * (0.8 + uEnergy * 0.4 + uBreath * 0.15 + uBeat * 0.1);
         c += vec3(step(0.997, hash3(floor(d * 280.0)))) * trans;
-        gl_FragColor = vec4(c, uFade);
+        gl_FragColor = vec4(grade(c), uFade);
       }`));
     m.renderOrder = -5;
     this.group.add(m);

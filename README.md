@@ -37,7 +37,9 @@ MindLyte is a meditation app for Android XR. You drift slowly through a field of
 
 **The voice** (`src/audio/voice.js`, `scripts.js`)
 - All the scripts are original and live in `src/audio/scripts.js`. They're easy to edit: one line per row, with `[n]` setting the pause in seconds after a line and `@dive seconds intensity` starting a dive.
-- By default MindLyte uses the device's own text-to-speech. It picks an **Irish English (en-IE)** voice if the device has one, and otherwise the closest British-Isles female voice. You can choose a different voice under *Voice*.
+- **Recorded narration (default):** every line is pre-recorded with **Kokoro**, an open-source neural voice (*af_heart*, a warm, unhurried female voice), at a slow pace. Each clip gets light processing (a little warmth, softened sibilance, even loudness) and plays centred and close, with the music dipping gently underneath. To regenerate the clips, for example with a different voice or pace, run `tools/generate-voice-kokoro.py`.
+- **The scripts are written to be spoken slowly and warmly,** with plain words, invitations rather than instructions, and lots of silence. They also **steer the scene as they go:** *Drift to Sleep* moves from a moonlit lotus pond out into the stars as the countdown starts, then slowly dims toward darkness. *Abundance* rises from a golden meadow toward a golden star and through into floating islands. *It's Going to Be Okay* sits on the beach, where a set of waves rolls in as you're asked to breathe with them and the sea calms as you hand it your worries.
+- If the recordings aren't available, MindLyte falls back to the device's own text-to-speech. It picks an **Irish English (en-IE)** voice if the device has one, and otherwise the closest British-Isles female voice. You can choose a different voice under *Voice*.
 - **For a real Irish voice**, record every line once with ElevenLabs, which has Irish-accented voices in its Voice Library:
   ```bash
   ELEVENLABS_API_KEY=your_key node tools/generate-voice.mjs --voice <voice_id> --name "Aoife"
@@ -73,6 +75,8 @@ MindLyte is a meditation app for Android XR. You drift slowly through a field of
 - **Simple:** Stars only, Off.
 
 Each soundscape has its own default scene, for example Ground → Meadow, Undo → Zen garden, Connect → Lotus pond and Crown → Moon view. *It's Going to Be Okay* uses the beach.
+
+**Smoothness:** procedural noise is baked into a 3D texture, so skies, water and clouds cost a fraction of what they did. Foveated rendering is kept light, so the edges of your view don't look blocky. A frame-rate governor in the headset quietly lowers detail if frames start to drop. You can also choose **Visual quality: Smooth / Balanced / Sharp**. A filmic grade with dithering keeps dark gradients from banding.
 
 **The other scenes** (light ocean, breathing orb, aurora, sacred geometry, lotus mandala, cymatics) are all still included. The voyage now runs behind every one of them.
 
