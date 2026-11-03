@@ -120,7 +120,7 @@ const CRYSTAL_FRAG = /* glsl */ `
   }`;
 
 const DIST = 2.6; // metres in front of you
-const SEP = 0.62; // half the gap between the left and right symbols
+const SEP = 0.9; // half the distance between the left and right symbol centres
 
 export class StrobeLayer {
   constructor(camera) {
@@ -331,6 +331,7 @@ export class StrobeLayer {
       u.uMax.value = opts.max;
       m.layers.set(perEye ? side + 1 : 0);
       m.position.set(side ? SEP : -SEP, 0, -DIST);
+      m.scale.setScalar(1.3);
       if (kind === 'crystal') m.rotation.y = t * 0.25 + side * 1.3;
     });
     this.meshes.forEach((m, side) => {
@@ -352,7 +353,7 @@ export class StrobeLayer {
       // per-eye: each eye sees only its own symbol, off to its own side (like LEDs in light glasses)
       m.layers.set(perEye ? side + 1 : 0);
       m.position.set(side ? SEP : -SEP, 0, -DIST);
-      m.scale.setScalar(solidKind ? 0.5 : 0.7);
+      m.scale.setScalar(solidKind ? 0.65 : 0.92);
     });
     this.dimLevel += ((show ? opts.dim ?? 0.5 : 0) - this.dimLevel) * (1 - Math.exp(-dt * 2));
     this.dim.visible = this.dimLevel > 0.005;

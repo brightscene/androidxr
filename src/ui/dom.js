@@ -64,6 +64,7 @@ export class DomUI {
     on('#journey', 'change', (e) => app.setJourney(e.target.value));
     on('#nature', 'change', (e) => { app.engine.init().then(() => app.setNature(e.target.value)); });
     on('#dives', 'change', (e) => app.setDives(e.target.value));
+    on('#background', 'change', (e) => app.setBackground(e.target.value));
     on('#voice', 'change', (e) => { app.setVoice(e.target.value); this.refreshVoices(); });
     on('#whispers', 'change', (e) => app.setWhispers(e.target.checked));
     on('#captions', 'change', (e) => app.setCaptions(e.target.checked));
@@ -133,6 +134,7 @@ export class DomUI {
     this.$('#journey').value = app.journey;
     this.$('#nature').value = app.nature;
     this.$('#dives').value = app.dives;
+    this.$('#background').value = app.background;
     this.$('#whispers').checked = app.whispers;
     this.$('#captions').checked = app.captions;
     this.$('#volume').value = app.volume;

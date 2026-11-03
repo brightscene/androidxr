@@ -16,18 +16,25 @@ import { AuroraScene } from './visuals/scenes/aurora.js';
 import { GeometryScene } from './visuals/scenes/geometry.js';
 import { MandalaScene } from './visuals/scenes/mandala.js';
 import { CymaticsScene } from './visuals/scenes/cymatics.js';
+import { BaseScene } from './visuals/common.js';
 import { XRMenu } from './ui/xrMenu.js';
 import { DomUI } from './ui/dom.js';
 
 const SCENE_TYPES = {
   galaxy: GalaxyScene, ocean: OceanScene, orb: OrbScene, aurora: AuroraScene,
   geometry: GeometryScene, mandala: MandalaScene, cymatics: CymaticsScene,
+  stars: BaseScene, off: BaseScene, // no foreground scene
 };
+export const BACKGROUNDS = [
+  ['auto', 'Auto (per track)'], ['galaxy', 'Galaxy voyage'], ['ocean', 'Light ocean'], ['orb', 'Breathing orb'],
+  ['aurora', 'Aurora'], ['geometry', 'Sacred geometry'], ['mandala', 'Lotus mandala'], ['cymatics', 'Cymatics'],
+  ['stars', 'Stars only'], ['off', 'Off (black)'],
+];
 // how fast you drift through space, and how vivid the projected nebula is, per scene
 const SCENE_FEEL = {
   galaxy: { cruise: 1.2, nebula: 1 }, aurora: { cruise: 0.3, nebula: 0.5 }, ocean: { cruise: 0.25, nebula: 0.55 },
   orb: { cruise: 0.5, nebula: 0.8 }, geometry: { cruise: 0.45, nebula: 0.7 }, mandala: { cruise: 0.4, nebula: 0.7 },
-  cymatics: { cruise: 0.4, nebula: 0.7 },
+  cymatics: { cruise: 0.4, nebula: 0.7 }, stars: { cruise: 0, nebula: 0 }, off: { cruise: 0, nebula: 0 },
 };
 const PHASE_TEXT = { in: 'Breathe in', hold: 'Hold', out: 'Breathe out', rest: 'Rest' };
 const COMFORT = { off: 0, gentle: 0.5, full: 1 };
@@ -53,6 +60,7 @@ class App {
     this.dives = p.dives || 'gentle';
     this.nature = p.nature || 'off';
     this.voiceChoice = p.voice || 'auto';
+    this.background = p.background || 'auto';
     this.volume = p.volume ?? 0.8;
     // light (AudioStrobe / SpectraStrobe) settings
     this.strobeAccepted = p.strobeAccepted ?? false;
@@ -85,6 +93,7 @@ class App {
     r.xr.enabled = true;
     r.xr.setReferenceSpaceType('local-floor');
     r.xr.setFoveation(1);
+    r.setClearColor(0x000000, 1); // opaque black behind everything (passthrough switches to transparent)
     document.getElementById('stage').appendChild(r.domElement);
 
     this.scene = new THREE.Scene();
@@ -106,7 +115,7 @@ class App {
     this.outgoing = [];
     this.palTarget = [new THREE.Color(), new THREE.Color(), new THREE.Color()];
     this.applyPalette(this.selected.palette, true);
-    this.setScene(this.selected.scene);
+    this.setScene(this.sceneFor(this.selected));
     this.engine.setNature(this.nature);
 
     this.ui = new DomUI(this);
@@ -126,7 +135,7 @@ class App {
       localStorage.setItem('mindlyte', JSON.stringify({
         selected: this.selected.id === 'import' ? undefined : this.selected.id, minutes: this.minutes, entrainment: this.entrainment,
         journey: this.journey, solfeggio: this.solfeggio, whispers: this.whispers, captions: this.captions,
-        dives: this.dives, nature: this.nature, voice: this.voiceChoice, volume: this.volume,
+        dives: this.dives, nature: this.nature, voice: this.voiceChoice, volume: this.volume, background: this.background,
         strobeAccepted: this.strobeAccepted, lights: this.lights, lightStyle: this.lightStyle, lightColour: this.lightColour,
         v: 2, lightLayout: this.lightLayout, lightDim: this.lightDim,
         lightMax: this.lightMax, lightMode: this.lightMode, lightsGenerated: this.lightsGenerated, lightSymbol: this.lightSymbol,
@@ -140,7 +149,7 @@ class App {
   select(track) {
     this.selected = track;
     if (!this.playing) {
-      this.setScene(track.scene);
+      this.setScene(this.sceneFor(track));
       this.applyPalette(track.palette);
     }
     this._changed();
@@ -175,7 +184,16 @@ class App {
     if (instant) [U.uC0, U.uC1, U.uC2].forEach((u, i) => u.value.copy(this.palTarget[i]));
   }
 
+  sceneFor(track) { return this.background === 'auto' ? track.scene : this.background; }
+
+  setBackground(b) {
+    this.background = b;
+    this.setScene(this.sceneFor(this.playing ? this.playingTrack : this.selected));
+    this._changed();
+  }
+
   setScene(name) {
+    this.world.setMode(name === 'off' ? 'off' : name === 'stars' ? 'stars' : 'full');
     const feel = SCENE_FEEL[name] || SCENE_FEEL.galaxy;
     this.world.voyage.cruise = feel.cruise;
     this.world.setNebula(feel.nebula);
@@ -259,7 +277,7 @@ class App {
     this.welcome = { id: `welcome-${w + 1}`, text: WELCOMES[w] };
     this.nextWhisper = this.engine.now + 22;
     if (guided) this._startGuide(track);
-    this.setScene(track.scene);
+    this.setScene(this.sceneFor(track));
     this.applyPalette(track.palette);
     if (this.renderer.xr.isPresenting) this.menu.show(false);
     this.menu.refresh();
@@ -461,7 +479,7 @@ class App {
     for (const e of events) {
       if (e.type === 'section') this.sectionEnergy = e.energy;
       if (e.type === 'beat') U.uBeat.value = Math.min(1, U.uBeat.value + (e.accent ? 0.7 : 0.3));
-      if (e.type === 'note') this.world.sparks.emit(e.pos, e.vel);
+      if (e.type === 'note' && this.world.mode === 'full') this.world.sparks.emit(e.pos, e.vel);
       if (e.type === 'dive') this.world.voyage.startDive(e.duration, e.intensity);
       if (e.type === 'end') {
         if (this.guide && !this.guide.done) continue;

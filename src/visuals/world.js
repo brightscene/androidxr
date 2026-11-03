@@ -18,9 +18,23 @@ export class World {
   }
 
   setPassthrough(on) {
-    this.sky.visible = !on;
-    this.stars.material.uniforms.uDim.value = on ? 0.35 : 1;
     this.passthrough = on;
+    this.stars.material.uniforms.uDim.value = on ? 0.35 : 1;
+    this._apply();
+  }
+
+  // 'full' everything; 'stars' a quiet starry sky only; 'off' nothing at all (black, or your room in passthrough)
+  setMode(mode) {
+    this.mode = mode;
+    this._apply();
+  }
+
+  _apply() {
+    const m = this.mode || 'full';
+    this.sky.visible = !this.passthrough && m !== 'off';
+    this.stars.visible = m !== 'off';
+    for (const o of [this.lasers, this.motes, this.voyage.stars, this.voyage.streaks, this.sparks.points]) o.visible = m === 'full';
+    if (m !== 'full') for (const r of this.sparks.rings) r.visible = false;
   }
 
   _sky() {
@@ -172,7 +186,7 @@ export class World {
   }
 
   update(dt, t, head) {
-    this.nebula.value = damp(this.nebula.value, this.nebulaTarget ?? 0.5, 0.6, dt);
+    this.nebula.value = damp(this.nebula.value, this.mode && this.mode !== 'full' ? 0 : this.nebulaTarget ?? 0.5, 0.6, dt);
     this.voyage.update(dt);
     this.sky.position.copy(head);
     this.stars.position.copy(head);

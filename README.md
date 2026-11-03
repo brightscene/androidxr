@@ -63,6 +63,8 @@ MindLyte is a meditation app for Android XR. You drift slowly through a field of
 - Optional: *Also pulse lights with MindLyte's brainwave tones*, which flashes the lights at the current binaural/isochronic beat on the generated tracks.
 - ⚠️ Lights stay off until the photosensitivity warning has been accepted. This happens once, either on screen or in the headset.
 
+**Background** (on the *Scene* tab in the headset, or *Scene, sound & journey* on the flat screen): *Auto* uses each track's own scene. You can also force any scene for every track (Galaxy voyage, Light ocean, Breathing orb, Aurora, Sacred geometry, Lotus mandala, Cymatics), choose **Stars only** for a still, quiet sky, or choose **Off** for pure black (in passthrough, just your room), leaving only the lights.
+
 **The other scenes** (light ocean, breathing orb, aurora, sacred geometry, lotus mandala, cymatics) are all still included. The voyage now runs behind every one of them.
 
 ## Run locally

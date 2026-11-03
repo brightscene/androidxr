@@ -81,7 +81,7 @@ function textDraw(text, { size = 0.42, weight = 400, alpha = 0.7, align = 'left'
   };
 }
 
-const TABS = ['Journeys', 'Sound', 'Lights', 'Voice'];
+const TABS = ['Journeys', 'Scene', 'Sound', 'Lights', 'Voice'];
 const W = 1.56, H = 1.34;
 const ROW0 = 0.33, ROWH = 0.1, LX = -0.74, PX = -0.4;
 
@@ -144,13 +144,14 @@ export class XRMenu {
 
     // tabs
     TABS.forEach((name, i) => {
-      this._btn(this.panel, new Button(0.22, 0.075, pill(name, () => this.tab === name), () => this.setTab(name)), -0.14 + i * 0.235, 0.53);
+      this._btn(this.panel, new Button(0.19, 0.075, pill(name, () => this.tab === name), () => this.setTab(name)), -0.2 + i * 0.205, 0.53);
     });
 
     this.pages = {};
     for (const t of TABS) { this.pages[t] = new THREE.Group(); this.panel.add(this.pages[t]); }
 
     this._buildJourneys();
+    this._buildScene();
     this._buildSound();
     this._buildLights();
     this._buildVoice();
@@ -258,6 +259,27 @@ export class XRMenu {
       }, () => app.select(tr));
       return this._btn(this.pages.Journeys, card, (col - 1.5) * 0.37, 0.33 - row * 0.2);
     });
+  }
+
+  _buildScene() {
+    const app = this.app, p = this.pages.Scene;
+    const opts = [
+      ['Auto (per track)', 'auto'], ['Galaxy voyage', 'galaxy'], ['Light ocean', 'ocean'], ['Breathing orb', 'orb'], ['Aurora', 'aurora'],
+      ['Sacred geometry', 'geometry'], ['Lotus mandala', 'mandala'], ['Cymatics', 'cymatics'], ['Stars only', 'stars'], ['Off (black)', 'off'],
+    ];
+    this._btn(p, new Button(0.32, 0.07, textDraw('Background', { alpha: 0.65 })), LX + 0.16, ROW0, false);
+    opts.forEach(([label, v], i) => {
+      const col = i % 5, row = Math.floor(i / 5);
+      this._btn(p, new Button(0.215, 0.075, pill(label, () => app.background === v), () => app.setBackground(v)), PX + 0.11 + col * 0.228, ROW0 - row * 0.1);
+    });
+    this._row(p, 2.4, 'Deep dives', [['Gentle', 'gentle'], ['Full speed', 'full'], ['Off', 'off']], () => app.dives, (v) => app.setDives(v));
+    this._btn(p, new Button(1.46, 0.06, textDraw(() => {
+      const b = app.background;
+      if (b === 'off') return app.xrMode === 'immersive-ar' ? 'Off: only your room and the lights.' : 'Off: pure black. Only the lights, and the menu, are shown.';
+      if (b === 'stars') return 'Stars only: a still, quiet starry sky with no nebula, travel or effects.';
+      if (b === 'auto') return `Auto: each track uses its own scene (${(app.playing ? app.playingTrack : app.selected).scene} for the selected track).`;
+      return 'This scene is used for every track until you switch back to Auto.';
+    }, { alpha: 0.6, size: 0.46 })), 0, ROW0 - 3.5 * ROWH);
   }
 
   _buildSound() {
