@@ -121,8 +121,11 @@ export class EarthJourneyScene extends BaseScene {
     }
     if (this.state !== 'fade') U.uDark.value = damp(U.uDark.value, 1, 1.2, dt);
     U.uTravel.value += dt * this.speed;
-    U.uRoll.value += dt * 0.02;
-    U.uShake.value = this.state === 'down' ? 0.4 + 0.6 * Math.max(0, Math.sin(this.t * 0.4)) * (1 - U.uDepth.value) : 0;
+    U.uRoll.value += dt * 0.008;
+    U.uShake.value = 0;   // no shaking: a smooth descent
+    // a slow, smooth look left and right as you drill down
+    this.panT = (this.panT || 0) + dt;
+    this.group.rotation.y = Math.sin(this.panT * 0.09) * 0.4;
     // layer captions
     const p = U.uDepth.value;
     const li = this.state === 'down' ? LAYERS.reduce((k, l, i) => (p >= l.at ? i : k), 0) : this.layer;

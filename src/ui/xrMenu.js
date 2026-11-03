@@ -290,28 +290,71 @@ export class XRMenu {
     this.sceneGroup = groupOf(app.background);
     const gw = 0.2;
     GROUPS.forEach((g, i) => {
-      this._btn(p, new Button(gw, 0.065, pill(g, () => this.sceneGroup === g), () => { this.sceneGroup = g; this._layoutScenes(); }), LX + gw / 2 + i * (gw + 0.012), 0.42);
+      this._btn(p, new Button(gw, 0.065, pill(g, () => this.sceneGroup === g), () => { this.sceneGroup = g; this.scenePage = 0; this._layoutScenes(); }), LX + gw / 2 + i * (gw + 0.012), 0.42);
     });
-    this.sceneBtns = BACKGROUNDS.map(([v, label]) => ({ g: groupOf(v), b: this._btn(p, new Button(0.27, 0.068, pill(label, () => app.background === v), () => app.setBackground(v)), 0, 0) }));
+    // scenes as picture cards, like the journeys: twelve to a page
+    const thumbs = new Map();
+    const thumb = (v, redraw) => {
+      if (!thumbs.has(v)) { const im = new Image(); im.onload = () => redraw(); im.src = `thumbs/${v === 'auto' ? 'galaxy' : v}.jpg`; thumbs.set(v, im); }
+      return thumbs.get(v);
+    };
+    this.scenePage = 0;
+    this.sceneBtns = BACKGROUNDS.map(([v, label]) => {
+      let btn;
+      btn = new Button(0.35, 0.197, (c, w, h, b) => {
+        const sel = app.background === v;
+        c.save();
+        roundRect(c, 6, 6, w - 12, h - 12, 26); c.clip();
+        const im = thumb(v, () => btn.redraw());
+        if (im.complete && im.naturalWidth) c.drawImage(im, 0, 0, w, h); else { c.fillStyle = '#1a1830'; c.fillRect(0, 0, w, h); }
+        const g = c.createLinearGradient(0, h * 0.45, 0, h);
+        g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(0,0,0,0.78)');
+        c.fillStyle = g; c.fillRect(0, 0, w, h);
+        if (!sel && !b.hover) { c.fillStyle = 'rgba(0,0,0,0.22)'; c.fillRect(0, 0, w, h); }
+        c.restore();
+        roundRect(c, 6, 6, w - 12, h - 12, 26);
+        c.lineWidth = sel ? 9 : b.hover ? 6 : 3;
+        c.strokeStyle = sel || b.hover ? '#fff' : 'rgba(255,255,255,0.3)';
+        c.stroke();
+        c.fillStyle = '#fff'; c.textAlign = 'left';
+        // shrink long names to fit the card
+        const name = v === 'auto' ? 'Auto' : label;
+        let fs = Math.round(h * 0.15);
+        c.font = `600 ${fs}px ${FONT}`;
+        while (c.measureText(name).width > w - 50 && fs > 14) { fs -= 2; c.font = `600 ${fs}px ${FONT}`; }
+        c.fillText(name, 26, h - 30);
+        if (v === 'auto') { c.font = `400 ${Math.round(h * 0.1)}px ${FONT}`; c.fillStyle = 'rgba(255,255,255,0.85)'; c.fillText("each journey's own world", 26, h - 74); }
+      }, () => app.setBackground(v));
+      return { g: groupOf(v), b: this._btn(p, btn, 0, 0) };
+    });
+    const pageBtn = (txt, d) => this._btn(p, new Button(0.09, 0.055, pill(txt), () => { this.scenePage += d; this._layoutScenes(); }), 0, 0);
+    this.prevPage = pageBtn('‹', -1);
+    this.nextPage = pageBtn('›', 1);
+    this.pageLabel = this._btn(p, new Button(0.16, 0.05, textDraw(() => `${this.scenePage + 1} / ${this.scenePages || 1}`, { alpha: 0.7 })), 0, -0.27, false);
     this._layoutScenes = () => {
-      let i = 0;
-      for (const { g, b } of this.sceneBtns) {
-        b.mesh.visible = g === this.sceneGroup;
-        if (!b.mesh.visible) continue;
-        const col = i % 5, row = Math.floor(i / 5); i++;
-        b.mesh.position.set(LX + 0.135 + col * 0.284, 0.32 - row * 0.08, 0);
-      }
+      const mine = this.sceneBtns.filter((x) => x.g === this.sceneGroup);
+      this.scenePages = Math.max(1, Math.ceil(mine.length / 12));
+      this.scenePage = Math.max(0, Math.min(this.scenePages - 1, this.scenePage));
+      for (const { b } of this.sceneBtns) b.mesh.visible = false;
+      mine.slice(this.scenePage * 12, this.scenePage * 12 + 12).forEach(({ b }, i) => {
+        b.mesh.visible = true;
+        b.mesh.position.set((i % 4 - 1.5) * 0.37, 0.278 - Math.floor(i / 4) * 0.205, 0);
+      });
+      const paged = this.scenePages > 1;
+      this.prevPage.mesh.visible = this.nextPage.mesh.visible = this.pageLabel.mesh.visible = paged;
+      this.prevPage.mesh.position.set(-0.13, -0.27, 0); this.nextPage.mesh.position.set(0.13, -0.27, 0);
+      this.pageLabel.redraw?.();
     };
     this._layoutScenes();
-    this._row(p, 3.9, 'Deep dives', [['Gentle', 'gentle'], ['Full speed', 'full'], ['Off', 'off']], () => app.dives, (v) => app.setDives(v));
-    this._row(p, 4.85, 'Visual quality', [['Smooth', 'smooth'], ['Balanced', 'balanced'], ['Sharp', 'sharp']], () => app.quality, (v) => app.setQuality(v));
+    this._row(p, 6.7, 'Deep dives', [['Gentle', 'gentle'], ['Full speed', 'full'], ['Off', 'off']], () => app.dives, (v) => app.setDives(v));
+    this._row(p, 7.6, 'Visual quality', [['Smooth', 'smooth'], ['Balanced', 'balanced'], ['Sharp', 'sharp']], () => app.quality, (v) => app.setQuality(v));
     this._btn(p, new Button(1.46, 0.06, textDraw(() => {
       const b = app.background;
       if (b === 'off') return app.xrMode === 'immersive-ar' ? 'Off: only your room and the lights.' : 'Off: pure black. Only the lights (and this menu) are shown.';
       if (b === 'stars') return 'Stars only: a still, quiet starry sky with no nebula, travel or effects.';
       if (b === 'auto') return `Auto: each track uses its own scene (${(app.playing ? app.playingTrack : app.selected).scene} for the selected track).`;
       return 'This scene is used for every track until you switch back to Auto.';
-    }, { alpha: 0.6, size: 0.46 })), 0, ROW0 - 6.75 * ROWH);
+    }, { alpha: 0.6, size: 0.46 })), 0, ROW0 - 8.5 * ROWH);
   }
 
   _buildSound() {

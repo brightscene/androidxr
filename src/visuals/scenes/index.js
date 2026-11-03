@@ -44,8 +44,8 @@ export const SCENES = {
   ribbons: { type: LightRibbonsScene, label: 'Light ribbons', group: 'Space', cruise: 0.2, nebula: 0.7, world: 'full' },
   aurora: { type: AuroraScene, label: 'Aurora', group: 'Space', cruise: 0.3, nebula: 0.5, world: 'full' },
 
-  affirm: { type: AffirmationScene, label: 'Affirmation field', group: 'Dimensions', cruise: 2.2, nebula: 0.75, world: 'full' },
-  cycle: { type: ImageCycleScene, label: 'Image cycling', group: 'Dimensions', cruise: 0.2, nebula: 0.75, world: 'full' },
+  affirm: { type: AffirmationScene, label: 'Affirmation field', group: 'Dimensions', premium: true, cruise: 2.2, nebula: 0.75, world: 'full' },
+  cycle: { type: ImageCycleScene, label: 'Image cycling', group: 'Dimensions', premium: true, cruise: 0.2, nebula: 0.75, world: 'full' },
   quantum: { type: QuantumScene, label: 'Quantum field', group: 'Dimensions', cruise: 0, nebula: 0, world: 'bare' },
   stargate: { type: StarGateScene, label: 'Wormhole', group: 'Dimensions', cruise: 0, nebula: 0, world: 'bare' },
   intothelight: { type: IntoTheLightScene, label: 'Into the light', group: 'Mind', cruise: 0, nebula: 0, world: 'off' },
@@ -81,7 +81,6 @@ export const SCENES = {
   meadow: { type: MeadowScene, label: 'Meadow', group: 'Nature', cruise: 0, nebula: 0, world: 'bare' },
   beach: { type: BeachScene, label: 'White beach', group: 'Nature', cruise: 0, nebula: 0, world: 'bare' },
   underwater: { type: UnderwaterScene, label: 'Underwater', group: 'Nature', cruise: 0, nebula: 0, world: 'bare' },
-  zen: { type: ZenGardenScene, label: 'Zen garden', group: 'Nature', cruise: 0, nebula: 0, world: 'bare' },
   forest: { type: GlowForestScene, label: 'Glowing forest', group: 'Nature', cruise: 0, nebula: 0, world: 'bare' },
   snow: { type: SnowPeaksScene, label: 'Snowy peaks', group: 'Nature', cruise: 0, nebula: 0, world: 'bare' },
   desert: { type: DesertNightScene, label: 'Desert night', group: 'Nature', cruise: 0, nebula: 0, world: 'bare' },
@@ -108,4 +107,4 @@ export const SCENES = {
   off: { type: BaseScene, label: 'Off (black)', group: 'Simple', cruise: 0, nebula: 0, world: 'off' },
 };
 
-export const BACKGROUNDS = [['auto', 'Auto (per track)'], ...Object.entries(SCENES).filter(([, v]) => !v.hidden).map(([k, v]) => [k, v.label])];
+export const BACKGROUNDS = [['auto', 'Auto (per track)'], ...Object.entries(SCENES).filter(([, v]) => !v.hidden && !v.premium).map(([k, v]) => [k, v.label])];
