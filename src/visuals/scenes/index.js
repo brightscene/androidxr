@@ -12,7 +12,7 @@ import { AffirmationScene } from './affirm.js';
 import { ImageCycleScene } from './imagecycle.js';
 import { LabyrinthScene } from './labyrinth.js';
 import { ReikiScene } from './reiki.js';
-import { StarGateScene } from './stargate.js';
+import { StarGateScene, WormholeScene } from './stargate.js';
 import { MurmurationScene, FireplaceScene, CampfireScene } from './cozy.js';
 import { QuantumScene } from './quantum.js';
 import { WombScene } from './womb.js';
@@ -36,6 +36,10 @@ export const SCENES = {
   cycle: { type: ImageCycleScene, label: 'Image cycling', group: 'Dimensions', cruise: 0.2, nebula: 0.75, world: 'full' },
   quantum: { type: QuantumScene, label: 'Quantum field', group: 'Dimensions', cruise: 0, nebula: 0, world: 'bare' },
   stargate: { type: StarGateScene, label: 'Wormhole', group: 'Dimensions', cruise: 0, nebula: 0, world: 'bare' },
+  wormviolet: { type: class extends WormholeScene { constructor() { super('violet'); } }, label: 'Wormhole · violet drift', group: 'Dimensions', cruise: 0, nebula: 0, world: 'bare' },
+  wormemerald: { type: class extends WormholeScene { constructor() { super('emerald'); } }, label: 'Wormhole · emerald curves', group: 'Dimensions', cruise: 0, nebula: 0, world: 'bare' },
+  wormgold: { type: class extends WormholeScene { constructor() { super('gold'); } }, label: 'Wormhole · golden twister', group: 'Dimensions', cruise: 0, nebula: 0, world: 'bare' },
+  wormcrimson: { type: class extends WormholeScene { constructor() { super('crimson'); } }, label: 'Wormhole · crimson rush', group: 'Dimensions', cruise: 0, nebula: 0, world: 'bare' },
   labyrinth: { type: LabyrinthScene, label: 'Space labyrinth', group: 'Dimensions', cruise: 0, nebula: 0, world: 'stars' },
   portal: { type: TimePortalScene, label: 'Time portal', group: 'Dimensions', cruise: 4, nebula: 0, world: 'bare' },
   kaleido: { type: KaleidosphereScene, label: 'Kaleidosphere', group: 'Dimensions', cruise: 0, nebula: 0, world: 'bare' },
