@@ -111,6 +111,8 @@ export const SCENES = {
   bluestars: { type: class extends StarsScene { constructor() { super({ blue: true }); } }, label: 'Blue stars', group: 'Simple', cruise: 0, nebula: 0, world: 'off' },
   starsaura: { type: class extends StarsScene { constructor() { super({ aura: true }); } }, label: 'White stars with aura', group: 'Simple', cruise: 0, nebula: 0, world: 'off' },
   bluestarsaura: { type: class extends StarsScene { constructor() { super({ blue: true, aura: true }); } }, label: 'Blue stars with aura', group: 'Simple', cruise: 0, nebula: 0, world: 'off' },
+  greenstarsaura: { type: class extends StarsScene { constructor() { super({ green: true, aura: true, auraColours: 'green' }); } }, label: 'Green stars with aura', group: 'Simple', cruise: 0, nebula: 0, world: 'off' },
+  neonstarsaura: { type: class extends StarsScene { constructor() { super({ neon: true, aura: true, auraColours: 'amber' }); } }, label: 'Neon stars with amber aura', group: 'Simple', cruise: 0, nebula: 0, world: 'off' },
   off: { type: BaseScene, label: 'Off (black)', group: 'Simple', cruise: 0, nebula: 0, world: 'off' },
 };
 
