@@ -272,13 +272,14 @@ export class XRMenu {
     const rows = Math.ceil(BACKGROUNDS.length / 5);
     this._row(p, rows * 0.82 + 0.1, 'Deep dives', [['Gentle', 'gentle'], ['Full speed', 'full'], ['Off', 'off']], () => app.dives, (v) => app.setDives(v));
     this._row(p, rows * 0.82 + 1.05, 'Visual quality', [['Smooth', 'smooth'], ['Balanced', 'balanced'], ['Sharp', 'sharp']], () => app.quality, (v) => app.setQuality(v));
+    this._row(p, rows * 0.82 + 2.0, 'Centre view', [['Centre now', 'now'], ['Voice: On', true], ['Voice: Off', false]], () => app.voiceCmd, (v) => (v === 'now' ? app.recentre() : app.setVoiceCmd(v)));
     this._btn(p, new Button(1.46, 0.06, textDraw(() => {
       const b = app.background;
       if (b === 'off') return app.xrMode === 'immersive-ar' ? 'Off: only your room and the lights.' : 'Off: pure black. Only the lights (and this menu) are shown.';
       if (b === 'stars') return 'Stars only: a still, quiet starry sky with no nebula, travel or effects.';
       if (b === 'auto') return `Auto: each track uses its own scene (${(app.playing ? app.playingTrack : app.selected).scene} for the selected track).`;
       return 'This scene is used for every track until you switch back to Auto.';
-    }, { alpha: 0.6, size: 0.46 })), 0, ROW0 - (rows * 0.82 + 2.0) * ROWH);
+    }, { alpha: 0.6, size: 0.46 })), 0, ROW0 - (rows * 0.82 + 2.95) * ROWH);
   }
 
   _buildSound() {
@@ -334,7 +335,7 @@ export class XRMenu {
     this._btn(p, new Button(0.1, 0.07, pill('›'), () => step(1)), PX + 0.94 + 0.05, ROW0 - 2 * ROWH);
     this._btn(p, new Button(0.32, 0.07, pill('Hear the voice'), () => app.previewVoice()), PX + 0.16, ROW0 - 3 * ROWH);
     this._btn(p, new Button(1.46, 0.06, textDraw(() => `Now using: ${app.voice.description}`, { alpha: 0.6, size: 0.46 })), 0, ROW0 - 4 * ROWH);
-    this._btn(p, new Button(1.46, 0.06, textDraw('Whispers: short thoughtful lines now and then during soundscapes. Guided journeys always speak.', { alpha: 0.5, size: 0.46 }), null), 0, ROW0 - 5 * ROWH, false);
+    this._btn(p, new Button(1.46, 0.06, textDraw('Soundscape voice: a welcome and an occasional gentle line in ordinary sessions. Guided journeys always speak.', { alpha: 0.5, size: 0.46 }), null), 0, ROW0 - 5 * ROWH, false);
     this._row(p, 6, 'Breathing guide', [['Off', false], ['On', true]], () => app.breathText, (v) => app.setBreathText(v));
   }
 

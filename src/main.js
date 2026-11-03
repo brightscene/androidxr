@@ -11,6 +11,7 @@ import { U, damp, SFX } from './visuals/common.js';
 import { World } from './visuals/world.js';
 import { SCENES } from './visuals/scenes/index.js';
 import { XRMenu } from './ui/xrMenu.js';
+import { VoiceCommands } from './ui/voiceCommands.js';
 import { DomUI } from './ui/dom.js';
 
 const PHASE_TEXT = { in: 'Breathe in', hold: 'Hold', out: 'Breathe out', rest: 'Rest' };
@@ -39,7 +40,8 @@ class App {
     this.voiceChoice = p.voice || 'auto';
     this.background = p.background || 'auto';
     this.quality = p.quality || 'balanced'; // smooth | balanced | sharp
-    this.breathText = p.breathGuide ?? false;   // breathing guide text, off unless chosen
+    this.breathText = p.breathGuide ?? false;
+    this.voiceCmd = p.voiceCmd ?? true;   // listen for "Centre view" in the headset   // breathing guide text, off unless chosen
     this.perf = { avg: 1 / 72, level: 0, t: 0 };
     this.volume = p.volume ?? 0.8;
     // light (AudioStrobe / SpectraStrobe) settings
@@ -60,6 +62,7 @@ class App {
     this.player = null;
     this.engine = new AudioEngine();
     this.voice = new Voice(this.engine);
+    this.commands = new VoiceCommands(this);
     SFX.play = (kind, opts) => { if (this.playing) this.engine.sfx(kind, opts); };
     SFX.say = (id, pan) => (this.playing ? this.voice.sayPanned(id, pan) : Promise.resolve(false));
     this.voice.setChoice(this.voiceChoice);
@@ -118,7 +121,7 @@ class App {
       localStorage.setItem('mindlyte', JSON.stringify({
         selected: this.selected.id === 'import' ? undefined : this.selected.id, minutes: this.minutes, entrainment: this.entrainment,
         journey: this.journey, solfeggio: this.solfeggio, voiceInSoundscapes: this.whispers, captions: this.captions,
-        dives: this.dives, nature: this.nature, voice: this.voiceChoice, volume: this.volume, background: this.background, quality: this.quality, breathGuide: this.breathText,
+        dives: this.dives, nature: this.nature, voice: this.voiceChoice, volume: this.volume, background: this.background, quality: this.quality, breathGuide: this.breathText, voiceCmd: this.voiceCmd,
         strobeAccepted: this.strobeAccepted, lights: this.lights, lightStyle: this.lightStyle, lightColour: this.lightColour,
         v: 2, lightLayout: this.lightLayout, lightDim: this.lightDim,
         lightMax: this.lightMax, lightMode: this.lightMode, lightsGenerated: this.lightsGenerated, lightSymbol: this.lightSymbol,
@@ -364,6 +367,7 @@ class App {
   // ------------------------------------------------------------ XR
   async enterXR(mode) {
     this.voice.unlock();
+    if (this.voiceCmd) this.commands.start();   // inside the click, so the mic permission can be asked
     this._applyQuality();
     await this.engine.init();
     const session = await navigator.xr.requestSession(mode, {
@@ -387,7 +391,37 @@ class App {
     this.ui.setXR(true);
   }
 
+  setVoiceCmd(on) {
+    this.voiceCmd = on;
+    if (on && this.renderer.xr.isPresenting) this.commands.start();
+    if (!on) this.commands.stop();
+    this._changed();
+  }
+
+  // Turn the world so that "straight ahead" is wherever you're looking now,
+  // and centre it on where you're standing. Floor height is unchanged.
+  recentre() {
+    const xr = this.renderer.xr;
+    if (!xr.isPresenting) return;
+    const ref = xr.getReferenceSpace();
+    if (!ref || !ref.getOffsetReferenceSpace) return;
+    const cam = xr.getCamera();
+    cam.updateMatrixWorld(true);
+    const e = cam.matrixWorld.elements;
+    const fx = -e[8], fz = -e[10];                  // where you're looking, flattened
+    const yaw = Math.atan2(-fx, -fz);
+    const px = e[12], pz = e[14];
+    const t = new XRRigidTransform({ x: px, y: 0, z: pz, w: 1 }, { x: 0, y: Math.sin(yaw / 2), z: 0, w: Math.cos(yaw / 2) });
+    xr.setReferenceSpace(ref.getOffsetReferenceSpace(t));
+    this._placeMenuIn = 2;
+    this.engine.sfx?.('whoosh', { pan: 0, dur: 1.2, gain: 0.5 });
+    this.caption = 'View centred';
+    clearTimeout(this._capT);
+    this._capT = setTimeout(() => { if (this.caption === 'View centred') this.caption = ''; }, 2000);
+  }
+
   _onXREnd() {
+    this.commands.stop();
     this.world.setPassthrough(false);
     this.renderer.setClearColor(0x000000, 1);
     this.menu.group.visible = false;
