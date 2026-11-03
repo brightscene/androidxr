@@ -7,39 +7,61 @@ import { BaseScene, NOISE, GRADE, STARS, POINT_SIZE, SFX, damp } from '../common
 // spiral galaxy, each mirrored in the water below.
 const N = 1400;
 const CY = 22, CZ = -42;
-const WORD_DRONES = 520;      // words read better with fewer lights          // centre of the show in the sky
+const WORD_DRONES = 820;      // enough to read clearly, without crowding the letters          // centre of the show in the sky
 
 function textTargets(text, width) {
   const cv = document.createElement('canvas');
   cv.width = 1400; cv.height = 300;
   const c = cv.getContext('2d');
   c.fillStyle = '#fff'; c.textAlign = 'center'; c.textBaseline = 'middle';
-  let size = 210;
-  c.font = `700 ${size}px Jost, "Segoe UI", system-ui, sans-serif`;
-  while (c.measureText(text).width > 1340 && size > 60) { size -= 6; c.font = `700 ${size}px Jost, "Segoe UI", system-ui, sans-serif`; }
+  let size = 220;
+  c.font = `800 ${size}px Jost, "Segoe UI", system-ui, sans-serif`;
+  while (c.measureText(text).width > 1340 && size > 60) { size -= 6; c.font = `800 ${size}px Jost, "Segoe UI", system-ui, sans-serif`; }
   c.fillText(text, 700, 155);
   const d = c.getImageData(0, 0, 1400, 300).data;
-  const pts = [];
-  for (let y = 0; y < 300; y += 4) for (let x = 0; x < 1400; x += 4) if (d[(y * 1400 + x) * 4 + 3] > 128) pts.push([x, y]);
+  // lay the drones on an even grid along the letter strokes, so the words read crisply
+  const grid = (step) => { const out = []; for (let y = step / 2; y < 300; y += step) for (let x = step / 2; x < 1400; x += step) if (d[(Math.floor(y) * 1400 + Math.floor(x)) * 4 + 3] > 128) out.push([x, y]); return out; };
+  let step = 6, pts = grid(step);
+  while (pts.length > WORD_DRONES && step < 30) { step += 0.5; pts = grid(step); }
   const k = width / 1400;
-  const lit = pts.sort(() => Math.random() - 0.5).slice(0, WORD_DRONES).map(([x, y]) => [(x - 700) * k, (150 - y) * k, (Math.random() - 0.5) * 0.6]);
+  const lit = pts.map(([x, y]) => [(x - 700) * k, (150 - y) * k, 0]);
   // the rest wait low over the water with their lights off
   const parked = Array.from({ length: N - lit.length }, (_, i) => [(i / (N - lit.length) - 0.5) * width * 1.1, -CY + 4 + Math.random() * 2, (Math.random() - 0.5) * 6, 1]);
   return lit.concat(parked);
 }
 // draw a coloured picture, then give each drone a point on it and that point's colour
-function pictureTargets(draw, width, count) {
-  const W = 600, H = 400;
+function pictureTargets(draw, width, count, W = 600, H = 400) {
   const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
   const c = cv.getContext('2d');
   draw(c);
   const d = c.getImageData(0, 0, W, H).data;
-  const pts = [];
-  for (let y = 0; y < H; y += 3) for (let x = 0; x < W; x += 3) { const i = (y * W + x) * 4; if (d[i + 3] > 128) pts.push([x, y, d[i] / 255, d[i + 1] / 255, d[i + 2] / 255]); }
   const k = width / W;
-  const lit = pts.sort(() => Math.random() - 0.5).slice(0, count).map(([x, y, r, g, b]) => [(x - W / 2) * k, (H / 2 - y) * k, (Math.random() - 0.5) * 1.2, 0, r, g, b]);
-  const parked = Array.from({ length: N - lit.length }, (_, i) => [(i / (N - lit.length) - 0.5) * width, -CY + 4 + Math.random() * 2, (Math.random() - 0.5) * 6, 1]);
+  const cands = [];
+  for (let y = 0; y < H; y += 2) for (let x = 0; x < W; x += 2) { const i = (y * W + x) * 4; if (d[i + 3] > 128) cands.push([(x - W / 2) * k, (H / 2 - y) * k, 0, 0, d[i] / 255, d[i + 1] / 255, d[i + 2] / 255]); }
+  cands.sort(() => Math.random() - 0.5);
+  const lit = spread(cands, count);                       // evenly spaced, never crowding
+  const parked = Array.from({ length: N - lit.length }, (_, i) => [(i / Math.max(1, N - lit.length) - 0.5) * width, -CY + 4 + Math.random() * 2, (Math.random() - 0.5) * 6, 1]);
   return lit.concat(parked);
+}
+function drawBrand(c) {
+  // the MindLyte light-tunnel mark, then the wordmark with its gradient "lyte"
+  const rings = [[56, 66, 50, '#5ED6D0'], [60.3, 60.8, 39, '#74CAE4'], [63.5, 56.9, 30, '#8BB4F4'], [66.3, 53.4, 22, '#A493FF'], [69, 50.1, 15, '#BB98F5'], [71.6, 47, 9.5, '#D59BE5'], [74, 44, 5.5, '#F29BD0']];
+  const s = 2.3, ox = 20, oy = 18;
+  c.lineWidth = 7;
+  for (const [x, y, r, col] of rings) { c.strokeStyle = col; c.beginPath(); c.arc(ox + (x + 4) * s, oy + (y - 6) * s, r * s, 0, Math.PI * 2); c.stroke(); }
+  c.fillStyle = '#FFF3D6'; c.beginPath(); c.arc(ox + 78 * s, oy + 38 * s, 7, 0, Math.PI * 2); c.fill();
+  c.textBaseline = 'middle';
+  c.font = '300 118px Comfortaa, Jost, system-ui, sans-serif';
+  c.fillStyle = '#e9e4ff';
+  const x0 = 330;
+  c.fillText('mind', x0, 150);
+  const mw = c.measureText('mind').width;
+  c.font = '500 118px Comfortaa, Jost, system-ui, sans-serif';
+  const lw = c.measureText('lyte').width;
+  const g = c.createLinearGradient(x0 + mw, 0, x0 + mw + lw, 0);
+  g.addColorStop(0, '#5ED6D0'); g.addColorStop(0.55, '#A493FF'); g.addColorStop(1, '#F29BD0');
+  c.fillStyle = g;
+  c.fillText('lyte', x0 + mw, 150);
 }
 const ell = (c, x, y, rx, ry, rot = 0) => { c.beginPath(); c.ellipse(x, y, rx, ry, rot, 0, Math.PI * 2); c.fill(); };
 function drawCollie(c) {
@@ -126,13 +148,34 @@ function drawBunny(c) {
   c.fillStyle = '#1a1208'; ell(c, 230, 192, 7, 7);      // eye
 }
 
+// keep drones apart: from a crowd of candidate places, accept one only if no
+// accepted drone is closer than dmin (shrinking dmin until there are enough)
+function spread(cands, count) {
+  let dmin = 1.4, out = [];
+  while (dmin > 0.3) {
+    out = [];
+    const cell = dmin, grid = new Map();
+    const key = (x, y) => `${Math.floor(x / cell)},${Math.floor(y / cell)}`;
+    for (const p of cands) {
+      const cx = Math.floor(p[0] / cell), cy = Math.floor(p[1] / cell);
+      let ok = true;
+      for (let dx = -1; dx <= 1 && ok; dx++) for (let dy = -1; dy <= 1 && ok; dy++) {
+        for (const q of grid.get(`${cx + dx},${cy + dy}`) || []) if (Math.hypot(p[0] - q[0], p[1] - q[1], (p[2] - q[2]) * 0.5) < dmin) { ok = false; break; }
+      }
+      if (ok) { out.push(p); const k = key(p[0], p[1]); (grid.get(k) || grid.set(k, []).get(k)).push(p); if (out.length >= count) return out; }
+    }
+    dmin *= 0.9;
+  }
+  return out;
+}
+
 function heartTargets() {
   const pts = [];
-  while (pts.length < N * 3) {
+  while (pts.length < N * 8) {
     const x = Math.random() * 2.6 - 1.3, y = Math.random() * 2.6 - 1.4;
-    if (Math.pow(x * x + y * y - 1, 3) - x * x * y * y * y < 0) pts.push([x * 15, y * 15 + 2, (Math.random() - 0.5) * 3]);
+    if (Math.pow(x * x + y * y - 1, 3) - x * x * y * y * y < 0) pts.push([x * 15, y * 15 + 2, (Math.random() - 0.5) * 2]);
   }
-  return pick(pts);
+  return pick(spread(pts, N));
 }
 function sphereTargets() {
   return Array.from({ length: N }, (_, i) => {
@@ -141,11 +184,12 @@ function sphereTargets() {
   });
 }
 function spiralTargets() {
-  return Array.from({ length: N }, (_, i) => {
+  const c = Array.from({ length: N * 8 }, (_, i) => {
     const arm = i % 3, t = Math.random();
     const a = t * 7 + arm * 2.094, r = 2 + t * 17;
-    return [Math.cos(a) * r + (Math.random() - 0.5) * 1.5, Math.sin(a) * r * 0.55 + (Math.random() - 0.5) * 1.2, (Math.random() - 0.5) * 3];
+    return [Math.cos(a) * r + (Math.random() - 0.5) * 2.5, Math.sin(a) * r * 0.55 + (Math.random() - 0.5) * 2, (Math.random() - 0.5) * 3];
   });
+  return pick(spread(c, N));
 }
 // choose exactly N points (repeating with a little jitter if there are too few)
 function pick(src) {
@@ -169,6 +213,7 @@ const SHOW = [
   { kind: 'photo', name: 'lady', hold: 22 },
   { kind: 'sphere', hold: 10, cols: ['#6fd3ff', '#a493ff', '#ffffff'], spin: 0.15 },
   { kind: 'photo', name: 'bunny', hold: 18 },
+  { kind: 'picture', draw: drawBrand, hold: 16, wide: true },
 ];
 
 // portraits from photos: each point is a drone's place and colour
@@ -252,7 +297,7 @@ export class DroneShowScene extends BaseScene {
   _targets(f) {
     if (f.kind === 'heart') return heartTargets();
     if (f.kind === 'text') return textTargets(f.text, f.text.length > 10 ? 62 : 48);
-    if (f.kind === 'picture') return pictureTargets(f.draw, 46, 1100);
+    if (f.kind === 'picture') return f.wide ? pictureTargets(f.draw, 66, 1150, 900, 300) : pictureTargets(f.draw, 46, 1100);
     if (f.kind === 'photo') return photoTargets(f.name, f.name === 'lady' ? 34 : 32) || sphereTargets();
     if (f.kind === 'spiral') return spiralTargets();
     return sphereTargets();
@@ -285,8 +330,8 @@ export class DroneShowScene extends BaseScene {
       const after = (local - 1) * this.dur[i];             // seconds since this drone arrived
       let br, cc;
       if (local <= 0) { br = a[3] ? 0 : 1; cc = this.cFrom[i]; }
-      else if (local < 1) { br = Math.max(nav, 1 - local * 6); cc = local < 0.2 ? this.cFrom[i] : null; }
-      else { br = after < 0.15 ? nav + (1.7 - nav) * after / 0.15 : 1 + 0.7 * Math.exp(-(after - 0.15) * 5); cc = this.cTo[i]; if (b[3]) br = Math.max(0, nav * (1 - after)); }
+      else if (local < 1) { br = a[3] ? 0 : Math.max(nav, 1 - local * 6); cc = local < 0.2 ? this.cFrom[i] : null; }
+      else { br = after < 0.15 ? (a[3] ? 0 : nav) + (1.7 - (a[3] ? 0 : nav)) * after / 0.15 : 1 + 0.7 * Math.exp(-(after - 0.15) * 5); cc = this.cTo[i]; if (b[3]) br = a[3] ? 0 : Math.max(0, nav * (1 - after)); }
       if (local > 0 && local < 1 && local >= 0.2) { this.col[i * 3] = 0.9; this.col[i * 3 + 1] = 0.93; this.col[i * 3 + 2] = 1.0; }
       else { const c = cc || this.cTo[i]; this.col[i * 3] = c.r; this.col[i * 3 + 1] = c.g; this.col[i * 3 + 2] = c.b; }
       this.bri[i] = br;
@@ -308,10 +353,11 @@ export class DroneShowScene extends BaseScene {
       this.cFrom = Array.from({ length: N }, (_, i) => new THREE.Color(this.col[i * 3], this.col[i * 3 + 1], this.col[i * 3 + 2]));
       this.to = this._match(this._targets(this.cur));
       this.cTo = this.cur.cols ? this._cols(this.cur.cols) : this.to.map((p) => (p.length > 4 ? new THREE.Color(p[4], p[5], p[6]) : new THREE.Color(1, 1, 1)));
+      const lift = 4 + Math.random() * 4;
       for (let i = 0; i < N; i++) {
         const a = this.from[i], b = this.to[i];
-        this.mid[i] = [(a[0] + b[0]) / 2 + (Math.random() - 0.5) * 16, (a[1] + b[1]) / 2 + 3 + Math.random() * 9, (a[2] + b[2]) / 2 + (Math.random() - 0.5) * 14];
-        this.delay[i] = Math.random() * 1.8;
+        this.mid[i] = [(a[0] + b[0]) / 2 + (Math.random() - 0.5) * 2, (a[1] + b[1]) / 2 + lift + (a[0] + b[0]) * 0.02, (a[2] + b[2]) / 2 + 4 + (Math.random() - 0.5) * 2];
+        this.delay[i] = (a[0] + 30) / 60 * 1.6 + Math.random() * 0.2;
         this.dur[i] = 3.5 + Math.random() * 1.8;
       }
       this.state = 'move'; this.t = 0;

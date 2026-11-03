@@ -241,7 +241,8 @@ export class CloudFlightScene extends BaseScene {
       const lane = r() < 0.25; // some sit right on the flight path, so you fly through them
       cumulus(lane ? (r() - 0.5) * 8 : (r() < 0.5 ? -1 : 1) * (12 + r() * 55), lane ? -2 + r() * 6 : -12 + r() * 26, -r() * L, r() < 0.4);
     }
-    for (let i = 0; i < 6; i++) { const x = (r() < 0.5 ? -1 : 1) * (90 + r() * 60), z = -r() * L; for (let k = 0; k < 4; k++) put(x + (r() - 0.5) * 20, -20 + k * 22, z + (r() - 0.5) * 20, 30 + r() * 12, k < 2 ? Math.floor(r() * 3) : 3); }
+    // big billowing cumulus far off to the sides: broad clusters, not stacked columns
+    for (let i = 0; i < 6; i++) { const x = (r() < 0.5 ? -1 : 1) * (100 + r() * 60), z = -r() * L; for (let k = 0; k < 4; k++) put(x + (k - 1.5) * 26 + (r() - 0.5) * 10, -12 + r() * 10, z + (r() - 0.5) * 24, 34 + r() * 14, k === 1 || k === 2 ? 3 : Math.floor(r() * 3)); }
     for (let i = 0; i < 14; i++) put((r() - 0.5) * 260, -18 + r() * 8, -r() * L, 40 + r() * 25, 4);          // stratocumulus banks below
     for (let i = 0; i < 10; i++) put((r() - 0.5) * 240, 45 + r() * 15, -r() * L, 35 + r() * 20, 5);           // altocumulus patches above
     for (let i = 0; i < 9; i++) put((r() - 0.5) * 300, 85 + r() * 25, -r() * L, 70 + r() * 40, 6);            // high cirrus
@@ -266,7 +267,7 @@ export class CloudFlightScene extends BaseScene {
           vec3 f = toCam / max(dist, 1e-3);
           vec3 right = normalize(cross(vec3(0.0, 1.0, 0.0), f));
           vec3 up = cross(f, right);
-          vec2 sz = aP.w * (aS.y > 7.5 ? vec2(3.2, 0.8) : aS.y > 5.5 && aS.y < 6.5 ? vec2(2.6, 1.0) : aS.y > 3.5 && aS.y < 4.5 ? vec2(2.6, 1.0) : aS.y > 2.5 && aS.y < 3.5 ? vec2(1.3, 2.0) : vec2(1.9, 1.5));
+          vec2 sz = aP.w * (aS.y > 7.5 ? vec2(3.2, 0.8) : aS.y > 5.5 && aS.y < 6.5 ? vec2(2.6, 1.0) : aS.y > 3.5 && aS.y < 4.5 ? vec2(2.6, 1.0) : aS.y > 2.5 && aS.y < 3.5 ? vec2(1.7, 1.7) : vec2(1.9, 1.5));
           vec3 w = c + right * position.x * sz.x + up * position.y * sz.y;
           vUv = position.xy + 0.5; vS = aS;
           gl_Position = projectionMatrix * viewMatrix * vec4(w, 1.0);
