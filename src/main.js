@@ -90,6 +90,7 @@ class App {
     r.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     r.setSize(window.innerWidth, window.innerHeight);
     r.xr.enabled = true;
+    r.localClippingEnabled = true;   // the menu's scrolling journey list
     r.xr.setReferenceSpaceType('local-floor');
     // light foveation only: high values make the edges of view visibly blocky
     r.xr.setFoveation(0.25);
@@ -500,7 +501,7 @@ class App {
       U.uViewH.value = h / 2;
       if (this._placeMenuIn > 0 && --this._placeMenuIn === 0) this.getHead((p, f) => this.menu.placeInFront(p, f));
       this._governor(dt);
-      this.menu.update();
+      this.menu.update(dt);
     } else {
       U.uViewH.value = this.renderer.domElement.height / 2;
     }

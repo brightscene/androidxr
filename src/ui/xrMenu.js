@@ -84,10 +84,69 @@ function textDraw(text, { size = 0.42, weight = 400, alpha = 0.7, align = 'left'
   };
 }
 
+// wrap text into at most n lines that fit width w
+function wrap(c, text, w, n) {
+  const out = []; let line = '';
+  for (const word of text.split(/\s+/)) {
+    const t = line ? line + ' ' + word : word;
+    if (c.measureText(t).width <= w) { line = t; continue; }
+    if (line) out.push(line);
+    line = word;
+    if (out.length === n) break;
+  }
+  if (out.length < n && line) out.push(line);
+  if (out.length === n && out.join(' ').length < text.length) {
+    let l = out[n - 1]; while (l && c.measureText(l + '…').width > w) l = l.slice(0, -1);
+    out[n - 1] = l.trimEnd() + '…';
+  }
+  return out;
+}
+
+// A journey preview: 100 frames (10×10 sheet, 5 per second) played on the GPU,
+// cross-fading between frames so it moves smoothly. Works inside immersive
+// mode, where HTML video elements are often paused by the browser.
+function previewMaterial(tint, planes) {
+  return new THREE.ShaderMaterial({
+    transparent: true, depthTest: false, depthWrite: false, clipping: true, clippingPlanes: planes,
+    uniforms: { map: { value: null }, uT: { value: 0 }, uTint: { value: new THREE.Color(tint) } },
+    vertexShader: `#include <clipping_planes_pars_vertex>
+      varying vec2 vUv;
+      void main() {
+        vUv = uv;
+        vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+        gl_Position = projectionMatrix * mvPosition;
+        #include <clipping_planes_vertex>
+      }`,
+    fragmentShader: `#include <clipping_planes_pars_fragment>
+      uniform sampler2D map; uniform float uT; uniform vec3 uTint; varying vec2 vUv;
+      vec2 cell(float i, vec2 uv) {
+        float col = mod(i, 10.0), row = floor(i / 10.0);
+        uv = mix(vec2(0.004), vec2(0.996), uv);            // keep clear of the neighbouring frame
+        return vec2((col + uv.x) / 10.0, 1.0 - (row + 1.0 - uv.y) / 10.0);
+      }
+      void main() {
+        #include <clipping_planes_fragment>
+        // rounded corners
+        vec2 q = abs(vUv - 0.5) * vec2(0.26, 0.146) - (vec2(0.13, 0.073) - 0.014);
+        float rr = length(max(q, 0.0)) - 0.014;
+        if (rr > 0.0) discard;
+        float f = mod(uT * 5.0, 100.0), i0 = floor(f), i1 = mod(i0 + 1.0, 100.0);
+        vec3 c = mix(texture(map, cell(i0, vUv)).rgb, texture(map, cell(i1, vUv)).rgb, smoothstep(0.0, 1.0, fract(f)));
+        // until the frames arrive, a soft glow in the journey's colour
+        vec2 d = vUv - 0.5;
+        vec3 wait = uTint * (0.25 + 0.5 * exp(-dot(d, d) * 8.0));
+        c = textureSize(map, 0).x > 4 ? c : wait;
+        gl_FragColor = vec4(c, 1.0);
+        #include <colorspace_fragment>
+      }`,
+  });
+}
+
 const TABS = ['Journeys', 'Scene', 'Sound', 'Lights', 'Voice'];
 const MARK = typeof Image !== 'undefined' ? Object.assign(new Image(), { src: 'icons/mark.svg' }) : {};
 const W = 1.56, H = 1.34;
 const ROW0 = 0.33, ROWH = 0.1, LX = -0.74, PX = -0.4;
+const J_TOP = 0.475, J_BOT = -0.47;   // the journey list's window
 
 export class XRMenu {
   constructor(app) {
@@ -233,119 +292,133 @@ export class XRMenu {
     this.setTab('Journeys');
   }
 
-  // Journeys: a list in two sections, Free and Premium. Each row has a moving
-  // preview on the left, then the title and what it's about.
+  // Journeys: two cards side by side in one scrolling list, in two sections,
+  // Free and Premium. Each card has a moving preview on the left. Scroll by
+  // pinching and dragging the list, or with the thumbstick.
   _buildJourneys() {
     const app = this.app, page = this.pages.Journeys;
     const J = app.journeys;
-    this.jItems = [{ header: 'Free' }, ...J.free.map((t) => ({ t })), { header: 'Premium' }, ...J.premium.map((t) => ({ t }))];
-    this.jPage = 0;
-    this.videos = new Map();
-    const PER = 6;
-    this.jSlots = [];
-    for (let k = 0; k < PER; k++) {
-      const y = 0;
-      const slot = { y, item: null };
-      // a journey row
-      slot.row = this._btn(page, new Button(1.48, 0.136, (c, w, h, b) => {
-        const it = slot.item; if (!it || !it.t) return;
-        const tr = it.t, sel = app.selected === tr, locked = !tr.free && !app.premium;
-        roundRect(c, 4, 4, w - 8, h - 8, 26);
-        const g = c.createLinearGradient(0, 0, w, 0);
-        g.addColorStop(0, tr.palette[0]); g.addColorStop(0.5, tr.palette[1]); g.addColorStop(1, 'rgba(10,10,28,0.9)');
-        c.globalAlpha = sel ? 0.95 : b.hover ? 0.8 : 0.5; c.fillStyle = g; c.fill(); c.globalAlpha = 1;
-        c.lineWidth = sel ? 7 : b.hover ? 5 : 2; c.strokeStyle = sel || b.hover ? '#fff' : 'rgba(255,255,255,0.25)'; c.stroke();
-        const x0 = w * 0.18;
+    this.jList = new THREE.Group();
+    page.add(this.jList);
+    this.jScroll = 0; this.jVel = 0;
+    this.sheets = new Map();
+    this.jCards = [];
+    // clip the list to its window (planes are refreshed in world space each frame)
+    this.clipPlanes = [new THREE.Plane(), new THREE.Plane()];
+    const clipMat = (m) => { m.clippingPlanes = this.clipPlanes; m.clipIntersection = false; return m; };
+    const CW = 0.73, CH = 0.2, GAP = 0.02, PVW = 0.26, PVH = 0.146;
+    let y = J_TOP;
+    const head = (label) => {
+      const h = this._btn(this.jList, new Button(1.48, 0.085, (c, w, hh) => {
         c.textAlign = 'left'; c.fillStyle = '#fff';
-        c.font = `600 ${Math.round(h * 0.2)}px ${FONT}`;
-        c.fillText(tr.title, x0, h * 0.36);
-        c.font = `400 ${Math.round(h * 0.13)}px ${FONT}`; c.fillStyle = 'rgba(255,255,255,0.85)';
-        c.fillText(tr.intent.slice(0, 70), x0, h * 0.6);
-        const kind = tr.free ? 'Free journey' : tr.plain ? 'Music' : tr.strobe || tr.stream ? 'Light & sound' : tr.guided ? `Guided · ~${Math.round(tr.estimate / 60)} min` : `Soundscape · ${tr.freq} Hz`;
-        c.font = `500 ${Math.round(h * 0.11)}px ${FONT}`; c.fillStyle = 'rgba(255,255,255,0.6)';
-        c.fillText(kind, x0, h * 0.84);
-        // badge: free, or a padlock until Premium is unlocked
-        c.textAlign = 'right';
-        c.font = `600 ${Math.round(h * 0.13)}px ${FONT}`;
-        c.fillStyle = tr.free ? '#7ff0c8' : locked ? '#ffd27a' : '#c8b8ff';
-        c.fillText(tr.free ? 'FREE' : locked ? '🔒 PREMIUM' : 'PREMIUM', w - 34, h * 0.36);
-      }, () => { if (slot.item?.t) { app.select(slot.item.t); this.refresh(); } }), 0, y);
-      // the preview box on the left of the row
-      const pv = new THREE.Mesh(new THREE.PlaneGeometry(0.22, 0.124), new THREE.MeshBasicMaterial({ color: 0x111122 }));
-      pv.position.set(-0.74 + 0.016 + 0.11, 0, 0.003);
-      pv.renderOrder = 1001;
-      slot.row.mesh.add(pv);
-      slot.preview = pv;
-      // a section heading in place of a row
-      slot.head = this._btn(page, new Button(1.48, 0.08, (c, w, h) => {
-        const it = slot.item; if (!it || !it.header) return;
-        c.textAlign = 'left'; c.fillStyle = '#fff';
-        c.font = `600 ${Math.round(h * 0.55)}px ${FONT}`;
-        c.fillText(it.header, 10, h * 0.7);
-        if (it.header === 'Premium') {
-          c.font = `400 ${Math.round(h * 0.4)}px ${FONT}`; c.fillStyle = 'rgba(255,255,255,0.7)';
-          c.fillText(app.premium ? 'Unlocked · thank you' : `${PRICES.month}  ·  ${PRICES.year}`, 280, h * 0.68);
+        c.font = `600 ${Math.round(hh * 0.55)}px ${FONT}`;
+        c.fillText(label, 10, hh * 0.7);
+        if (label === 'Premium') {
+          c.font = `400 ${Math.round(hh * 0.4)}px ${FONT}`; c.fillStyle = 'rgba(255,255,255,0.7)';
+          c.fillText(app.premium ? 'Unlocked · thank you' : `${PRICES.month}  ·  ${PRICES.year}`, 280, hh * 0.68);
         }
-      }), 0, y, false);
-      slot.unlock = this._btn(page, new Button(0.26, 0.07, pill('Unlock Premium'), () => this.showUnlock(true)), 0.6, y);
-      this.jSlots.push(slot);
-    }
-    this.jPrev = this._btn(page, new Button(0.09, 0.055, pill('‹'), () => { this.jPage--; this._layoutJourneys(); }), -0.13, -0.47);
-    this.jNext = this._btn(page, new Button(0.09, 0.055, pill('›'), () => { this.jPage++; this._layoutJourneys(); }), 0.13, -0.47);
-    this.jLabel = this._btn(page, new Button(0.16, 0.05, textDraw(() => `${this.jPage + 1} / ${this.jPages || 1}`, { alpha: 0.7 })), 0, -0.47, false);
+      }), 0, y - 0.0425);
+      clipMat(h.mesh.material); h.mesh.userData.clip = true;
+      this.jCards.push({ b: h, y: y - 0.0425, h: 0.085 });
+      if (label === 'Premium') {
+        this.jUnlock = this._btn(this.jList, new Button(0.26, 0.065, pill('Unlock Premium'), () => this.showUnlock(true)), 0.6, y - 0.0425);
+        clipMat(this.jUnlock.mesh.material); this.jUnlock.mesh.userData.clip = true;
+        this.jCards.push({ b: this.jUnlock, y: y - 0.0425, h: 0.065, unlock: true });
+      }
+      y -= 0.095;
+    };
+    const cards = (list) => {
+      list.forEach((tr, i) => {
+        const col = i % 2, cy = y - Math.floor(i / 2) * (CH + GAP) - CH / 2;
+        const card = this._btn(this.jList, new Button(CW, CH, (c, w, h, b) => {
+          const sel = app.selected === tr, locked = !tr.free && !app.premium;
+          roundRect(c, 5, 5, w - 10, h - 10, 26);
+          const g = c.createLinearGradient(0, 0, w, h);
+          g.addColorStop(0, tr.palette[0]); g.addColorStop(0.6, tr.palette[1]); g.addColorStop(1, tr.palette[2]);
+          c.globalAlpha = sel ? 1 : b.hover ? 0.92 : 0.62; c.fillStyle = g; c.fill(); c.globalAlpha = 1;
+          c.lineWidth = sel ? 8 : b.hover ? 6 : 3; c.strokeStyle = sel || b.hover ? '#fff' : 'rgba(255,255,255,0.3)'; c.stroke();
+          const x0 = w * ((GAP + PVW + 0.022) / CW), tw = w - x0 - 22;
+          c.textAlign = 'left'; c.fillStyle = '#fff';
+          let fs = Math.round(h * 0.15); c.font = `600 ${fs}px ${FONT}`;
+          while (c.measureText(tr.title).width > tw && fs > 16) { fs -= 1; c.font = `600 ${fs}px ${FONT}`; }
+          c.fillText(tr.title, x0, h * 0.27);
+          c.font = `400 ${Math.round(h * 0.1)}px ${FONT}`; c.fillStyle = 'rgba(255,255,255,0.9)';
+          wrap(c, tr.intent, tw, 2).forEach((l, k) => c.fillText(l, x0, h * (0.47 + k * 0.13)));
+          const kind = tr.free ? 'Free' : tr.plain ? 'Music' : tr.strobe || tr.stream ? 'Light & sound' : tr.guided ? `Guided · ~${Math.round(tr.estimate / 60)} min` : `Soundscape · ${tr.freq} Hz`;
+          c.font = `500 ${Math.round(h * 0.095)}px ${FONT}`;
+          c.fillStyle = tr.free ? '#7ff0c8' : locked ? '#ffd27a' : '#d8ccff';
+          c.fillText(tr.free ? 'FREE' : locked ? `🔒 ${kind}` : kind, x0, h * 0.85);
+        }, () => { if (!this.jDragged) { app.select(tr); this.refresh(); } }), (col - 0.5) * (CW + GAP), cy);
+        clipMat(card.mesh.material); card.mesh.userData.clip = true;
+        // the moving preview: a sheet of 100 frames, cross-faded on the GPU
+        const pv = new THREE.Mesh(new THREE.PlaneGeometry(PVW, PVH), previewMaterial(tr.palette[1], this.clipPlanes));
+        pv.position.set(-CW / 2 + GAP + PVW / 2, 0, 0.002);
+        pv.renderOrder = 1001;
+        card.mesh.add(pv);
+        this.jCards.push({ b: card, y: cy, h: CH, pv, scene: tr.scene });
+      });
+      y -= Math.ceil(list.length / 2) * (CH + GAP) + 0.01;
+    };
+    head('Free'); cards(J.free);
+    head('Premium'); cards(J.premium);
+    this.jHeight = J_TOP - y;
+    // a slim scroll bar on the right edge
+    this.jBar = new THREE.Mesh(new THREE.PlaneGeometry(0.008, 1), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.35, depthTest: false, depthWrite: false }));
+    this.jBar.renderOrder = 1001;
+    page.add(this.jBar);
     this._buildUnlock();
     this._layoutJourneys();
   }
 
-  _video(scene) {
-    if (!this.videos.has(scene)) {
-      const v = document.createElement('video');
-      v.src = `previews/${scene}.mp4`; v.muted = true; v.loop = true; v.playsInline = true; v.crossOrigin = 'anonymous'; v.preload = 'auto';
-      const tex = new THREE.VideoTexture(v); tex.colorSpace = THREE.SRGBColorSpace;
-      this.videos.set(scene, { v, tex });
+  _sheet(scene) {
+    if (!this.sheets.has(scene)) {
+      const tex = new THREE.TextureLoader().load(`previews/${scene}.jpg`);
+      tex.colorSpace = THREE.SRGBColorSpace;
+      tex.generateMipmaps = false; tex.minFilter = THREE.LinearFilter;
+      this.sheets.set(scene, tex);
     }
-    return this.videos.get(scene);
+    return this.sheets.get(scene);
   }
 
+  // place the list at its scroll position; only cards in the window are shown
   _layoutJourneys() {
-    // pack rows and headings into pages that fit the panel
-    if (!this.jBreaks) {
-      this.jBreaks = [0];
-      let y = 0.47;
-      this.jItems.forEach((it, i) => {
-        const h = it.header ? 0.09 : 0.148;
-        if (y - h < -0.42 || (it.header && y - h - 0.148 < -0.42)) { this.jBreaks.push(i); y = 0.47; }
-        y -= h;
-      });
+    if (!this.jList) return;
+    const maxS = Math.max(0, this.jHeight - (J_TOP - J_BOT));
+    this.jScroll = Math.max(0, Math.min(maxS, this.jScroll));
+    this.jList.position.y = this.jScroll;
+    const on = this.visible && this.tab === 'Journeys';
+    for (const c of this.jCards) {
+      const wy = c.y + this.jScroll;
+      const seen = wy - c.h / 2 < J_TOP && wy + c.h / 2 > J_BOT;
+      c.b.mesh.visible = seen && (!c.unlock || !this.app.premium);
+      if (c.pv && seen && on && !c.pv.material.uniforms.map.value) {
+        c.pv.material.uniforms.map.value = this._sheet(c.scene);
+      }
     }
-    this.jPages = this.jBreaks.length;
-    this.jPage = Math.max(0, Math.min(this.jPages - 1, this.jPage));
-    const from = this.jBreaks[this.jPage], to = this.jBreaks[this.jPage + 1] ?? this.jItems.length;
-    const showing = new Set();
-    let y = 0.47;
-    this.jSlots.forEach((slot, k) => {
-      const it = from + k < to ? this.jItems[from + k] : null;
-      slot.item = it;
-      slot.row.mesh.visible = !!(it && it.t);
-      slot.head.mesh.visible = !!(it && it.header);
-      slot.unlock.mesh.visible = !!(it && it.header === 'Premium' && !this.app.premium);
-      if (it) {
-        const h = it.header ? 0.09 : 0.148;
-        const cy = y - h / 2;
-        slot.row.mesh.position.y = cy; slot.head.mesh.position.y = cy; slot.unlock.mesh.position.y = cy;
-        y -= h;
-      }
-      if (it && it.t) {
-        const vid = this._video(it.t.scene);
-        slot.preview.material.map = vid.tex; slot.preview.material.color.set(0xffffff); slot.preview.material.needsUpdate = true;
-        showing.add(it.t.scene);
-      }
-      slot.row.redraw(); slot.head.redraw();
-    });
-    // only the previews on this page play
-    for (const [scene, { v }] of this.videos) { if (showing.has(scene) && this.visible && this.tab === 'Journeys') v.play().catch(() => {}); else v.pause(); }
-    this.jPrev.mesh.visible = this.jNext.mesh.visible = this.jLabel.mesh.visible = this.jPages > 1;
-    this.jLabel.redraw();
+    const vh = J_TOP - J_BOT, frac = Math.min(1, vh / this.jHeight);
+    this.jBar.visible = frac < 1;
+    this.jBar.scale.y = vh * frac;
+    this.jBar.position.set(0.763, J_TOP - vh * frac / 2 - (maxS ? (this.jScroll / maxS) * vh * (1 - frac) : 0), 0);
+  }
+
+  // per frame: scrolling, preview frames and clip planes
+  _tickJourneys(dt) {
+    if (!this.jList || !this.visible || this.tab !== 'Journeys') return;
+    this.panel.updateMatrixWorld();
+    const m = this.panel.matrixWorld;
+    this.clipPlanes[0].set(new THREE.Vector3(0, -1, 0), J_TOP).applyMatrix4(m);
+    this.clipPlanes[1].set(new THREE.Vector3(0, 1, 0), -J_BOT).applyMatrix4(m);
+    // thumbstick (either hand) scrolls the list
+    let stick = 0;
+    for (const ctl of this.controllers) {
+      const gp = ctl.userData.source?.gamepad;
+      if (gp && gp.axes.length >= 4 && Math.abs(gp.axes[3]) > 0.15) stick += gp.axes[3];
+    }
+    if (stick) this.jVel = stick * 0.9;
+    else if (!this.jDrag) this.jVel *= Math.pow(0.02, dt);    // glide to a stop after a flick
+    if (!this.jDrag && Math.abs(this.jVel) > 0.002) { this.jScroll += this.jVel * dt; this._layoutJourneys(); }
+    this.jT = (this.jT || 0) + dt;
+    for (const c of this.jCards) if (c.pv && c.b.mesh.visible) c.pv.material.uniforms.uT.value = this.jT;
   }
 
   // the Premium offer
@@ -375,6 +448,7 @@ export class XRMenu {
 
   showUnlock(on) {
     this.unlockGroup.visible = on;
+    if (this.jList) this.jList.visible = !on;
     this.unlockMsg = '';
     this.unlockCard.redraw();
   }
@@ -621,9 +695,18 @@ export class XRMenu {
       dot.visible = false;
       scene.add(dot);
       ctl.userData = { ray, dot, connected: false };
-      ctl.addEventListener('connected', (e) => { ctl.userData.connected = true; ctl.userData.mode = e.data.targetRayMode; });
+      ctl.addEventListener('connected', (e) => { ctl.userData.connected = true; ctl.userData.mode = e.data.targetRayMode; ctl.userData.source = e.data; });
+      // pinch (or trigger) and drag on the journey list to scroll it
+      ctl.addEventListener('selectstart', () => {
+        this.jDragged = false;
+        if (!this.visible || this.tab !== 'Journeys' || this.unlockGroup.visible) return;
+        const y = this._panelY(ctl);
+        if (y != null && y < J_TOP && y > J_BOT) this.jDrag = { ctl, y, s: this.jScroll, t: performance.now() };
+      });
+      ctl.addEventListener('selectend', () => { if (this.jDrag?.ctl === ctl) this.jDrag = null; });
       ctl.addEventListener('disconnected', () => { ctl.userData.connected = false; ray.visible = false; dot.visible = false; });
       ctl.addEventListener('select', () => {
+        if (this.jDragged) { this.jDragged = false; return; }   // that was a scroll, not a press
         const hit = this._hit(ctl);
         if (hit && hit.onSelect) hit.onSelect();
         // pinch on empty space during a session opens the menu
@@ -648,20 +731,55 @@ export class XRMenu {
     return list;
   }
 
+  // hits, ignoring the parts of list cards scrolled out of the window
+  _hits() {
+    return this.raycaster.intersectObjects(this._interactive(), false).filter((h) => {
+      if (!h.object.userData.clip) return true;
+      const y = this.panel.worldToLocal(h.point.clone()).y;
+      return y < J_TOP && y > J_BOT;
+    });
+  }
+
   _hit(ctl) {
     this.raycaster.setFromXRController(ctl);
-    const hits = this.raycaster.intersectObjects(this._interactive(), false);
+    const hits = this._hits();
     return hits.length ? hits[0].object.userData.button : null;
   }
 
-  update() {
+  // where a controller's ray meets the panel, in panel space (y only)
+  _panelY(ctl) {
+    this.raycaster.setFromXRController(ctl);
+    this.panel.updateMatrixWorld();
+    const n = new THREE.Vector3(0, 0, 1).transformDirection(this.panel.matrixWorld);
+    const o = new THREE.Vector3().setFromMatrixPosition(this.panel.matrixWorld);
+    const pl = new THREE.Plane().setFromNormalAndCoplanarPoint(n, o);
+    const p = this.raycaster.ray.intersectPlane(pl, new THREE.Vector3());
+    return p ? this.panel.worldToLocal(p).y : null;
+  }
+
+  update(dt = 1 / 72) {
+    if (this.jDrag) {
+      const y = this._panelY(this.jDrag.ctl);
+      if (y != null) {
+        const d = y - this.jDrag.y;
+        if (Math.abs(d) > 0.02) this.jDragged = true;
+        if (this.jDragged) {
+          const now = performance.now(), prev = this.jScroll;
+          this.jScroll = this.jDrag.s + d;
+          this._layoutJourneys();
+          this.jVel = (this.jScroll - prev) / Math.max(0.005, (now - (this.jDrag.last || now - 16)) / 1000);
+          this.jDrag.last = now;
+        }
+      }
+    }
+    this._tickJourneys(dt);
     const hovered = new Set();
     for (const ctl of this.controllers) {
       const u = ctl.userData;
       if (!u.connected) continue;
       const showRay = this.visible || this.orb.mesh.visible || !!this.app.active?.wantsPointer;
       this.raycaster.setFromXRController(ctl);
-      const hits = this.raycaster.intersectObjects(this._interactive(), false);
+      const hits = this._hits();
       u.ray.visible = showRay && u.mode !== 'gaze' && u.mode !== 'transient-pointer';
       const len = hits.length ? hits[0].distance : 1.6;
       u.ray.userData.beam.scale.z = len;
