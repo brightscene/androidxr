@@ -16,6 +16,29 @@ export class VoiceCommands {
     this.last = 0;
   }
 
+  // Ask for the microphone up front, on the flat screen, so the permission
+  // prompt doesn't appear (and vanish) as the headset view opens. Once
+  // granted, the browser remembers it for this site.
+  async askPermission() {
+    if (!this.supported || !navigator.mediaDevices?.getUserMedia) return;
+    try {
+      const st = await navigator.permissions?.query({ name: 'microphone' });
+      if (st && st.state !== 'prompt') { this.permission = st.state; return; }
+    } catch (_) {}
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream.getTracks().forEach((t) => t.stop());
+      this.permission = 'granted';
+    } catch (e) {
+      this.permission = e && e.name === 'NotAllowedError' ? 'denied' : 'unknown';
+      // some browsers only allow the prompt after a tap: try again on the first one
+      if (this.permission !== 'denied' && !this._retry) {
+        this._retry = true;
+        window.addEventListener('pointerdown', () => this.askPermission(), { once: true });
+      }
+    }
+  }
+
   // call from a click (a user gesture), e.g. when entering the headset
   start() {
     if (!this.supported || this.active) return;

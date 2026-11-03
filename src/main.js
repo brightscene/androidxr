@@ -63,6 +63,7 @@ class App {
     this.engine = new AudioEngine();
     this.voice = new Voice(this.engine);
     this.commands = new VoiceCommands(this);
+    if (this.voiceCmd) this.commands.askPermission();   // ask on app start, not as the headset view opens
     SFX.play = (kind, opts) => { if (this.playing) this.engine.sfx(kind, opts); };
     SFX.say = (id, pan) => (this.playing ? this.voice.sayPanned(id, pan) : Promise.resolve(false));
     this.voice.setChoice(this.voiceChoice);
@@ -393,6 +394,7 @@ class App {
 
   setVoiceCmd(on) {
     this.voiceCmd = on;
+    if (on) this.commands.askPermission();
     if (on && this.renderer.xr.isPresenting) this.commands.start();
     if (!on) this.commands.stop();
     this._changed();
