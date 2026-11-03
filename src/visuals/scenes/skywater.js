@@ -131,48 +131,66 @@ export class RainLakeScene extends BaseScene {
 }
 
 // Soft cloud sprites painted once into a 2x2 atlas: three cumulus shapes and a wisp.
+// Cloud textures grown from noise, nine kinds in a 3x3 atlas: three cumulus,
+// a tall congestus, a stratocumulus bank, an altocumulus patch, fibrous cirrus,
+// ragged fractus and a stretched wisp. Alpha holds the cloud's density.
 function cloudAtlas() {
-  const S = 512, cv = document.createElement('canvas');
-  cv.width = cv.height = S * 2;
+  const S = 256, cv = document.createElement('canvas');
+  cv.width = cv.height = S * 3;
   const c = cv.getContext('2d');
-  const r = rng(99);
-  const g = () => (r() + r() + r() - 1.5) / 1.5;
-  for (let cell = 0; cell < 4; cell++) {
-    const ox = (cell % 2) * S, oy = Math.floor(cell / 2) * S;
-    c.save();
-    c.beginPath(); c.rect(ox, oy, S, S); c.clip();
-    const wisp = cell === 3;
-    const n = wisp ? 90 : 140;
-    for (let i = 0; i < n; i++) {
-      let x, y, rad;
-      if (wisp) { x = 0.5 + g() * 0.32; y = 0.5 + g() * 0.06; rad = 0.05 + r() * 0.08; }
-      else {
-        const t = r();
-        x = 0.5 + g() * (0.22 + t * 0.1);
-        y = 0.62 - Math.abs(g()) * (0.18 + (1 - Math.abs(x - 0.5) * 2) * 0.22);  // domed top, flat base
-        rad = 0.05 + r() * 0.11 * (1 - Math.abs(x - 0.5));
+  const img = c.createImageData(S * 3, S * 3);
+  const ss = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+  for (let cell = 0; cell < 9; cell++) {
+    const nz = noise2(31 + cell * 7);
+    const ox = (cell % 3) * S, oy = Math.floor(cell / 3) * S;
+    for (let py = 0; py < S; py++) for (let px = 0; px < S; px++) {
+      const x = px / S, y = py / S;                      // y runs downward
+      const n = nz.fbm(x * 5, y * 5, 3) * 0.5 + 0.5, n2 = nz.fbm(x * 6 + 3, y * 6 + 7, 2) * 0.5 + 0.5;
+      let m, d;
+      if (cell <= 3) {
+        // cumulus: a lumpy dome on a flat base; cell 3 is tall and towering
+        const tall = cell === 3;
+        const base = tall ? 0.86 : 0.7;
+        const rx = tall ? 0.3 : 0.44 - cell * 0.03, ry = tall ? 0.78 : 0.5 + cell * 0.04;
+        const dx = (x - 0.5) / rx, dy = (base - y) / ry;
+        m = (1 - Math.hypot(dx, Math.max(dy, 0) * 1.0 + Math.min(dy, 0) * 4)) + (n - 0.5) * 0.9 + (n2 - 0.5) * 0.35;
+        m *= ss(base + 0.04, base - 0.04, y);
+        d = ss(0.05, 0.45, m);
+      } else if (cell === 4) {
+        // stratocumulus: a wide lumpy bank
+        m = (1 - Math.hypot((x - 0.5) / 0.5, (y - 0.55) / 0.2)) + (n - 0.5) * 1.0;
+        d = ss(0.05, 0.5, m) * (0.75 + 0.25 * n2);
+      } else if (cell === 5) {
+        // altocumulus: a patch of small rounded cloudlets
+        const cl = ss(0.5, 0.75, nz.fbm(x * 6, y * 6, 2) * 0.5 + 0.5);
+        d = cl * ss(0.0, 0.5, 1 - Math.hypot((x - 0.5) / 0.48, (y - 0.5) / 0.38)) * (0.6 + 0.4 * n);
+      } else if (cell === 6) {
+        // cirrus: fine fibres combed out by high winds
+        const u = x + y * 0.25, v = y;
+        const fib = Math.pow(nz.fbm(u * 2.2, v * 11, 3) * 0.5 + 0.5, 2.0);
+        d = fib * ss(0.0, 0.45, 1 - Math.hypot((x - 0.5) / 0.5, (y - 0.5) / 0.3)) * 1.4;
+      } else if (cell === 7) {
+        // fractus: small, ragged, torn
+        m = (1 - Math.hypot((x - 0.5) / 0.36, (y - 0.5) / 0.22)) + (n - 0.5) * 1.4;
+        d = ss(0.15, 0.5, m) * (0.5 + 0.5 * n2);
+      } else {
+        // a long stretched wisp
+        m = (1 - Math.hypot((x - 0.5) / 0.5, (y - 0.5) / 0.12)) + (nz.fbm(x * 3, y * 9, 2)) * 0.6;
+        d = ss(0.1, 0.6, m) * 0.7;
       }
-      const px = ox + x * S, py = oy + y * S, pr = rad * S;
-      const gr = c.createRadialGradient(px, py, 0, px, py, pr);
-      gr.addColorStop(0, 'rgba(255,255,255,0.45)');
-      gr.addColorStop(0.55, 'rgba(255,255,255,0.22)');
-      gr.addColorStop(1, 'rgba(255,255,255,0)');
-      c.fillStyle = gr;
-      if (wisp) { c.save(); c.translate(px, py); c.scale(3.2, 0.7); c.translate(-px, -py); }
-      c.beginPath(); c.arc(px, py, pr, 0, Math.PI * 2); c.fill();
-      if (wisp) c.restore();
+      const i = ((oy + py) * S * 3 + ox + px) * 4;
+      img.data[i] = img.data[i + 1] = img.data[i + 2] = 255;
+      img.data[i + 3] = Math.round(Math.min(1, Math.max(0, d)) * 255);
     }
-    if (!wisp) { // soften the flat base
-      const fade = c.createLinearGradient(0, oy + S * 0.6, 0, oy + S * 0.72);
-      fade.addColorStop(0, 'rgba(0,0,0,0)');
-      fade.addColorStop(1, 'rgba(0,0,0,1)');
-      c.globalCompositeOperation = 'destination-out';
-      c.fillStyle = fade;
-      c.fillRect(ox, oy + S * 0.6, S, S * 0.4);
-    }
-    c.restore();
   }
-  const tex = new THREE.CanvasTexture(cv);
+  c.putImageData(img, 0, 0);
+  // soften: a light blur so edges feather rather than speckle
+  const out = document.createElement('canvas');
+  out.width = out.height = S * 3;
+  const o = out.getContext('2d');
+  o.filter = 'blur(2px)';
+  o.drawImage(cv, 0, 0);
+  const tex = new THREE.CanvasTexture(out);
   tex.generateMipmaps = true;
   tex.minFilter = THREE.LinearMipmapLinearFilter;
   return tex;
@@ -187,7 +205,7 @@ export class CloudFlightScene extends BaseScene {
     super();
     const U = this.uniforms;
     const sun = [0.5, 0.45, -0.75];
-    this.group.add(sky(U, { top: '#2f6fc4', horizon: '#dceefe', ground: '#f4f8ff', sunDir: sun, sunCol: '#fff4dc', clouds: 0.25, cloudCol: '#ffffff', cloudSpeed: 0.002, sunSize: 1.3, radius: 300 }));
+    this.group.add(sky(U, { top: '#3f6ea8', horizon: '#d6e1ec', ground: '#e8eef5', sunDir: sun, sunCol: '#fff2d8', clouds: 0.1, cloudCol: '#f4f6fa', cloudSpeed: 0.002, sunSize: 1.1, radius: 300 }));
     // flat cloud layer far below, and thin stratus overhead
     const layer = (y, scale, cov, alpha) => {
       const m = new THREE.Mesh(new THREE.PlaneGeometry(600, 600).rotateX(-Math.PI / 2), new THREE.ShaderMaterial({
@@ -212,21 +230,22 @@ export class CloudFlightScene extends BaseScene {
     const puffs = [];
     const L = 420;
     this.L = L;
-    const cluster = (cx, cy, cz, kind) => {
-      const cnt = kind === 'tower' ? 22 : kind === 'wisp' ? 6 : 12;
-      for (let i = 0; i < cnt; i++) {
-        let x = cx, y = cy, z = cz, s;
-        if (kind === 'tower') { x += (r() - 0.5) * 30; y += r() * 70; z += (r() - 0.5) * 30; s = 22 + r() * 18; }
-        else if (kind === 'wisp') { x += (r() - 0.5) * 40; y += (r() - 0.5) * 3; z += (r() - 0.5) * 12; s = 18 + r() * 12; }
-        else { x += (r() - 0.5) * 16; y += r() * 7 - 1; z += (r() - 0.5) * 16; s = 7 + r() * 9; }
-        puffs.push([x, y, z, s, r(), kind === 'wisp' ? 1 : 0]);
-      }
+    // [x, y, z, size, rotation seed, cell]
+    const put = (x, y, z, size, cell) => puffs.push([x, y, z, size, r(), cell]);
+    const cumulus = (cx, cy, cz, big) => {
+      const cnt = big ? 9 : 5;
+      for (let i = 0; i < cnt; i++) put(cx + (r() - 0.5) * (big ? 26 : 14), cy + r() * (big ? 9 : 4), cz + (r() - 0.5) * (big ? 22 : 12), (big ? 13 : 8) + r() * 8, Math.floor(r() * 3));
+      if (r() < 0.6) put(cx + (r() - 0.5) * 20, cy - 2, cz + (r() - 0.5) * 14, 6 + r() * 4, 7);   // ragged bits round the base
     };
-    for (let i = 0; i < 26; i++) {
+    for (let i = 0; i < 22; i++) {
       const lane = r() < 0.25; // some sit right on the flight path, so you fly through them
-      cluster(lane ? (r() - 0.5) * 8 : (r() < 0.5 ? -1 : 1) * (12 + r() * 50), lane ? -2 + r() * 6 : -12 + r() * 30, -r() * L, 'cumulus');
+      cumulus(lane ? (r() - 0.5) * 8 : (r() < 0.5 ? -1 : 1) * (12 + r() * 55), lane ? -2 + r() * 6 : -12 + r() * 26, -r() * L, r() < 0.4);
     }
-    for (let i = 0; i < 6; i++) cluster((r() < 0.5 ? -1 : 1) * (90 + r() * 60), -30, -r() * L, 'tower');
+    for (let i = 0; i < 6; i++) { const x = (r() < 0.5 ? -1 : 1) * (90 + r() * 60), z = -r() * L; for (let k = 0; k < 4; k++) put(x + (r() - 0.5) * 20, -20 + k * 22, z + (r() - 0.5) * 20, 30 + r() * 12, k < 2 ? Math.floor(r() * 3) : 3); }
+    for (let i = 0; i < 14; i++) put((r() - 0.5) * 260, -18 + r() * 8, -r() * L, 40 + r() * 25, 4);          // stratocumulus banks below
+    for (let i = 0; i < 10; i++) put((r() - 0.5) * 240, 45 + r() * 15, -r() * L, 35 + r() * 20, 5);           // altocumulus patches above
+    for (let i = 0; i < 9; i++) put((r() - 0.5) * 300, 85 + r() * 25, -r() * L, 70 + r() * 40, 6);            // high cirrus
+    for (let i = 0; i < 10; i++) put((r() - 0.5) * 180, -6 + r() * 20, -r() * L, 20 + r() * 14, 8);           // wisps
     this.puffs = puffs;
     const g = new THREE.InstancedBufferGeometry();
     g.setAttribute('position', new THREE.Float32BufferAttribute([-0.5, -0.5, 0, 0.5, -0.5, 0, 0.5, 0.5, 0, -0.5, 0.5, 0], 3));
@@ -247,21 +266,32 @@ export class CloudFlightScene extends BaseScene {
           vec3 f = toCam / max(dist, 1e-3);
           vec3 right = normalize(cross(vec3(0.0, 1.0, 0.0), f));
           vec3 up = cross(f, right);
-          vec2 sz = aP.w * (aS.y > 0.5 ? vec2(3.0, 0.8) : vec2(1.9, 1.5));
+          vec2 sz = aP.w * (aS.y > 7.5 ? vec2(3.2, 0.8) : aS.y > 5.5 && aS.y < 6.5 ? vec2(2.6, 1.0) : aS.y > 3.5 && aS.y < 4.5 ? vec2(2.6, 1.0) : aS.y > 2.5 && aS.y < 3.5 ? vec2(1.3, 2.0) : vec2(1.9, 1.5));
           vec3 w = c + right * position.x * sz.x + up * position.y * sz.y;
           vUv = position.xy + 0.5; vS = aS;
           gl_Position = projectionMatrix * viewMatrix * vec4(w, 1.0);
         }`,
       fragmentShader: /* glsl */ `uniform sampler2D uAtlas; uniform vec3 uSunV; uniform float uFade; varying vec2 vUv; varying vec2 vS; varying float vA;
+        float dens(float cell, vec2 p){
+          p = clamp(p, 0.004, 0.996);
+          vec2 uv = vec2((mod(cell, 3.0) + p.x) / 3.0, 1.0 - (floor(cell / 3.0) + 1.0 - p.y) / 3.0);
+          return texture2D(uAtlas, uv).a;
+        }
         void main(){
-          float cell = vS.y > 0.5 ? 3.0 : floor(vS.x * 2.999);
-          vec2 uv = vec2((mod(cell, 2.0) + vUv.x) * 0.5, 0.5 - floor(cell / 2.0) * 0.5 + vUv.y * 0.5);
-          float a = texture2D(uAtlas, uv).a;
-          float up = clamp(vUv.y * 1.25 - 0.05, 0.0, 1.0);
-          float side = 0.5 + 0.5 * dot(normalize(vec2(vUv.x - 0.5, 0.35)), normalize(uSunV.xy + vec2(0.0, 0.3)));
-          vec3 shadow = vec3(0.72, 0.77, 0.86), lit = vec3(1.0, 0.99, 0.97);
-          vec3 c = mix(shadow, lit, clamp(up * 0.75 + side * 0.25 + (1.0 - a) * 0.35, 0.0, 1.0));
-          gl_FragColor = vec4(c, clamp(a * 1.6, 0.0, 1.0) * vA * uFade);
+          float cell = floor(vS.y + 0.5);   // round: a tiny error would pick a neighbouring cloud
+          vec2 p = vUv;
+          if (fract(vS.x * 7.0) > 0.5) p.x = 1.0 - p.x;               // mirror some, so no two look alike
+          float d0 = dens(cell, p);
+          // light from the sun's side: denser cloud toward the sun means shadow here
+          vec2 toSun = normalize(vec2(uSunV.x, uSunV.y + 0.25)) * 0.05;
+          float d1 = dens(cell, p + toSun), d2 = dens(cell, p + toSun * 2.0);
+          float shade = exp(-(d1 * 1.1 + d2 * 0.7) * 1.4);
+          float base = smoothstep(0.15, 0.55, p.y);                    // flat grey bases, brighter tops
+          vec3 sunlit = vec3(1.0, 0.98, 0.93), sky = vec3(0.6, 0.67, 0.78), deep = vec3(0.46, 0.5, 0.6);
+          vec3 c = mix(mix(deep, sky, base), sunlit, clamp(shade * 0.85 + (1.0 - d0) * 0.25, 0.0, 1.0));
+          c += vec3(1.0, 0.95, 0.85) * smoothstep(0.35, 0.0, d0) * shade * 0.25;   // silver lining at the thin edges
+          float a = smoothstep(0.1, 0.6, d0) * (cell > 5.5 && cell < 6.5 ? 0.45 : 1.0);
+          gl_FragColor = vec4(c, a * vA * uFade);
         }`,
     }));
     mesh.frustumCulled = false;
@@ -280,7 +310,8 @@ export class CloudFlightScene extends BaseScene {
     }
     const travel = this.uniforms.uTravel.value;
     let inside = 0;
-    for (const [x, y, z, s] of this.puffs) {
+    for (const [x, y, z, s, , cell] of this.puffs) {
+      if (cell > 2.5 && cell !== 7) continue;
       const zz = ((z + travel) % this.L + this.L) % this.L - this.L + 25;
       const d = Math.hypot(x, y - 1.6, zz);
       if (d < s * 1.4) inside = Math.max(inside, 1 - d / (s * 1.4));
