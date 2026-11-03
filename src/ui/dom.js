@@ -76,6 +76,39 @@ export class DomUI {
     on('#whispers', 'change', (e) => app.setWhispers(e.target.checked));
     on('#captions', 'change', (e) => app.setCaptions(e.target.checked));
     on('#breath-text', 'change', (e) => app.setBreathText(e.target.checked));
+    on('#guide-voice', 'change', (e) => app.setGuideVoice(e.target.checked));
+    // your own affirmations
+    on('#mine-on', 'change', (e) => app.setMine(e.target.checked));
+    on('#mine-every', 'change', (e) => app.setMineEvery(Number(e.target.value)));
+    const mine = app.mine, st = (t) => (this.$('#mine-status').textContent = t);
+    const drawMine = () => {
+      const ul = this.$('#mine-list');
+      ul.innerHTML = '';
+      if (!mine.clips.length) st(mine.supported ? 'No recordings yet.' : 'Recording isn\'t supported in this browser.');
+      mine.clips.forEach((c, i) => {
+        const li = document.createElement('li');
+        const name = document.createElement('span'); name.textContent = `${i + 1}. Your affirmation · ${c.dur.toFixed(1)} s`;
+        const play = document.createElement('button'); play.className = 'ghost small'; play.textContent = '▶ Play';
+        play.addEventListener('click', () => mine.play(c, 0, { duck: false }));
+        const del = document.createElement('button'); del.className = 'ghost small'; del.textContent = 'Delete';
+        del.addEventListener('click', async () => { await mine.remove(c.id); drawMine(); });
+        li.append(name, play, del); ul.append(li);
+      });
+    };
+    mine.ready.then(drawMine);
+    on('#mine-rec', 'click', async (e) => {
+      const btn = e.currentTarget;
+      if (mine.recording) { mine.stop(); return; }
+      try {
+        btn.classList.add('recording'); btn.textContent = '■ Stop';
+        const clip = await mine.record((s) => st(`Recording… ${s.toFixed(0)} s (stops at 20 s)`));
+        st(clip ? 'Saved. Record another, or press Play to listen.' : 'That was too short. Try again.');
+      } catch (_) {
+        st('Couldn\'t use the microphone. Check that this site is allowed to use it.');
+      }
+      btn.classList.remove('recording'); btn.textContent = '● Record';
+      drawMine();
+    });
     on('#quality', 'change', (e) => app.setQuality(e.target.value));
     on('#preview-voice', 'click', () => app.previewVoice());
     this.$('#light-symbol').innerHTML = ['<option value="-1">Cycle through all</option>', ...SYMBOLS.map((n, i) => `<option value="${i}">${n}</option>`)].join('');
@@ -167,6 +200,9 @@ export class DomUI {
     this.$('#whispers').checked = app.whispers;
     this.$('#captions').checked = app.captions;
     this.$('#breath-text').checked = app.breathText;
+    this.$('#guide-voice').checked = app.guideVoice;
+    this.$('#mine-on').checked = app.mineOn;
+    this.$('#mine-every').value = String(app.mineEvery);
     this.$('#quality').value = app.quality;
     this.$('#volume').value = app.volume;
     this.$('#lights').checked = app.lights;
@@ -190,10 +226,22 @@ export class DomUI {
     this.$('#begin').textContent = app.playing ? (app.playingTrack === tr ? 'Resume' : 'Switch to this') : 'Begin here';
   }
 
+  // the session bar fades out after 5 s without any movement, and comes back when you move or tap
+  _wake() {
+    this.session.classList.remove('idle');
+    clearTimeout(this._idleT);
+    this._idleT = setTimeout(() => this.session.classList.add('idle'), 5000);
+  }
+
   onStart(track) {
     this.menu.classList.add('hidden');
     this.session.classList.remove('hidden');
     document.body.classList.add('playing');
+    if (!this._wakeBound) {
+      this._wakeBound = true;
+      for (const ev of ['pointermove', 'pointerdown', 'keydown', 'touchstart']) window.addEventListener(ev, () => { if (!this.session.classList.contains('hidden')) this._wake(); }, { passive: true });
+    }
+    this._wake();
     this.$('#session-title').textContent = track.strobe ? `${track.title} · ${track.strobe.format === 'spectrastrobe' ? 'SpectraStrobe' : 'AudioStrobe'}` : track.buffer ? track.title : `${track.title} · ${track.freq} Hz`;
     this.refresh();
   }

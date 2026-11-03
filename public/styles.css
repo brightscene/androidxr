@@ -135,3 +135,15 @@ body:not(.playing) #close-menu { display: none; }
 @keyframes ringGlow { 0%, 100% { opacity: 0.25; } 35% { opacity: 1; filter: drop-shadow(0 0 4px currentColor); } 60% { opacity: 0.55; } }
 @keyframes coreGlow { 0%, 100% { transform: scale(0.85); opacity: 0.7; } 50% { transform: scale(1.35); opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .splash-mark .sr, .splash-mark .score-glow { animation: none; opacity: 0.9; } }
+
+.mine-list { list-style: none; padding: 0; margin: 10px 0; display: grid; gap: 6px; }
+.mine-list li { display: flex; align-items: center; gap: 10px; padding: 6px 10px; border-radius: 10px; background: rgba(255,255,255,0.05); }
+.mine-list li span { flex: 1; }
+#mine-rec.recording { background: #b3264a; color: #fff; }
+#mine-rec { background: #5b45c8; color: #fff; border: 0; }
+
+/* session bar: logo on the left; fades away when you leave it alone */
+.bar { display: flex; align-items: center; gap: 14px; transition: opacity 1.2s ease, transform 1.2s ease; }
+.bar-logo { flex: none; width: 44px; height: 44px; filter: drop-shadow(0 0 8px rgba(164, 147, 255, 0.5)); }
+.bar-body { flex: 1; min-width: 0; }
+#session.idle .bar { opacity: 0; transform: translate(-50%, 12px); pointer-events: none; }

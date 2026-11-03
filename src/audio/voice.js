@@ -185,8 +185,8 @@ export class Voice {
 
 // Runs a script line by line, with pauses and cues.
 export class GuideRunner {
-  constructor(voice, items, { onLine, onMark, onDone, startDelay = 12 } = {}) {
-    Object.assign(this, { voice, items, onLine, onMark, onDone, startDelay });
+  constructor(voice, items, { onLine, onMark, onDone, startDelay = 12, isSilent = () => false } = {}) {
+    Object.assign(this, { voice, items, onLine, onMark, onDone, startDelay, isSilent });
     this.i = 0;
     this.done = false;
     this.stopped = false;
@@ -211,12 +211,18 @@ export class GuideRunner {
     const nxt = this.items.slice(this.i).find((x) => x.id);
     if (nxt) this.voice.preload(nxt.id);
     this.onLine?.(it.text);
-    this.voice.speak(it.id, it.text, {
-      onend: () => {
-        if (this.stopped) return;
-        this.timer = setTimeout(() => { this.onLine?.(''); this._next(); }, it.pause * 1000);
-      },
-    });
+    const after = () => {
+      if (this.stopped) return;
+      this.timer = setTimeout(() => { this.onLine?.(''); this._next(); }, it.pause * 1000);
+    };
+    if (this.isSilent()) {
+      // guide voice switched off: keep the same timing (and scene changes), just don't speak
+      const buf = this.voice.buffers.get(it.id);
+      const secs = buf ? buf.duration : it.text.split(/\s+/).length / 1.7 + 0.5;
+      this.timer = setTimeout(after, secs * 1000);
+      return;
+    }
+    this.voice.speak(it.id, it.text, { onend: after });
   }
 
   stop() {

@@ -4,6 +4,7 @@ import { Composer, ImportedPlayer, StreamPlayer } from './audio/composer.js';
 import { TRACKS, GUIDED, LIGHT_TRACKS } from './audio/tracks.js';
 import { SCRIPTS, WHISPERS, WELCOMES, estimateSeconds } from './audio/scripts.js';
 import { Voice, GuideRunner } from './audio/voice.js';
+import { MyAffirmations } from './audio/myAffirmations.js';
 import { bandName } from './audio/entrainment.js';
 import { decodeStrobe, flashRateAt } from './audio/strobe.js';
 import { StrobeLayer } from './visuals/strobe.js';
@@ -40,6 +41,9 @@ class App {
     this.background = p.background || 'auto';
     this.quality = p.quality || 'balanced'; // smooth | balanced | sharp
     this.breathText = p.breathGuide ?? false;
+    this.guideVoice = p.guideVoice ?? true;   // speak the guided sessions (off = music, scenes and captions only)
+    this.mineOn = p.mineOn ?? true;          // mix your own recorded affirmations into sessions
+    this.mineEvery = p.mineEvery ?? 90;     // roughly how often (seconds)
     this.perf = { avg: 1 / 72, level: 0, t: 0 };
     this.volume = p.volume ?? 0.8;
     // light (AudioStrobe / SpectraStrobe) settings
@@ -60,6 +64,7 @@ class App {
     this.player = null;
     this.engine = new AudioEngine();
     this.voice = new Voice(this.engine);
+    this.mine = new MyAffirmations(this.engine);
     SFX.play = (kind, opts) => { if (this.playing) this.engine.sfx(kind, opts); };
     SFX.say = (id, pan, text) => (this.playing ? this.voice.sayPanned(id, pan, text) : Promise.resolve(false));
     SFX.preload = (id) => this.voice.preload(id);
@@ -120,7 +125,7 @@ class App {
       localStorage.setItem('mindlyte', JSON.stringify({
         selected: this.selected.id === 'import' ? undefined : this.selected.id, minutes: this.minutes, entrainment: this.entrainment,
         journey: this.journey, solfeggio: this.solfeggio, voiceInSoundscapes: this.whispers, captions: this.captions,
-        dives: this.dives, nature: this.nature, voice: this.voiceChoice, volume: this.volume, background: this.background, quality: this.quality, breathGuide: this.breathText,
+        dives: this.dives, nature: this.nature, voice: this.voiceChoice, volume: this.volume, background: this.background, quality: this.quality, breathGuide: this.breathText, guideVoice: this.guideVoice, mineOn: this.mineOn, mineEvery: this.mineEvery,
         strobeAccepted: this.strobeAccepted, lights: this.lights, lightStyle: this.lightStyle, lightColour: this.lightColour,
         v: 2, lightLayout: this.lightLayout, lightDim: this.lightDim,
         lightMax: this.lightMax, lightMode: this.lightMode, lightsGenerated: this.lightsGenerated, lightSymbol: this.lightSymbol,
@@ -149,6 +154,9 @@ class App {
   setNature(n) { this.nature = n; this.engine.setNature(n); this._changed(); }
   setVoice(v) { this.voiceChoice = v; this.voice.setChoice(v); this._changed(); }
   setQuality(q) { this.quality = q; this._applyQuality(); this._changed(); }
+  setGuideVoice(on) { this.guideVoice = on; if (!on && this.guide) this.voice.cancel(); this._changed(); }
+  setMine(on) { this.mineOn = on; this._changed(); }
+  setMineEvery(s) { this.mineEvery = s; this._changed(); }
   setBreathText(on) { this.breathText = on; this._changed(); }
 
   _applyQuality() {
@@ -265,6 +273,7 @@ class App {
       : track.buffer ? new ImportedPlayer(this.engine, track, track.buffer, opts) : new Composer(this.engine, track, opts);
     this.engine.fadeMaster(1, 3);
     this.player.start();
+    this.mine.resetSchedule();
     this.playing = true;
     this.playingTrack = track;
     this.caption = '';
@@ -284,6 +293,7 @@ class App {
   _startGuide(track) {
     const player = this.player;
     this.guide = new GuideRunner(this.voice, SCRIPTS[track.guided], {
+      isSilent: () => !this.guideVoice,
       startDelay: 12,
       onLine: (text) => { this.caption = text; },
       onMark: (m) => this._cue(m, player),
@@ -468,6 +478,7 @@ class App {
       // a guided voice must never be cut off by the music ending
       if (this.guide && !this.guide.done && remain < 50 && this.player.extend) this.player.extend(60);
       this._whispers(this.engine.now, sec, remain);
+      if (this.mineOn) this.mine.tick(this.engine.now, { every: this.mineEvery, busy: this.voice.speaking || remain < 20 });
       const mm = Math.floor(remain / 60), ss = String(Math.floor(remain % 60)).padStart(2, '0');
       const hz = this.player.beatHz(now);
       const wave = this.player.entrainMode !== 'off' && hz ? ` · ${bandName(hz)} ${hz.toFixed(1)} Hz` : '';

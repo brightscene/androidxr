@@ -322,6 +322,7 @@ export class XRMenu {
     const app = this.app, p = this.pages.Voice;
     this._row(p, 0, 'Soundscape voice', [['Off', false], ['On', true]], () => app.whispers, (v) => app.setWhispers(v));
     this._row(p, 1, 'Captions', [['On', true], ['Off', false]], () => app.captions, (v) => app.setCaptions(v));
+    this._row(p, 4, 'Guided voice', [['On', true], ['Off', false]], () => app.guideVoice, (v) => app.setGuideVoice(v));
     const choices = () => ['auto', ...app.voice.englishVoices().map((v) => v.voiceURI)];
     const nameOf = (uri) => {
       if (uri === 'auto') return app.voice.hasRecorded ? `Recorded: ${app.voice.recordedName}` : 'Auto (Irish if available)';
@@ -334,8 +335,7 @@ export class XRMenu {
     this._btn(p, new Button(0.8, 0.07, pill(() => nameOf(app.voiceChoice), () => false), null), PX + 0.12 + 0.4, ROW0 - 2 * ROWH);
     this._btn(p, new Button(0.1, 0.07, pill('›'), () => step(1)), PX + 0.94 + 0.05, ROW0 - 2 * ROWH);
     this._btn(p, new Button(0.32, 0.07, pill('Hear the voice'), () => app.previewVoice()), PX + 0.16, ROW0 - 3 * ROWH);
-    this._btn(p, new Button(1.46, 0.06, textDraw(() => `Now using: ${app.voice.description}`, { alpha: 0.6, size: 0.46 })), 0, ROW0 - 4 * ROWH);
-    this._btn(p, new Button(1.46, 0.06, textDraw('Soundscape voice: a welcome and an occasional gentle line in ordinary sessions. Guided journeys always speak.', { alpha: 0.5, size: 0.46 }), null), 0, ROW0 - 5 * ROWH, false);
+    this._row(p, 5, 'My affirmations', [['Off', false], ['On', true]], () => app.mineOn, (v) => app.setMine(v));
     this._row(p, 6, 'Breathing guide', [['Off', false], ['On', true]], () => app.breathText, (v) => app.setBreathText(v));
   }
 

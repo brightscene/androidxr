@@ -14,6 +14,7 @@ import { LabyrinthScene } from './labyrinth.js';
 import { ReikiScene } from './reiki.js';
 import { StarGateScene } from './stargate.js';
 import { MurmurationScene, FireplaceScene } from './cozy.js';
+import { QuantumScene } from './quantum.js';
 import { DrumJourneyScene, IllusionScene, MindsEyeScene } from './lighttracks.js';
 import { TimePortalScene, KaleidosphereScene, NebulaFlightScene, WarpGateScene, MandalaBloomScene, SilkVortexScene } from './dimensions.js';
 import { MoonViewScene, FractalTunnelScene, CrystalCaveScene, NebulaScene, LightRibbonsScene, BlackHoleScene, ChakraScene } from './cosmic.js';
@@ -32,6 +33,7 @@ export const SCENES = {
 
   affirm: { type: AffirmationScene, label: 'Affirmation field', group: 'Dimensions', cruise: 2.2, nebula: 0.75, world: 'full' },
   cycle: { type: ImageCycleScene, label: 'Image cycling', group: 'Dimensions', cruise: 0.2, nebula: 0.75, world: 'full' },
+  quantum: { type: QuantumScene, label: 'Quantum field', group: 'Dimensions', cruise: 0, nebula: 0, world: 'bare' },
   stargate: { type: StarGateScene, label: 'Star gate', group: 'Dimensions', cruise: 0, nebula: 0, world: 'bare' },
   labyrinth: { type: LabyrinthScene, label: 'Space labyrinth', group: 'Dimensions', cruise: 0, nebula: 0, world: 'stars' },
   portal: { type: TimePortalScene, label: 'Time portal', group: 'Dimensions', cruise: 4, nebula: 0, world: 'bare' },
