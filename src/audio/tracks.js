@@ -149,6 +149,24 @@ export const LIGHT_TRACKS = [
     scene: 'galaxy', seed: 4001, profile: 'meditate', dives: false,
     palette: ['#05030f', '#4b2a8a', '#d6b8ff'], breath: [4, 2, 6, 0], arc: ARC,
   },
+  {
+    id: 'journey-of-the-drums', title: 'Journey of the Drums', freq: 396, intent: 'AudioStrobe shamanic drumming',
+    stream: 'tracks/journey-of-the-drums.mp3', metaUrl: 'tracks/journey-of-the-drums.json', lightsUrl: 'tracks/journey-of-the-drums.lights',
+    scene: 'drums', seed: 5001, profile: 'meditate', dives: false,
+    palette: ['#0c0503', '#a8461a', '#ffc27a'], breath: [4, 2, 6, 0], arc: ARC,
+  },
+  {
+    id: 'audio-illusions', title: 'Audio Illusions', freq: 852, intent: 'AudioStrobe sound & light illusions',
+    stream: 'tracks/audio-illusions.mp3', metaUrl: 'tracks/audio-illusions.json', lightsUrl: 'tracks/audio-illusions.lights',
+    scene: 'illusions', seed: 5002, profile: 'meditate', dives: false,
+    palette: ['#03031a', '#4a1f8a', '#5fd6e0'], breath: [4, 2, 6, 0], arc: ARC,
+  },
+  {
+    id: 'dreams-minds-eye', title: "Dreams in the Mind's Eye", freq: 852, intent: 'AudioStrobe dreamy visualisation',
+    stream: 'tracks/dreams-minds-eye.mp3', metaUrl: 'tracks/dreams-minds-eye.json', lightsUrl: 'tracks/dreams-minds-eye.lights',
+    scene: 'mindseye', seed: 5003, profile: 'relax', dives: false,
+    palette: ['#05030f', '#5b2a7a', '#e0c8ff'], breath: [4, 2, 6, 0], arc: ARC,
+  },
 ];
 
 export const SOLFEGGIO = [174, 285, 396, 417, 528, 639, 741, 852, 963];
