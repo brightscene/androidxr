@@ -7,7 +7,7 @@ import { GeometryScene } from './geometry.js';
 import { MandalaScene } from './mandala.js';
 import { CymaticsScene } from './cymatics.js';
 import { MeadowScene, BeachScene, UnderwaterScene, ZenGardenScene, GlowForestScene, SnowPeaksScene, DesertNightScene } from './nature.js';
-import { LanternLakeScene, RainLakeScene, CloudFlightScene, LotusPondScene, BambooGroveScene } from './skywater.js';
+import { LanternLakeScene, RainLakeScene, CloudFlightScene, LotusPondScene } from './skywater.js';
 import { AffirmationScene } from './affirm.js';
 import { ImageCycleScene } from './imagecycle.js';
 import { TimePortalScene, KaleidosphereScene, NebulaFlightScene, WarpGateScene, MandalaBloomScene, SilkVortexScene } from './dimensions.js';
@@ -40,7 +40,6 @@ export const SCENES = {
   underwater: { type: UnderwaterScene, label: 'Underwater', group: 'Nature', cruise: 0, nebula: 0, world: 'bare' },
   zen: { type: ZenGardenScene, label: 'Zen garden', group: 'Nature', cruise: 0, nebula: 0, world: 'bare' },
   forest: { type: GlowForestScene, label: 'Glowing forest', group: 'Nature', cruise: 0, nebula: 0, world: 'bare' },
-  bamboo: { type: BambooGroveScene, label: 'Bamboo grove', group: 'Nature', cruise: 0, nebula: 0, world: 'bare' },
   snow: { type: SnowPeaksScene, label: 'Snowy peaks', group: 'Nature', cruise: 0, nebula: 0, world: 'bare' },
   desert: { type: DesertNightScene, label: 'Desert night', group: 'Nature', cruise: 0, nebula: 0, world: 'bare' },
 

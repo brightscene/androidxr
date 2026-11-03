@@ -105,19 +105,36 @@ export class FractalTunnelScene extends BaseScene {
     const U = this.uniforms;
     // symmetry changes crossfade between two whole-number patterns, so the
     // kaleidoscope never shows a seam where it wraps around
-    Object.assign(U, { uSymA: { value: 6 }, uSymB: { value: 6 }, uMix: { value: 1 }, uPulse: { value: 0 } });
+    Object.assign(U, { uSymA: { value: 6 }, uSymB: { value: 6 }, uMix: { value: 1 }, uPulse: { value: 0 }, uCx: { value: 0 } });
     const m = new THREE.Mesh(new THREE.SphereGeometry(60, 64, 48), domeMat(U, /* glsl */ `
-      uniform vec3 uC0, uC1, uC2; uniform float uTime, uTravel, uFade, uSymA, uSymB, uMix, uPulse, uBreath, uEnergy;
+      uniform float uTime, uTravel, uFade, uSymA, uSymB, uMix, uPulse, uBreath, uEnergy, uCx;
       varying vec3 vDir; ${NOISE} ${GRADE}
+      // dark space colours; how many of them are in play grows with uCx
+      vec3 stop(float i){
+        i = mod(i, 7.0);
+        if (i < 1.0) return vec3(0.02, 0.03, 0.11);   // midnight
+        if (i < 2.0) return vec3(0.13, 0.07, 0.34);   // indigo
+        if (i < 3.0) return vec3(0.03, 0.26, 0.31);   // deep teal
+        if (i < 4.0) return vec3(0.33, 0.1, 0.46);    // violet
+        if (i < 5.0) return vec3(0.38, 0.06, 0.24);   // dark magenta
+        if (i < 6.0) return vec3(0.04, 0.22, 0.15);   // deep emerald
+        return vec3(0.34, 0.17, 0.05);                // ember
+      }
+      vec3 pal(float t){ float i = floor(t), f = fract(t); return mix(stop(i), stop(i + 1.0), smoothstep(0.2, 0.8, f)); }
       vec3 tunnel(vec3 d, float r, float v, float sym){
         float seg = 6.28318 / sym;
         float a = atan(d.y, d.x) + uTime * 0.05;
         a = abs(mod(a + seg * 64.0, seg) - seg * 0.5);
         vec2 q = vec2(a * 3.0, v);
         float f = fbm(vec3(q * 1.3, uTime * 0.05)) + fbm(vec3(q * 3.1 + 7.0, uTime * 0.08)) * 0.5;
-        float rings = pow(0.5 + 0.5 * sin(v * 6.0 - uTime * 0.8), 8.0) * (0.25 + uPulse * 0.8);
-        float lines = smoothstep(0.08, 0.0, abs(fract(f * 3.0) - 0.5) - 0.42);
-        return mix(uC0 * 1.2, uC1 * 1.3, f) + uC2 * (lines * 0.45 + rings) * 0.8;
+        // detail and colour variety build up as the session goes on
+        f += fbm(vec3(q * 6.5 + 3.0, uTime * 0.1)) * 0.35 * uCx;
+        float t = f * (1.2 + uCx * 4.5) + v * 0.04 * uCx + a * 1.5 * uCx * uCx;
+        vec3 base = pal(t) * (0.35 + f * 0.45);
+        float rings = pow(0.5 + 0.5 * sin(v * 6.0 - uTime * 0.8), 8.0) * (0.12 + uPulse * 0.4);
+        float lines = smoothstep(0.08, 0.0, abs(fract(f * (3.0 + uCx * 3.0)) - 0.5) - 0.42);
+        vec3 glow = mix(vec3(0.45, 0.4, 0.85), pal(t + 2.0) * 1.3, uCx);
+        return base + glow * (lines * (0.25 + uCx * 0.15) + rings) * 0.6;
       }
       void main(){
         vec3 d = normalize(vDir);
@@ -125,7 +142,7 @@ export class FractalTunnelScene extends BaseScene {
         float depth = max(-d.z, 0.0) / max(r, 0.03);
         float v = depth * 0.6 + uTravel * 0.25;
         vec3 c = uMix >= 0.999 ? tunnel(d, r, v, uSymB) : mix(tunnel(d, r, v, uSymA), tunnel(d, r, v, uSymB), smoothstep(0.0, 1.0, uMix));
-        c += vec3(1.0, 0.95, 0.9) * exp(-r * r * (60.0 - uBreath * 25.0)) * step(0.0, -d.z) * (0.7 + uEnergy * 0.5);
+        c += vec3(0.7, 0.66, 0.95) * exp(-r * r * (500.0 - uBreath * 120.0)) * step(0.0, -d.z) * (0.45 + uEnergy * 0.25);   // a small soft light far ahead
         c *= smoothstep(-0.2, 0.3, -d.z) * 0.85 + 0.15;
         gl_FragColor = vec4(grade(c * (0.75 + uEnergy * 0.4)), uFade);
       }`));
@@ -142,6 +159,9 @@ export class FractalTunnelScene extends BaseScene {
   }
   update(dt) {
     const u = this.uniforms;
+    // from a simple two-tone tunnel to an intricate many-coloured one over about four minutes
+    this.age = (this.age || 0) + dt;
+    u.uCx.value = THREE.MathUtils.smoothstep(this.age, 10, 240);
     u.uMix.value = Math.min(1, u.uMix.value + dt / 3);
     u.uPulse.value *= Math.exp(-dt * 2.5);
   }
