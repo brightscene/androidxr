@@ -86,7 +86,7 @@ function candyMaterial(U) {
         float dome = best < r ? sqrt(1.0 - (best / r) * (best / r)) : 0.0;     // a lentil-shaped button
         float edge = smoothstep(0.0, 0.04, uv.x) * smoothstep(1.0, 0.96, uv.x);
         vH = dome; vCell = vec3(bc / r, id);
-        vec3 p = position + aUp * dome * 0.09 * edge;
+        vec3 p = position;
         vec4 w = modelMatrix * vec4(p, 1.0); vW = w.xyz;
         gl_Position = projectionMatrix * viewMatrix * w; }`,
     fragmentShader: /* glsl */ `uniform float uTime, uFade; varying vec2 vUv; varying vec3 vW; varying float vH; varying vec3 vCell; ${NOISE} ${GRADE}
@@ -217,7 +217,6 @@ export class RainbowRoadScene extends BaseScene {
     road.frustumCulled = false;
     road.renderOrder = -4;
     this.world.add(road);
-    if (this.puff) this._furnish();
 
     // light posts along the rails, every few metres
     const posts = [];
