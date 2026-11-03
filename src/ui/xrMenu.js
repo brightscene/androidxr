@@ -145,7 +145,7 @@ export class XRMenu {
 
     // tabs
     TABS.forEach((name, i) => {
-      this._btn(this.panel, new Button(0.19, 0.075, pill(name, () => this.tab === name), () => this.setTab(name)), -0.2 + i * 0.205, 0.53);
+      this._btn(this.panel, new Button(0.19, 0.075, pill(name, () => this.tab === name), () => this.setTab(name)), -0.16 + i * 0.2, 0.53);
     });
 
     this.pages = {};
