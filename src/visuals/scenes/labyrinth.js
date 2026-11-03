@@ -78,14 +78,14 @@ export class LabyrinthScene extends BaseScene {
   constructor() {
     super();
     const U = this.uniforms;
-    Object.assign(U, { uPulse: { value: 0 }, uHue: { value: Math.random() }, uSpot: { value: new THREE.Vector4(0, 0, 0, 0) } });
+    Object.assign(U, { uPulse: { value: 0 }, uHue: { value: Math.random() }, uSpot: { value: new THREE.Vector4(0, 0, 0, 0) }, uDim: { value: 1 } });
     this.maze = new THREE.Group();
     this.group.add(this.maze);
     this.mat = new THREE.ShaderMaterial({
       transparent: true, uniforms: U,
       vertexShader: /* glsl */ `varying vec3 vP; varying vec3 vN; varying float vD;
         void main(){ vP = position; vN = normal; vec4 mv = modelViewMatrix * vec4(position, 1.0); vD = -mv.z; gl_Position = projectionMatrix * mv; }`,
-      fragmentShader: /* glsl */ `uniform float uTime, uFade, uPulse, uBreath, uEnergy, uHue; uniform vec4 uSpot; varying vec3 vP; varying vec3 vN; varying float vD;
+      fragmentShader: /* glsl */ `uniform float uDim, uTime, uFade, uPulse, uBreath, uEnergy, uHue; uniform vec4 uSpot; varying vec3 vP; varying vec3 vN; varying float vD;
         ${NOISE} ${GRADE}
         vec3 aura(float t){ t = fract(t);
           vec3 a = vec3(0.42, 0.22, 0.95), b = vec3(0.1, 0.75, 0.85), c = vec3(0.85, 0.25, 0.7);
@@ -122,7 +122,7 @@ export class LabyrinthScene extends BaseScene {
           }
           c = mix(c, vec3(0.005, 0.005, 0.02), smoothstep(6.0, 26.0, vD));
           if (alpha < 0.01) discard;
-          gl_FragColor = vec4(grade(c * (0.9 + uEnergy * 0.2)), alpha * uFade);
+          gl_FragColor = vec4(grade(c * (0.9 + uEnergy * 0.2)) * uDim, alpha * uFade);
         }`.replace('H_TOP', (H - 0.12).toFixed(2)),
     });
     this.text = textPlane(U, 2.8, 0.42);
@@ -146,9 +146,10 @@ export class LabyrinthScene extends BaseScene {
     const first = this.events.find((e) => e.type === 'go');
     const [fx, fz] = first ? centre(first.cell) : [x, z - 1];
     this.pose = { x, z, yaw: yawTo(fx - x, fz - z) };
+    this.K = { x, z }; this.w = 0;   // a guide point runs the corridors; the view glides after it
     this.cell = start;
     this.cur = null;
-    this.speed = 0; this.runSpeed = 2;
+    this.speed = 0; this.runSpeed = 1.6; this.lastType = 'go';
     this.uniforms.uHue.value = Math.random();
   }
 
@@ -170,9 +171,7 @@ export class LabyrinthScene extends BaseScene {
   // forward and reverse, or a dead end)? If not, keep gliding through.
   _stopsAfter(e) {
     const next = this.events[0];
-    if (!next || next.type === 'dead' || next.type !== e.type) return true;
-    const [px, pz] = centre(this.cell), [ax, az] = centre(e.cell), [bx, bz] = centre(next.cell);
-    return Math.sign(ax - px) !== Math.sign(bx - ax) || Math.sign(az - pz) !== Math.sign(bz - az);
+    return !next || next.type === 'dead' || next.type !== e.type;
   }
 
   update(dt, t) {
@@ -180,18 +179,27 @@ export class LabyrinthScene extends BaseScene {
     U.uPulse.value *= Math.exp(-dt * 2.2);
     const P = this.pose;
     let spot = 0;
+    U.uDim.value = damp(U.uDim.value, this.swapping ? 0 : 1, 2.2, dt);
     if (!this.cur) {
       const e = this.events.shift();
-      if (!e) { this._newMaze(); return; }
+      if (!e) {
+        // finished this maze: dim softly, then fade up inside a new one
+        this.swapping = true;
+        if (U.uDim.value < 0.02) { this._newMaze(); this.swapping = false; }
+        return;
+      }
       this.cur = { ...e, t: 0, idx: 0 };
       if (e.type === 'go' || e.type === 'back') {
         const [cx, cz] = centre(e.cell), [px, pz] = centre(this.cell);
         // forward: face where you're going; reverse: keep facing the way you came from
         this.cur.yaw = e.type === 'go' ? yawTo(cx - px, cz - pz) : yawTo(px - cx, pz - cz);
-        this.cur.turning = Math.abs(wrap(this.cur.yaw - P.yaw)) > 0.05;
-        if (this.cur.turning || this.speed < 0.2) this.runSpeed = [1.2, 2.2, 3.4, 4.8][Math.floor(Math.random() * 4)];
+        // only turn on the spot when setting off forward again after backing out
+        this.cur.turning = this.lastType !== 'go' && e.type === 'go' && Math.abs(wrap(this.cur.yaw - P.yaw)) > 0.3;
+        if (this.speed < 0.2) this.runSpeed = [1.0, 1.5, 2.1, 2.8][Math.floor(Math.random() * 4)];
+        this.lastType = e.type;
         this.cur.stop = this._stopsAfter(e);
       } else {
+        this.lastType = 'dead';
         const [cx, cz] = centre(e.cell), [fx, fz] = centre(e.from);
         const dx = Math.sign(cx - fx), dz = Math.sign(cz - fz);
         const wx = cx + dx * (C / 2 - WALL / 2 - 0.03), wz = cz + dz * (C / 2 - WALL / 2 - 0.03);
@@ -216,21 +224,32 @@ export class LabyrinthScene extends BaseScene {
       this.speed = 0;
       if (c.t >= 5.8) { this.text.material.uniforms.uA.value = 0; U.uSpot.value.w = 0; this.cur = null; }
     } else {
-      const dy = wrap(c.yaw - P.yaw);
-      if (Math.abs(dy) > 0.02 && c.turning) {
-        // turn gently on the spot
-        this.speed = damp(this.speed, 0, 6, dt);
-        P.yaw += Math.sign(dy) * Math.min(Math.abs(dy), dt * (0.35 + Math.min(1, Math.abs(dy)) * 0.9));
+      const K = this.K;
+      const near = Math.hypot(K.x - P.x, K.z - P.z) < 0.08;
+      if (c.turning && (Math.abs(wrap(c.yaw - P.yaw)) > 0.04 || !near)) {
+        // ease round on the spot, slow at the start and the end of the turn
+        this.speed = damp(this.speed, 0, 3, dt);
       } else {
-        P.yaw = c.yaw; c.turning = false;
+        c.turning = false;
         const [tx, tz] = centre(c.cell);
-        const dist = Math.hypot(tx - P.x, tz - P.z);
-        const target = c.stop ? Math.min(this.runSpeed, 0.4 + dist * 1.1) : this.runSpeed;
-        this.speed = damp(this.speed, target, 2.2, dt);
+        const dist = Math.hypot(tx - K.x, tz - K.z);
+        const target = c.stop ? Math.min(this.runSpeed, 0.25 + dist * 0.7) : this.runSpeed;
+        this.speed = damp(this.speed, target, 1.1, dt);
         const step = Math.min(dist, this.speed * dt);
-        if (dist > 1e-4) { P.x += (tx - P.x) / dist * step; P.z += (tz - P.z) / dist * step; }
-        if (dist - step < 0.01) { P.x = tx; P.z = tz; this.cell = c.cell; this.cur = null; }
+        if (dist > 1e-4) { K.x += (tx - K.x) / dist * step; K.z += (tz - K.z) / dist * step; }
+        if (dist - step < 0.01) { K.x = tx; K.z = tz; this.cell = c.cell; this.cur = null; }
       }
+    }
+    // the view chases the guide point, so corners become smooth curves
+    const k = 1 - Math.exp(-dt * 3.2);
+    P.x += (this.K.x - P.x) * k; P.z += (this.K.z - P.z) * k;
+    if (c.yaw !== undefined) {
+      const dy = wrap(c.yaw - P.yaw);
+      // turn speed eases in and out and never exceeds a gentle maximum
+      const max = c.turning ? 0.7 : 0.9;
+      const wT = Math.max(-max, Math.min(max, dy * 1.6));
+      this.w = damp(this.w || 0, wT, 2.5, dt);
+      P.yaw += Math.abs(this.w * dt) > Math.abs(dy) ? dy : this.w * dt;
     }
     // place the maze so that the travelling viewpoint sits at your feet, facing ahead
     this.maze.rotation.y = -P.yaw;

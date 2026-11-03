@@ -20,6 +20,11 @@ async function tx(mode, fn) {
 export class MyAffirmations {
   constructor(engine) {
     this.e = engine;
+    // leaving the app or hiding it stops any recording, so the mic is never left on
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', () => { if (document.hidden) this.stop(); });
+      window.addEventListener('pagehide', () => this.stop());
+    }
     this.clips = [];       // { id, name, blob, created, dur }
     this.buffers = new Map();
     this.ready = this.load();
@@ -39,19 +44,26 @@ export class MyAffirmations {
   // start recording; resolves when stopped (by stop() or after MAX_SECONDS)
   async record(onTick) {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
-    const type = ['audio/webm;codecs=opus', 'audio/mp4', 'audio/webm', ''].find((t) => !t || MediaRecorder.isTypeSupported(t));
-    const rec = new MediaRecorder(stream, type ? { mimeType: type } : undefined);
+    // the microphone is opened only here, and always released when recording ends
+    const release = () => { stream.getTracks().forEach((t) => t.stop()); this._stream = null; };
+    this._stream = stream;
     const parts = [];
-    rec.ondataavailable = (e) => e.data.size && parts.push(e.data);
+    let rec, tick;
     const t0 = performance.now();
-    this._rec = rec;
-    const tick = setInterval(() => { const s = (performance.now() - t0) / 1000; onTick?.(s); if (s >= MAX_SECONDS) this.stop(); }, 200);
-    const done = new Promise((res) => (rec.onstop = res));
-    rec.start();
-    await done;
-    clearInterval(tick);
-    stream.getTracks().forEach((t) => t.stop());
-    this._rec = null;
+    try {
+      const type = ['audio/webm;codecs=opus', 'audio/mp4', 'audio/webm', ''].find((t) => !t || MediaRecorder.isTypeSupported(t));
+      rec = new MediaRecorder(stream, type ? { mimeType: type } : undefined);
+      rec.ondataavailable = (e) => e.data.size && parts.push(e.data);
+      this._rec = rec;
+      tick = setInterval(() => { const s = (performance.now() - t0) / 1000; onTick?.(s); if (s >= MAX_SECONDS) this.stop(); }, 200);
+      const done = new Promise((res) => { rec.onstop = res; rec.onerror = res; });
+      rec.start();
+      await done;
+    } finally {
+      clearInterval(tick);
+      release();
+      this._rec = null;
+    }
     const blob = new Blob(parts, { type: rec.mimeType || 'audio/webm' });
     const dur = (performance.now() - t0) / 1000;
     if (dur < 0.6 || !blob.size) return null;
@@ -61,7 +73,10 @@ export class MyAffirmations {
     return clip;
   }
 
-  stop() { if (this._rec && this._rec.state !== 'inactive') this._rec.stop(); }
+  stop() {
+    if (this._rec && this._rec.state !== 'inactive') this._rec.stop();
+    else if (this._stream) { this._stream.getTracks().forEach((t) => t.stop()); this._stream = null; }
+  }
   get recording() { return !!this._rec; }
 
   async remove(id) {
