@@ -208,7 +208,9 @@ class App {
     if (instant) [U.uC0, U.uC1, U.uC2].forEach((u, i) => u.value.copy(this.palTarget[i]));
   }
 
-  sceneFor(track) { return this.background === 'auto' ? track.scene : this.background; }
+  // A journey uses the scene chosen on the Scene tab, unless that journey IS its
+  // scene (image cycling, the affirmation field): those always keep their own world.
+  sceneFor(track) { return this.background === 'auto' || SCENES[track.scene]?.premium ? track.scene : this.background; }
 
   setBackground(b) {
     this.background = b;
