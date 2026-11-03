@@ -92,15 +92,15 @@ export class DoorHallScene extends BaseScene {
             // ceiling: dark plating, pipes along the edges, caged amber lamps
             float pipes = smoothstep(0.1, 0.0, abs(abs(vW.x) - 1.35) - 0.06) + smoothstep(0.06, 0.0, abs(abs(vW.x) - 1.1) - 0.035);
             float lamp = smoothstep(0.35, 0.0, length(vec2(vW.x, (fract(z / ${GAP.toFixed(1)}) - 0.5) * ${GAP.toFixed(1)}) * vec2(1.0, 0.6)));
-            c = vec3(0.04, 0.035, 0.03) + vec3(0.18, 0.13, 0.08) * pipes * (0.6 + 0.4 * sin(z * 0.7)) + vec3(1.0, 0.65, 0.3) * lamp * 1.3;
+            c = vec3(0.04, 0.035, 0.03) + vec3(0.18, 0.13, 0.08) * pipes * (0.6 + 0.4 * sin(z * 0.7)) + vec3(1.0, 0.6, 0.28) * lamp * 0.55;
             c -= vec3(0.02) * rib;
           } else if (n.y < -0.5) {
             // floor: iron grating over the dark, worn shiny down the middle
             vec2 g = fract(vec2(vW.x, z) / 0.12);
             float bars = max(step(0.78, g.x), step(0.78, g.y));
             float wear = smoothstep(0.7, 0.0, abs(vW.x));
-            c = mix(vec3(0.01, 0.008, 0.006), vec3(0.16, 0.13, 0.1) * (0.6 + 0.6 * wear), bars);
-            c += vec3(1.0, 0.6, 0.25) * 0.04 * smoothstep(1.5, 0.0, abs(vW.x));
+            c = mix(vec3(0.006, 0.005, 0.004), vec3(0.08, 0.065, 0.05) * (0.6 + 0.6 * wear), bars);
+            c += vec3(1.0, 0.6, 0.25) * 0.02 * smoothstep(1.5, 0.0, abs(vW.x));
           } else {
             // walls: riveted iron plates, rust streaks running down, warm light from above
             vec2 q = vec2(z, vW.y);
@@ -111,18 +111,18 @@ export class DoorHallScene extends BaseScene {
             float streak = smoothstep(0.55, 0.9, fbm(vec3(z * 3.0, vW.y * 0.25, 7.0))) * smoothstep(${H.toFixed(1)}, 0.5, vW.y);
             vec3 iron = mix(vec3(0.13, 0.12, 0.11), vec3(0.2, 0.17, 0.13), fbm(vec3(q * 1.5, 3.0)));
             c = mix(iron, vec3(0.3, 0.13, 0.05), rust * 0.6 + streak * 0.5);
-            c *= 0.5 + 0.6 * smoothstep(0.0, ${H.toFixed(1)}, vW.y);
+            c *= 0.22 + 0.33 * smoothstep(0.0, ${H.toFixed(1)}, vW.y);
             c += vec3(0.25, 0.2, 0.15) * rivet * 0.5 - vec3(0.04) * seam - vec3(0.05) * rib;
           }
           // the corridor fades into darkness both ways
           float far = abs(vW.z);
-          c *= exp(-max(0.0, far - 4.0) * 0.06);
+          c *= exp(-max(0.0, far - 3.0) * 0.09);
           c = mix(c, vec3(1.0, 0.97, 0.92), uWhite);
           gl_FragColor = vec4(grade(c), uFade); }`,
     }));
     shell.renderOrder = -6;
     this.hall.add(shell);
-    this.group.add(particles(U, { count: 200, min: [-W, 0.2, -30], max: [W, H - 0.2, 6], vel: [0, 0.02, 0], sway: 0.2, size: [0.006, 0.014], colors: ['#ffffff', '#dfe6ff'], alpha: 0.35 }));
+    this.group.add(particles(U, { count: 200, min: [-W, 0.2, -30], max: [W, H - 0.2, 6], vel: [0, 0.02, 0], sway: 0.2, size: [0.006, 0.014], colors: ['#ffffff', '#dfe6ff'], alpha: 0.18 }));
 
     // the doors
     const sessions = HUB.tracks.length ? HUB.tracks : [{ title: 'Begin' }];
@@ -226,7 +226,7 @@ export class DoorHallScene extends BaseScene {
               float stripes = step(0.5, fract((q.x + q.y) * 6.0));
               c = mix(c, mix(vec3(0.02), vec3(0.85, 0.65, 0.05), stripes) * (0.8 + 0.2 * age2), tape);
             }
-            float lit = 0.35 + 0.65 * smoothstep(0.0, ${DH.toFixed(1)}, q.y);
+            float lit = 0.12 + 0.26 * smoothstep(0.0, ${DH.toFixed(1)}, q.y);
             c *= lit;
             c += uCol * edge * uHot * (dead > 0.5 ? 0.15 : 0.5);
             gl_FragColor = vec4(grade(c), uFade); }`,

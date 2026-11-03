@@ -16,7 +16,7 @@ const FLY = 13;        // flying height above the street
 
 // facade styles and building parts
 const ST = { grid: 0, glass: 1, fins: 2, ribbons: 3, diagrid: 4, media: 5 };
-const PART = { podium: 0, tower: 1, garden: 2, penthouse: 3, spire: 4 };
+const PART = { podium: 0, tower: 1, garden: 2, penthouse: 3, spire: 4, temple: 5, roof: 6 };
 
 const WRAP = /* glsl */ `
   float wrapZ(float z, float uZ){ return mod(z + uZ - 40.0, ${LEN.toFixed(1)}) - ${LEN.toFixed(1)} + 40.0; }`;
@@ -98,6 +98,19 @@ const BUILD_FS = /* glsl */ `uniform float uTime, uFade, uMirror; varying vec3 v
       c = mix(vec3(0.03), warm * (0.35 + 0.25 * h2(floor(g) + seed)), mull) * float(side);
       c += neonCol(h1(seed * 5.0)) * step(top - 0.4, v) * 1.5 * float(side);     // crown light line
       c += vec3(0.05, 0.04, 0.06) * float(!side);
+    } else if (part > 5.5) {
+      // a temple roof: dark tiles in rows, the eaves lined with warm gold light
+      float rows = step(0.5, fract(v * 4.0));
+      c = mix(vec3(0.05, 0.06, 0.06), vec3(0.09, 0.1, 0.1), rows);
+      c += vec3(1.0, 0.7, 0.3) * smoothstep(0.12, 0.0, v) * 1.4;
+      c += vec3(1.0, 0.55, 0.2) * step(top - 0.15, v) * 0.8;
+    } else if (part > 4.5) {
+      // a temple storey: red lacquer pillars between glowing paper screens
+      float pillar = step(fract(u / 1.2), 0.14);
+      vec2 g = fract(vec2(u / 0.3, v / 0.3));
+      float lattice = step(0.12, g.x) * step(0.12, g.y);
+      vec3 screen = vec3(1.0, 0.78, 0.45) * (0.45 + 0.15 * lattice) * step(0.3, v) * step(v, top - 0.25);
+      c = mix(screen, vec3(0.45, 0.04, 0.03), pillar) * float(side) + vec3(0.06, 0.02, 0.02) * float(!side);
     } else if (part > 3.5) {
       // spire / antenna with a red beacon
       c = vec3(0.04, 0.04, 0.06) + vec3(0.3, 0.32, 0.4) * step(0.5, fract(v / 2.0)) * 0.1;
@@ -174,18 +187,42 @@ const BUILD_FS = /* glsl */ `uniform float uTime, uFade, uMirror; varying vec3 v
 
 // giant animated billboards hung on the towers
 const BOARD_VS = /* glsl */ `attribute vec4 aInfo; uniform float uZ, uMirror; ${WRAP}
-  varying vec2 vUv; varying vec4 vInfo; varying vec3 vW;
+  varying vec2 vUv; varying vec4 vInfo; varying vec4 vW;
   void main(){ vUv = uv; vInfo = aInfo;
     vec4 w = instanceMatrix * vec4(position, 1.0);
     w.z += wrapZ(aInfo.w, uZ) - aInfo.w;
     if (uMirror > 0.5) w.y = -w.y;
-    vW = w.xyz;
+    vW = vec4(w.xyz, length(instanceMatrix[0].xyz) / length(instanceMatrix[1].xyz));
     gl_Position = projectionMatrix * modelViewMatrix * w; }`;
-const BOARD_FS = /* glsl */ `uniform float uTime, uFade, uMirror; varying vec2 vUv; varying vec4 vInfo; varying vec3 vW; ${NOISE} ${GRADE} ${COMMON_FS}
+const BOARD_FS = /* glsl */ `uniform float uTime, uFade, uMirror; uniform sampler2D uBrand; varying vec2 vUv; varying vec4 vInfo; varying vec4 vW; ${NOISE} ${GRADE} ${COMMON_FS}
   void main(){ vec2 uv = vUv; float s = vInfo.x, kind = vInfo.y, t = uTime;
     vec3 c;
     float scene = floor(t / 6.0 + s * 5.0);          // each board changes its advert every few seconds
     float k = mod(kind + scene, 8.0);
+    if (vInfo.z > 0.5) {
+      // a MindLyte advert: the light-tunnel mark glowing ring by ring, the wordmark and tagline
+      vec2 p = (uv - vec2(0.22, 0.52)) * vec2(1.6 * vW.w, 1.0);
+      vec3 bg = mix(vec3(0.04, 0.035, 0.1), vec3(0.1, 0.06, 0.2), uv.y);
+      c = bg;
+      for (int i = 0; i < 7; i++) {
+        float fi = float(i);
+        vec2 ctr = vec2(-0.04 + fi * 0.022, -0.05 + fi * 0.017);
+        float R = 0.36 * pow(0.76, fi);
+        float ring = smoothstep(0.012, 0.0, abs(length(p - ctr) - R));
+        vec3 rc = mix(vec3(0.37, 0.84, 0.82), vec3(0.64, 0.58, 1.0), fi / 4.0);
+        rc = mix(rc, vec3(0.95, 0.61, 0.82), max(0.0, fi - 4.0) / 2.0);
+        float glow = 0.35 + 0.65 * smoothstep(0.6, 1.0, sin(t * 2.2 - fi * 0.55) * 0.5 + 0.5);
+        c += rc * ring * glow * 1.4;
+      }
+      c += vec3(1.0, 0.92, 0.75) * exp(-length(p - vec2(0.11, 0.07)) * 40.0) * (0.8 + 0.4 * sin(t * 3.0));
+      vec4 wm = texture2D(uBrand, vec2((uv.x - 0.42) / 0.55, uv.y));
+      float show = smoothstep(0.0, 1.0, fract(t / 9.0) * 6.0) * (1.0 - smoothstep(0.85, 1.0, fract(t / 9.0)));
+      if (uv.x > 0.42 && uv.x < 0.97) c = mix(c, wm.rgb, wm.a * (0.4 + 0.6 * show));
+      c = mix(vec3(0.05), c, step(0.02, uv.x) * step(uv.x, 0.98) * step(0.03, uv.y) * step(uv.y, 0.97));
+      c = haze(c * 1.4, vW.xyz);
+      if (uMirror > 0.5) c *= 0.6;
+      gl_FragColor = vec4(grade(c), uFade); return;
+    }
     vec3 a = neonCol(h1(s + scene)), b = neonCol(h1(s * 3.0 + scene + 0.5));
     if (k < 1.0) {
       // flowing colour waves with a big glyph
@@ -272,12 +309,12 @@ const BOARD_FS = /* glsl */ `uniform float uTime, uFade, uMirror; varying vec2 v
     // the screen's frame and scanlines
     float frame = step(0.02, uv.x) * step(uv.x, 0.98) * step(0.03, uv.y) * step(uv.y, 0.97);
     c = mix(vec3(0.05), c * (0.9 + 0.1 * sin(uv.y * 400.0)), frame);
-    c = haze(c * 1.6, vW);
+    c = haze(c * 1.6, vW.xyz);
     if (uMirror > 0.5) c *= 0.6;
     gl_FragColor = vec4(grade(c), uFade); }`;
 
 function buildCity() {
-  const parts = [], boards = [];
+  const parts = [], boards = [], roofs = [];
   for (const side of [-1, 1]) {
     for (const [row, x0, hMin, hMax] of [[0, STREET, 30, 150], [1, STREET + 34, 70, 230]]) {
       let z = 0;
@@ -314,7 +351,19 @@ function buildCity() {
           parts.push({ p: [tx, (y + H) / 2, zc], s: [topD, H - y, topW], i: info(PART.tower, seed + 0.37) });
           y = H;
         }
-        if (Math.random() < 0.5) {
+        if (Math.random() < 0.22 && topW > 9 && topD > 9) {
+          // a roof garden with a little pagoda
+          parts.push({ p: [tx, y + 0.75, zc], s: [topD * 0.95, 1.5, topW * 0.95], i: info(PART.garden) });
+          let ty = y + 1.5;
+          const base = Math.min(topW, topD) * 0.42;
+          for (let k = 0; k < 3; k++) {
+            const bw = base * (1 - k * 0.24), bh = 2.4;
+            parts.push({ p: [tx, ty + bh / 2, zc], s: [bw, bh, bw], i: info(PART.temple) });
+            roofs.push({ p: [tx, ty + bh + 0.55, zc], s: [bw * 1.7, 1.1, bw * 1.7], i: info(PART.roof) });
+            ty += bh + 1.1;
+          }
+          y = ty;
+        } else if (Math.random() < 0.5) {
           const ph = 4 + Math.random() * 5;
           parts.push({ p: [tx, y + ph / 2, zc], s: [topD * 0.7, ph, topW * 0.7], i: info(PART.penthouse) });
           y += ph;
@@ -340,7 +389,31 @@ function buildCity() {
     const bw = STREET * 2 - 3, bh = 2.4 + Math.random() * 1.2;
     boards.push({ p: [0, 7.5 + Math.random() * 2, -z], w: bw, h: bh, side: 1, across: true, i: [Math.random(), Math.floor(Math.random() * 8), 0, -z] });
   }
-  return { parts, boards };
+  // a few of the big screens carry MindLyte adverts
+  boards.filter((b) => !b.across).sort(() => Math.random() - 0.5).slice(0, 5).forEach((b) => { b.i[2] = 1; });
+  return { parts, boards, roofs };
+}
+
+function brandTexture() {
+  const cv = document.createElement('canvas');
+  cv.width = 1024; cv.height = 512;
+  const c = cv.getContext('2d');
+  c.textBaseline = 'alphabetic';
+  c.font = '300 190px Comfortaa, Jost, system-ui, sans-serif';
+  c.fillStyle = '#efeaff';
+  c.fillText('mind', 20, 300);
+  const mw = c.measureText('mind').width;
+  c.font = '500 190px Comfortaa, Jost, system-ui, sans-serif';
+  const lw = c.measureText('lyte').width;
+  const g = c.createLinearGradient(20 + mw, 0, 20 + mw + lw, 0);
+  g.addColorStop(0, '#5ED6D0'); g.addColorStop(0.55, '#A493FF'); g.addColorStop(1, '#F29BD0');
+  c.fillStyle = g; c.fillText('lyte', 20 + mw, 300);
+  c.font = '400 54px Jost, system-ui, sans-serif';
+  c.fillStyle = '#b9b3e0';
+  c.fillText('J O U R N E Y S   I N   L I G H T', 30, 400);
+  const t = new THREE.CanvasTexture(cv);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
 }
 
 export class NeonCityScene extends BaseScene {
@@ -372,19 +445,25 @@ export class NeonCityScene extends BaseScene {
     sky.renderOrder = -10;
     this.world.add(sky);
 
-    const { parts, boards } = buildCity();
+    const { parts, boards, roofs } = buildCity();
+    this.brand = brandTexture();
+    document.fonts?.load('500 60px Comfortaa').then(() => { const t = brandTexture(); this.brand.image = t.image; this.brand.needsUpdate = true; }, () => {});
     const box = new THREE.BoxGeometry(1, 1, 1);
     box.setAttribute('aInfo', new THREE.InstancedBufferAttribute(new Float32Array(parts.flatMap((p) => p.i)), 4));
     const plane = new THREE.PlaneGeometry(1, 1);
     plane.setAttribute('aInfo', new THREE.InstancedBufferAttribute(new Float32Array(boards.flatMap((b) => b.i)), 4));
     const M = new THREE.Matrix4(), Q = new THREE.Quaternion(), S = new THREE.Vector3(), P = new THREE.Vector3();
+    const pyr = new THREE.ConeGeometry(0.7071, 1, 4, 1).rotateY(Math.PI / 4);
+    pyr.setAttribute('aInfo', new THREE.InstancedBufferAttribute(new Float32Array(roofs.flatMap((p) => p.i).concat(roofs.length ? [] : [0, 0, 6, 0])), 4));
     const mk = (mirror) => {
       const towers = new THREE.InstancedMesh(box, new THREE.ShaderMaterial({ uniforms: { ...U, uMirror: { value: mirror } }, vertexShader: BUILD_VS, fragmentShader: BUILD_FS, transparent: true, side: mirror ? THREE.BackSide : THREE.FrontSide }), parts.length);
       parts.forEach((p, i) => { M.makeScale(...p.s); M.setPosition(...p.p); towers.setMatrixAt(i, M); });
-      const screens = new THREE.InstancedMesh(plane, new THREE.ShaderMaterial({ uniforms: { ...U, uMirror: { value: mirror } }, vertexShader: BOARD_VS, fragmentShader: BOARD_FS, transparent: true, side: THREE.DoubleSide }), Math.max(1, boards.length));
+      const screens = new THREE.InstancedMesh(plane, new THREE.ShaderMaterial({ uniforms: { ...U, uMirror: { value: mirror }, uBrand: { value: this.brand } }, vertexShader: BOARD_VS, fragmentShader: BOARD_FS, transparent: true, side: THREE.DoubleSide }), Math.max(1, boards.length));
       boards.forEach((b, i) => { Q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), b.out || b.across ? 0 : -b.side * Math.PI / 2); M.compose(P.set(...b.p), Q, S.set(b.w, b.h, 1)); screens.setMatrixAt(i, M); });
-      for (const m of [towers, screens]) { m.frustumCulled = false; m.renderOrder = mirror ? -8 : -4; }
-      return [towers, screens];
+      const roofMesh = new THREE.InstancedMesh(pyr, towers.material, Math.max(1, roofs.length));
+      roofs.forEach((p, i) => { M.makeScale(...p.s); M.setPosition(...p.p); roofMesh.setMatrixAt(i, M); });
+      for (const m of [towers, screens, roofMesh]) { m.frustumCulled = false; m.renderOrder = mirror ? -8 : -4; }
+      return [towers, screens, roofMesh];
     };
     this.world.add(...mk(1), ...mk(0));
 
