@@ -3,8 +3,7 @@ import { BaseScene, NOISE, GRADE, STARS, POINT_SIZE, SFX, damp } from '../common
 
 // ===================================================================== Drone light show
 // Over a still night lake, a swarm of glowing drones glides from one formation
-// to the next like a murmuration of light: a slowly turning globe, a heart
-// that beats, the words "You Matter", "Amazing" and "You are Enough", and a
+// to the next like a murmuration of light: a slowly turning globe, a heart, the words "You Matter", "Amazing" and "You are Enough", and a
 // spiral galaxy, each mirrored in the water below.
 const N = 1400;
 const CY = 22, CZ = -42;          // centre of the show in the sky
@@ -86,6 +85,9 @@ export class DroneShowScene extends BaseScene {
 
     this.pos = new Float32Array(N * 3);
     this.col = new Float32Array(N * 3);
+    this.bri = new Float32Array(N).fill(1);
+    this.mid = Array.from({ length: N }, () => [0, 0, 0]);
+    this.dur = Array.from({ length: N }, () => 3.5 + Math.random() * 1.5);
     const seed = new Float32Array(N).map(() => Math.random());
     this.from = sphereTargets(); this.to = this.from; this.delay = Array.from({ length: N }, () => Math.random() * 1.6);
     this.cFrom = this._cols(SHOW[0].cols); this.cTo = this.cFrom;
@@ -93,12 +95,13 @@ export class DroneShowScene extends BaseScene {
     g.setAttribute('position', new THREE.BufferAttribute(this.pos, 3));
     g.setAttribute('aCol', new THREE.BufferAttribute(this.col, 3));
     g.setAttribute('aSeed', new THREE.BufferAttribute(seed, 1));
+    g.setAttribute('aBri', new THREE.BufferAttribute(this.bri, 1));
     const mat = (alpha) => new THREE.ShaderMaterial({
       transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, uniforms: { ...U, uA: { value: alpha } },
-      vertexShader: /* glsl */ `attribute vec3 aCol; attribute float aSeed; uniform float uTime, uViewH; varying vec3 vC; varying float vT; ${POINT_SIZE}
+      vertexShader: /* glsl */ `attribute vec3 aCol; attribute float aSeed; attribute float aBri; uniform float uTime, uViewH; varying vec3 vC; varying float vT; ${POINT_SIZE}
         void main(){ vec4 mv = modelViewMatrix * vec4(position, 1.0);
-          gl_PointSize = pointPx(0.4, mv);
-          vC = aCol; vT = 0.85 + 0.15 * sin(uTime * (2.0 + aSeed * 3.0) + aSeed * 40.0);
+          gl_PointSize = pointPx(0.4 * (0.7 + 0.3 * min(aBri, 1.5)), mv);
+          vC = aCol; vT = aBri * (0.9 + 0.1 * sin(uTime * (1.0 + aSeed * 2.0) + aSeed * 40.0));
           gl_Position = projectionMatrix * mv; }`,
       fragmentShader: /* glsl */ `uniform float uFade, uA; varying vec3 vC; varying float vT;
         void main(){ vec2 q = gl_PointCoord - 0.5; float r = dot(q, q);
@@ -115,7 +118,8 @@ export class DroneShowScene extends BaseScene {
     this.group.add(refl);
 
     this.step = 0; this.t = 0; this.state = 'hold'; this.cur = SHOW[0]; this.spin = 0;
-    this._place(1);
+    this.mid = this.from.map((p) => p.slice());
+    this._place(99);
   }
 
   _cols(list) {
@@ -136,25 +140,34 @@ export class DroneShowScene extends BaseScene {
     idx.forEach((d, k) => { out[d] = tg[k]; });
     return out;
   }
+  // k: seconds since the transition began (or 99 when holding)
   _place(k) {
-    const f = this.cur;
-    const beat = f.beat ? 1 + 0.07 * Math.exp(-((this.t * 1.1) % 1) * 8) + 0.04 * Math.exp(-(((this.t * 1.1) + 0.7) % 1) * 9) : 1;
     const cs = Math.cos(this.spin), sn = Math.sin(this.spin);
+    const nav = 0.12;
     for (let i = 0; i < N; i++) {
-      const a = this.from[i], b = this.to[i];
-      let e = Math.min(1, Math.max(0, (k * 5.5 - this.delay[i]) / 3.9));
-      e = e * e * (3 - 2 * e);
-      // fly through a gentle arc between formations
-      const lift = Math.sin(e * Math.PI) * (2 + (i % 7));
-      let x = a[0] + (b[0] - a[0]) * e, y = a[1] + (b[1] - a[1]) * e + lift, z = a[2] + (b[2] - a[2]) * e;
-      x *= beat; y *= beat;
+      const a = this.from[i], b = this.to[i], m = this.mid[i];
+      const local = (k - this.delay[i]) / this.dur[i];
+      const e0 = Math.min(1, Math.max(0, local));
+      const e = e0 * e0 * (3 - 2 * e0);
+      // a smooth curved flight: out through the loose cloud and in to the new place
+      const u1 = 1 - e;
+      let x = u1 * u1 * a[0] + 2 * u1 * e * m[0] + e * e * b[0];
+      let y = u1 * u1 * a[1] + 2 * u1 * e * m[1] + e * e * b[1];
+      let z = u1 * u1 * a[2] + 2 * u1 * e * m[2] + e * e * b[2];
       const xr = x * cs + z * sn, zr = -x * sn + z * cs;
       this.pos[i * 3] = xr; this.pos[i * 3 + 1] = CY + y; this.pos[i * 3 + 2] = CZ + zr;
-      const ca = this.cFrom[i], cb = this.cTo[i];
-      this.col[i * 3] = ca.r + (cb.r - ca.r) * e; this.col[i * 3 + 1] = ca.g + (cb.g - ca.g) * e; this.col[i * 3 + 2] = ca.b + (cb.b - ca.b) * e;
+      // lights: dim to a soft navigation light on leaving, flare on arriving, then settle
+      const after = (local - 1) * this.dur[i];             // seconds since this drone arrived
+      let br, cc;
+      if (local <= 0) { br = 1; cc = this.cFrom[i]; }
+      else if (local < 1) { br = Math.max(nav, 1 - local * 6); cc = local < 0.2 ? this.cFrom[i] : null; }
+      else { br = after < 0.15 ? nav + (1.7 - nav) * after / 0.15 : 1 + 0.7 * Math.exp(-(after - 0.15) * 5); cc = this.cTo[i]; }
+      if (local > 0 && local < 1 && local >= 0.2) { this.col[i * 3] = 0.9; this.col[i * 3 + 1] = 0.93; this.col[i * 3 + 2] = 1.0; }
+      else { const c = cc || this.cTo[i]; this.col[i * 3] = c.r; this.col[i * 3 + 1] = c.g; this.col[i * 3 + 2] = c.b; }
+      this.bri[i] = br;
     }
-    this.drones.geometry.attributes.position.needsUpdate = true;
-    this.drones.geometry.attributes.aCol.needsUpdate = true;
+    const at = this.drones.geometry.attributes;
+    at.position.needsUpdate = true; at.aCol.needsUpdate = true; at.aBri.needsUpdate = true;
   }
   update(dt) {
     this.t += dt;
@@ -170,12 +183,18 @@ export class DroneShowScene extends BaseScene {
       this.cFrom = Array.from({ length: N }, (_, i) => new THREE.Color(this.col[i * 3], this.col[i * 3 + 1], this.col[i * 3 + 2]));
       this.to = this._match(this._targets(this.cur));
       this.cTo = this._cols(this.cur.cols);
+      for (let i = 0; i < N; i++) {
+        const a = this.from[i], b = this.to[i];
+        this.mid[i] = [(a[0] + b[0]) / 2 + (Math.random() - 0.5) * 16, (a[1] + b[1]) / 2 + 3 + Math.random() * 9, (a[2] + b[2]) / 2 + (Math.random() - 0.5) * 14];
+        this.delay[i] = Math.random() * 1.8;
+        this.dur[i] = 3.5 + Math.random() * 1.8;
+      }
       this.state = 'move'; this.t = 0;
       if (this.fade > 0.5) SFX.play('whoosh', { pan: 0, dur: 5, gain: 0.25 });
     }
     if (this.state === 'move') {
-      this._place(Math.min(1, this.t / 5.5));
-      if (this.t > 5.6) { this.state = 'hold'; this.t = 0; if (this.fade > 0.5) SFX.play('chime', { note: [0, 4, 7, 12][this.step % 4], pan: 0, gain: 0.3 }); }
-    } else this._place(1);
+      this._place(this.t);
+      if (this.t > 8.5) { this.state = 'hold'; this.t = 0; if (this.fade > 0.5) SFX.play('chime', { note: [0, 4, 7, 12][this.step % 4], pan: 0, gain: 0.3 }); }
+    } else this._place(99);
   }
 }
