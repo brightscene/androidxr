@@ -222,6 +222,9 @@ export class XRMenu {
     bg.mesh.renderOrder = 999;
     this.panel.add(bg.mesh);
 
+    // an invisible target over the logo: a long pinch on it switches Premium on or off (testing)
+    this.brandBtn = this._btn(this.panel, new Button(0.46, 0.14, () => {}, () => {}), -0.53, 0.55, false);
+
     // tabs
     TABS.forEach((name, i) => {
       this._btn(this.panel, new Button(0.19, 0.075, pill(name, () => this.tab === name), () => this.setTab(name)), -0.16 + i * 0.2, 0.53);
@@ -703,7 +706,8 @@ export class XRMenu {
         const y = this._panelY(ctl);
         if (y != null && y < J_TOP && y > J_BOT) this.jDrag = { ctl, y, s: this.jScroll, t: performance.now() };
       });
-      ctl.addEventListener('selectend', () => { if (this.jDrag?.ctl === ctl) this.jDrag = null; });
+      ctl.addEventListener('selectend', () => { if (this.jDrag?.ctl === ctl) this.jDrag = null; if (this.brandHold?.ctl === ctl) this.brandHold = null; });
+      ctl.addEventListener('selectstart', () => { if (this.visible && this._hit(ctl) === this.brandBtn) this.brandHold = { ctl, t: performance.now() }; });
       ctl.addEventListener('disconnected', () => { ctl.userData.connected = false; ray.visible = false; dot.visible = false; });
       ctl.addEventListener('select', () => {
         if (this.jDragged) { this.jDragged = false; return; }   // that was a scroll, not a press
@@ -773,6 +777,10 @@ export class XRMenu {
       }
     }
     this._tickJourneys(dt);
+    if (this.brandHold && performance.now() - this.brandHold.t > 800) {
+      if (this._hit(this.brandHold.ctl) === this.brandBtn) this.app.togglePremium();
+      this.brandHold = null;
+    }
     const hovered = new Set();
     for (const ctl of this.controllers) {
       const u = ctl.userData;

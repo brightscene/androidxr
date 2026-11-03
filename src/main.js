@@ -235,6 +235,17 @@ class App {
   }
 
   // ------------------------------------------------------------ playback
+  // For testing until payments are connected: a long press on the MindLyte logo
+  // switches Premium on or off (remembered on this device).
+  togglePremium() {
+    this.premium = !this.premium;
+    try { if (this.premium) localStorage.setItem('mindlyte-premium', '1'); else localStorage.removeItem('mindlyte-premium'); } catch {}
+    this.ui.toast(this.premium ? 'Premium unlocked for testing' : 'Premium locked again');
+    this.menu.showUnlock?.(false);
+    this.menu._layoutJourneys?.();
+    this._changed();
+  }
+
   beginOrResume() {
     this.voice.unlock(); // inside the user gesture
     // a Premium journey without Premium: show the offer instead

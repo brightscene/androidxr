@@ -216,6 +216,16 @@ export class DomUI {
     on('#sw-cancel', 'click', () => app.declineStrobe());
     on('#volume', 'input', (e) => app.setVolume(Number(e.target.value)));
     on('#begin', 'click', () => app.beginOrResume());
+    // long-press the logo to switch Premium on or off (testing, until payments are connected)
+    {
+      const brand = this.$('.brand');
+      let timer = 0;
+      const cancel = () => clearTimeout(timer);
+      brand.addEventListener('pointerdown', () => { cancel(); timer = setTimeout(() => { app.togglePremium(); this.$('#unlock').classList.add('hidden'); }, 800); });
+      for (const ev of ['pointerup', 'pointerleave', 'pointercancel']) brand.addEventListener(ev, cancel);
+      brand.addEventListener('contextmenu', (e) => e.preventDefault());
+      brand.style.userSelect = 'none'; brand.style.webkitUserSelect = 'none'; brand.style.touchAction = 'manipulation';
+    }
     on('#enter-vr', 'click', () => this._enter('immersive-vr'));
     on('#enter-ar', 'click', () => this._enter('immersive-ar'));
     on('#end', 'click', () => app.stop());
