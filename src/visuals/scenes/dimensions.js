@@ -38,7 +38,7 @@ export class TimePortalScene extends BaseScene {
     Object.assign(U, { uPortal: { value: 0 }, uHue: { value: Math.random() }, uFlash: { value: 0 }, uWarp: { value: 0 }, uPulse: { value: 0 } });
     this.group.add(dome(U, /* glsl */ `
       uniform float uTime, uTravel, uFade, uPulse, uBreath, uEnergy, uPortal, uHue, uFlash, uWarp;
-      varying vec3 vDir; ${NOISE} ${GRADE} ${HSV}
+      varying vec3 vDir; ${NOISE} ${GRADE} ${HSV} ${NEBULA}
       void main(){
         vec3 d = normalize(vDir);
         float r = max(length(d.xy), 1e-3);
@@ -53,23 +53,25 @@ export class TimePortalScene extends BaseScene {
         float w = fbm(P * 1.9 + vec3(n * 2.2, n * 1.7, uTime * 0.1));
         vec2 sp = vec2(cos(Z * 0.9 + uTime * 0.4), sin(Z * 0.9 + uTime * 0.4));
         float spiral = 0.5 + 0.5 * sin(dot(hit, sp) * 3.0 + Z * 0.6);
-        float hue = fract(uHue + Z * 0.012 + w * 0.35 + spiral * 0.08);
-        vec3 aura = hsv(hue, 0.72, 1.0);
-        vec3 c = aura * (0.22 + w * 0.95) * (0.6 + spiral * 0.6);
-        float fil = smoothstep(0.035, 0.0, abs(w - 0.5));
-        c += mix(aura, vec3(1.0), 0.6) * fil * 0.8;
+        // dark nebula colours only: deep navy, indigo, violet, a little magenta and teal
+        float tn = 0.18 + 0.62 * fract(uHue * 0.7 + Z * 0.008 + w * 0.3 + spiral * 0.06);
+        vec3 neb = nebula(tn);
+        vec3 c = neb * (0.12 + w * 0.8) * (0.55 + spiral * 0.45);
+        float fil = smoothstep(0.03, 0.0, abs(w - 0.5));
+        c += mix(neb, vec3(0.8, 0.78, 1.0), 0.35) * fil * 0.4;
+        // stars drifting past on the walls
+        vec2 st = starDot(normalize(vec3(hit, Z * 0.06)), 220.0, 0.988);
+        c += mix(vec3(0.75, 0.85, 1.0), vec3(1.0, 0.85, 0.75), st.y) * st.x * 0.9 * smoothstep(40.0, 4.0, z);
         float ring = pow(0.5 + 0.5 * sin(Z * 1.2 - uTime * 2.0), 24.0);
-        c += vec3(1.0) * ring * (0.12 + uPulse * 0.9) * smoothstep(30.0, 2.0, z);
-        // The far end fades into a deep, coloured distance rather than white,
-        // so you can see a long way down the tube; only a small point of light
-        // marks the exit until a portal opens.
-        vec3 exitCol = hsv(fract(uHue + 0.5), 0.35, 1.0);
-        vec3 deep = hsv(fract(uHue + 0.62), 0.75, 0.32);
-        c = mix(c, deep, smoothstep(14.0, 70.0, z));
-        float open = exp(-r * r * (900.0 - uPortal * 860.0)) * step(0.0, fwd);
-        c += exitCol * open * (0.55 + uPortal * 2.4);
+        c += vec3(0.55, 0.5, 0.95) * ring * (0.05 + uPulse * 0.35) * smoothstep(30.0, 2.0, z);
+        // the far end fades into deep space; only a small point of light marks the exit
+        vec3 exitCol = vec3(0.92, 0.9, 1.0);
+        vec3 deep = nebula(0.12 + 0.08 * fract(uHue));
+        c = mix(c, deep, smoothstep(12.0, 60.0, z));
+        float open = exp(-r * r * (2600.0 - uPortal * 2400.0)) * step(0.0, fwd);
+        c += exitCol * open * (0.5 + uPortal * 1.6);
         c *= mix(0.22, 1.0, smoothstep(-0.6, 0.2, fwd));
-        c = mix(c, mix(exitCol, vec3(1.0), 0.3) * 0.9, uFlash);   // a soft wash of the next dimension's colour, not a white-out
+        c = mix(c, nebula(0.55) * 0.9, uFlash);   // a soft violet wash, not a white-out   // a soft wash of the next dimension's colour, not a white-out
         gl_FragColor = vec4(grade(c * (0.75 + uEnergy * 0.35)), uFade);
       }`));
     this.motes = particles(U, { count: 700, min: [-1.4, 0.3, -70], max: [1.4, 2.9, 4], vel: [0, 0, 9], sway: 0.25, size: [0.012, 0.03], colors: ['#ffffff', '#ffe8ff', '#d8f6ff'], alpha: 0.8 });
@@ -227,7 +229,7 @@ export class WarpGateScene extends BaseScene {
     Object.assign(U, { uShift: { value: 0 }, uShiftT: { value: 0 }, uPulse: { value: 0 } });
     this.group.add(dome(U, /* glsl */ `
       uniform float uTime, uTravel, uFade, uBreath, uEnergy, uShift, uPulse;
-      varying vec3 vDir; ${NOISE} ${GRADE}
+      varying vec3 vDir; ${NOISE} ${GRADE} ${STARS}
       void main(){
         vec3 d = normalize(vDir);
         float r = max(length(d.xy), 1e-3);
@@ -240,19 +242,22 @@ export class WarpGateScene extends BaseScene {
         vec3 P = vec3(h2 * 2.0, Z);
         float n = fbm(P + vec3(0.0, 0.0, -uTime * 0.25));
         float m = fbm(P * vec3(1.7, 1.7, 0.8) + n * 1.4);
-        vec3 violet = vec3(0.6, 0.28, 0.95), gold = vec3(1.0, 0.8, 0.15);
+        // dark space colours: deep violet and midnight blue, lit softly
+        vec3 violet = vec3(0.26, 0.1, 0.5), blue = vec3(0.04, 0.09, 0.3);
         float k = smoothstep(0.46, 0.56, n + sin(uShift * 6.28318) * 0.05);
-        vec3 c = mix(violet, gold, k) * (0.62 + m * 0.75);
-        c = mix(c, vec3(1.0, 0.88, 1.0), 0.14 * m);                     // pastel glow like light through gauze
-        c += vec3(1.0, 0.95, 0.88) * pow(1.0 - abs(m * 2.0 - 1.0), 14.0) * (0.3 + uPulse * 0.5);
+        vec3 c = mix(violet, blue, k) * (0.3 + m * 0.6);
+        c = mix(c, vec3(0.5, 0.45, 0.85), 0.06 * m);                     // faint glow like light through gauze
+        c += vec3(0.55, 0.5, 0.95) * pow(1.0 - abs(m * 2.0 - 1.0), 14.0) * (0.12 + uPulse * 0.25);
+        vec2 st = starDot(normalize(vec3(h2, Z * 0.5)), 200.0, 0.988);
+        c += vec3(0.8, 0.85, 1.0) * st.x * 0.8 * smoothstep(40.0, 3.0, z);
         float cells = smoothstep(0.56, 0.44, fbm(vec3(h2 * 5.0, z * 0.6 - uTime * 1.2)));
         float throat = smoothstep(3.0, 9.0, z) * smoothstep(60.0, 12.0, z);
         c = mix(c, c * vec3(0.55, 0.45, 0.85) * 0.55, cells * throat * 0.7);
         float core = smoothstep(0.032, 0.022, r) * step(0.0, fwd);
         float rim = exp(-pow((r - 0.034) * 70.0, 2.0)) * step(0.0, fwd);
-        c = c * (1.0 - core) + vec3(1.0, 0.95, 0.82) * rim * (1.2 + uBreath * 0.5);
+        c = c * (1.0 - core) + vec3(0.75, 0.72, 1.0) * rim * (0.7 + uBreath * 0.3);
         c *= mix(0.25, 1.0, smoothstep(-0.6, 0.25, fwd));
-        gl_FragColor = vec4(grade(c * (0.95 + uEnergy * 0.25)), uFade);
+        gl_FragColor = vec4(grade(c * (0.9 + uEnergy * 0.2)), uFade);
       }`));
   }
   onEvent(e) {
