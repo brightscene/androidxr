@@ -13,7 +13,7 @@ import { ImageCycleScene } from './imagecycle.js';
 import { LabyrinthScene } from './labyrinth.js';
 import { ReikiScene } from './reiki.js';
 import { StarGateScene } from './stargate.js';
-import { MurmurationScene, FireplaceScene } from './cozy.js';
+import { MurmurationScene, FireplaceScene, CampfireScene } from './cozy.js';
 import { QuantumScene } from './quantum.js';
 import { WombScene } from './womb.js';
 import { DrumJourneyScene, IllusionScene, MindsEyeScene } from './lighttracks.js';
@@ -46,6 +46,7 @@ export const SCENES = {
   silk: { type: SilkVortexScene, label: 'Silk vortex', group: 'Dimensions', cruise: 4, nebula: 0, world: 'stars' },
 
   murmuration: { type: MurmurationScene, label: 'Starling murmuration', group: 'Nature', cruise: 0, nebula: 0, world: 'bare' },
+  campfire: { type: CampfireScene, label: 'Campfire under the stars', group: 'Nature', cruise: 0, nebula: 0, world: 'off' },
   fireplace: { type: FireplaceScene, label: 'Fireplace', group: 'Nature', cruise: 0, nebula: 0, world: 'off' },
   meadow: { type: MeadowScene, label: 'Meadow', group: 'Nature', cruise: 0, nebula: 0, world: 'bare' },
   beach: { type: BeachScene, label: 'White beach', group: 'Nature', cruise: 0, nebula: 0, world: 'bare' },
