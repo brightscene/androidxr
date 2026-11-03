@@ -20,6 +20,13 @@ const shuffle = (a) => { a = [...a]; for (let i = a.length - 1; i > 0; i--) { co
 
 const loadPrefs = () => { try { return JSON.parse(localStorage.getItem('mindlyte') || '{}'); } catch { return {}; } };
 
+const HAND_JOINTS = ['wrist',
+  'thumb-metacarpal', 'thumb-phalanx-proximal', 'thumb-phalanx-distal', 'thumb-tip',
+  'index-finger-metacarpal', 'index-finger-phalanx-proximal', 'index-finger-phalanx-intermediate', 'index-finger-phalanx-distal', 'index-finger-tip',
+  'middle-finger-metacarpal', 'middle-finger-phalanx-proximal', 'middle-finger-phalanx-intermediate', 'middle-finger-phalanx-distal', 'middle-finger-tip',
+  'ring-finger-metacarpal', 'ring-finger-phalanx-proximal', 'ring-finger-phalanx-intermediate', 'ring-finger-phalanx-distal', 'ring-finger-tip',
+  'pinky-finger-metacarpal', 'pinky-finger-phalanx-proximal', 'pinky-finger-phalanx-intermediate', 'pinky-finger-phalanx-distal', 'pinky-finger-tip'];
+
 class App {
   constructor() {
     this.tracks = TRACKS;
@@ -678,6 +685,15 @@ class App {
       list.push({ origin: rc.ray.origin.clone(), dir: rc.ray.direction.clone(), tip: null, id: 'mouse' });
     }
     INPUT.pointers = list;
+    // tracked hands: every joint's position, for scenes that show or use your hands
+    const hands = [];
+    if (xr.isPresenting) for (let i = 0; i < 2; i++) {
+      const hand = xr.getHand(i);
+      const js = hand?.joints;
+      if (!js || !js['wrist'] || !js['wrist'].visible) continue;
+      hands.push({ side: hand.userData?.handedness || (i ? 'right' : 'left'), joints: HAND_JOINTS.map((n) => (js[n] && js[n].visible ? new THREE.Vector3().setFromMatrixPosition(js[n].matrixWorld) : null)) });
+    }
+    INPUT.hands = hands;
     this._detectShake(list);
   }
 

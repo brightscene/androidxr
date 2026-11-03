@@ -177,7 +177,7 @@ export class XRMenu {
 
     // footer
     const fy = -0.6;
-    this.beginBtn = this._btn(this.panel, new Button(0.4, 0.09, (c, w, h, b) => {
+    this.beginBtn = this._btn(this.panel, new Button(0.34, 0.09, (c, w, h, b) => {
       roundRect(c, 4, 4, w - 8, h - 8, (h - 8) / 2);
       c.fillStyle = b.hover ? '#fff' : 'rgba(255,255,255,0.86)';
       c.fill();
@@ -187,10 +187,11 @@ export class XRMenu {
       c.textBaseline = 'middle';
       const label = app.playing ? (app.playingTrack === app.selected ? 'Resume' : 'Play selected') : 'Begin';
       c.fillText(label, w / 2, h / 2 + 2);
-    }, () => app.beginOrResume()), -0.3, fy);
-    this.endBtn = this._btn(this.panel, new Button(0.24, 0.09, pill('End session'), () => app.stop()), 0.07, fy);
-    this.closeBtn = this._btn(this.panel, new Button(0.18, 0.09, pill('Close'), () => this.show(false)), 0.3, fy);
-    this._btn(this.panel, new Button(0.2, 0.09, pill('Exit VR'), () => app.exitXR()), 0.6, fy);
+    }, () => app.beginOrResume()), -0.55, fy);
+    this._btn(this.panel, new Button(0.27, 0.09, pill('Center View'), () => app.recentre()), -0.23, fy);
+    this.endBtn = this._btn(this.panel, new Button(0.24, 0.09, pill('End session'), () => app.stop()), 0.04, fy);
+    this.closeBtn = this._btn(this.panel, new Button(0.17, 0.09, pill('Close'), () => this.show(false)), 0.26, fy);
+    this._btn(this.panel, new Button(0.28, 0.09, pill('Exit Immersive'), () => app.exitXR()), 0.53, fy);
 
     // toggle orb shown during a session
     this.orb = new Button(0.14, 0.17, (c, w, h, b) => {
@@ -303,7 +304,6 @@ export class XRMenu {
     this._layoutScenes();
     this._row(p, 3.9, 'Deep dives', [['Gentle', 'gentle'], ['Full speed', 'full'], ['Off', 'off']], () => app.dives, (v) => app.setDives(v));
     this._row(p, 4.85, 'Visual quality', [['Smooth', 'smooth'], ['Balanced', 'balanced'], ['Sharp', 'sharp']], () => app.quality, (v) => app.setQuality(v));
-    this._row(p, 5.8, 'Centre view', [['Centre now', 'now']], () => null, () => app.recentre(), [0.28]);
     this._btn(p, new Button(1.46, 0.06, textDraw(() => {
       const b = app.background;
       if (b === 'off') return app.xrMode === 'immersive-ar' ? 'Off: only your room and the lights.' : 'Off: pure black. Only the lights (and this menu) are shown.';
