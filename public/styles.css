@@ -147,3 +147,7 @@ body:not(.playing) #close-menu { display: none; }
 .bar-logo { flex: none; width: 44px; height: 44px; filter: drop-shadow(0 0 8px rgba(164, 147, 255, 0.5)); }
 .bar-body { flex: 1; min-width: 0; }
 #session.idle .bar { opacity: 0; transform: translate(-50%, 12px); pointer-events: none; }
+.bar-brand { display: flex; align-items: center; gap: 8px; flex: none; padding-right: 6px; border-right: 1px solid var(--line); }
+.bar-word { font-family: "Comfortaa", "Jost", system-ui, sans-serif; font-size: 20px; font-weight: 300; color: #e9e4ff; }
+.bar-word .lyte { font-weight: 500; background: linear-gradient(90deg, #5ED6D0 0%, #A493FF 55%, #F29BD0 100%); -webkit-background-clip: text; background-clip: text; color: transparent; }
+@media (max-width: 520px) { .bar-word { display: none; } }

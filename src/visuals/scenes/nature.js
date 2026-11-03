@@ -103,7 +103,7 @@ export class BeachScene extends BaseScene {
       size: 220, seg: 200, height: (x, z) => (z < -40 ? sandY(x, -40) : sandY(x, z)), sunDir: sun, fog: '#d8eefa', fogNear: 60, fogFar: 200, ambient: 0.6,
       color: (x, z, y) => {
         const wet = clamp01((-z - 4.2) / 1.5);
-        return mix3(mix3(hex('#f7f0df'), hex('#efe2c4'), clamp01(0.5 + n(x * 0.8, z * 0.8) * 0.8)), hex('#c9b48c'), wet * 0.8);
+        return mix3(mix3(hex('#f7f0df'), hex('#efe2c4'), clamp01(0.5 + n(x * 0.8, z * 0.8) * 0.8)), hex('#d6c39c'), wet * 0.5);
       },
     }));
     // the sea: dense near the shore for breaking waves, sparse far out
@@ -135,6 +135,7 @@ export class BeachScene extends BaseScene {
         }`,
       fragmentShader: /* glsl */ `uniform vec3 uSunDir; uniform float uTime, uFade; varying vec3 vW; varying float vH; varying float vD; varying float vBreak;
         ${NOISE} ${GRADE}
+        const float K = 6.2832 / 15.0; const float OM = K * 2.1;
         void main(){
           vec3 n = normalize(cross(dFdx(vW), dFdy(vW))); if (n.y < 0.0) n = -n;
           vec3 v = normalize(vW - cameraPosition);
@@ -148,7 +149,11 @@ export class BeachScene extends BaseScene {
           c += vec3(1.0, 0.97, 0.9) * pow(max(dot(r, uSunDir), 0.0), 250.0) * 4.0;
           float tex = fbm(vec3(vW.xz * vec2(0.9, 1.6), uTime * 0.4));
           float foam = vBreak * smoothstep(0.35, 0.65, tex + vBreak * 0.4);
-          foam += smoothstep(9.0, 0.0, vD) * smoothstep(0.45, 0.75, fbm(vec3(vW.xz * 1.3, uTime * 0.5))) * 0.9;
+          // whitewater only just behind each wave as it breaks, thinning as it rolls in (none left lying about)
+          float lat = sin(vW.x * 0.045) * 0.9 + sin(vW.x * 0.11 + 1.3) * 0.35;
+          float behindCrest = fract((K * vD + OM * uTime + lat - 1.5708) / 6.2832);
+          float bore = smoothstep(10.0, 1.0, vD) * exp(-behindCrest * 9.0);
+          foam += bore * smoothstep(0.3, 0.6, fbm(vec3(vW.xz * 1.3, uTime * 0.5)) + bore * 0.3);
           c = mix(c, vec3(0.97, 0.98, 1.0), clamp(foam, 0.0, 1.0));
           c = mix(c, vec3(0.85, 0.93, 0.98), smoothstep(80.0, 200.0, vD));
           float edge = smoothstep(0.0, 0.8, vD);
@@ -171,13 +176,28 @@ export class BeachScene extends BaseScene {
         void main(){
           float lat = sin(vW.x * 0.045) * 0.9 + sin(vW.x * 0.11 + 1.3) * 0.35;
           float ph = fract((OM * uTime + lat - 1.5708) / 6.2832);
-          float reach = sin(3.14159 * clamp(ph / 0.75, 0.0, 1.0));
-          float front = -5.6 + reach * (2.6 + 0.4 * sin(vW.x * 0.3));
-          float behind = smoothstep(front + 0.05, front - 0.3, vW.z);
-          float line = exp(-pow((vW.z - front) * 7.0, 2.0)) * (0.6 + 0.4 * fbm(vec3(vW.x * 2.0, vW.z * 4.0, uTime)));
-          float lace = smoothstep(0.5, 0.7, fbm(vec3(vW.xz * 3.0, uTime * 0.6))) * behind * 0.6;
-          vec3 c = mix(vec3(0.55, 0.85, 0.85), vec3(1.0), clamp(line + lace, 0.0, 1.0));
-          float a = clamp(behind * 0.45 + line + lace, 0.0, 1.0) * smoothstep(-5.9, -5.4, vW.z) + smoothstep(-5.3, -6.0, vW.z) * 0.0;
+          // run-up: the sheet of water races up the sand; backwash: it slides
+          // back slowly and thins out, leaving only darker wet sand that dries
+          float R = 2.4 + 0.5 * sin(vW.x * 0.3 + floor(OM * uTime / 6.2832) * 1.7);
+          float up = 1.0 - pow(1.0 - clamp(ph / 0.28, 0.0, 1.0), 3.0);
+          float back = smoothstep(0.28, 0.85, ph);
+          float reach = ph < 0.28 ? up : 1.0 - back;
+          float front = -5.6 + reach * R;
+          float wobble = (fbm(vec3(vW.x * 1.5, 0.0, uTime * 0.3)) - 0.5) * 0.25;
+          float z = vW.z + wobble;
+          float covered = smoothstep(front + 0.04, front - 0.25, z);
+          float thin = ph < 0.28 ? 1.0 : 1.0 - smoothstep(0.28, 0.8, ph) * 0.85;   // the sheet thins as it drains
+          float foamLine = exp(-pow((z - front) * 8.0, 2.0)) * (ph < 0.28 ? 1.0 : 1.0 - smoothstep(0.28, 0.6, ph)) * (0.6 + 0.4 * fbm(vec3(vW.x * 2.0, vW.z * 4.0, uTime)));
+          float lace = smoothstep(0.52, 0.72, fbm(vec3(vW.xz * 3.0 + vec2(0.0, -reach), uTime * 0.6))) * covered * thin * (1.0 - smoothstep(0.3, 0.7, ph)) * 0.7;
+          vec3 water = mix(vec3(0.45, 0.8, 0.8), vec3(0.6, 0.9, 0.88), thin);
+          vec3 c = mix(water, vec3(1.0), clamp(foamLine + lace, 0.0, 1.0));
+          float a = clamp(covered * 0.42 * thin + foamLine + lace, 0.0, 1.0);
+          // wet sand where the water has just been: dark, glossy, fading as it dries
+          float maxFront = -5.6 + R;
+          float wet = smoothstep(maxFront + 0.1, maxFront - 0.2, z) * (1.0 - covered) * (ph < 0.28 ? 0.0 : 1.0 - smoothstep(0.6, 1.0, ph));
+          c = mix(c, vec3(0.62, 0.53, 0.38), wet * (1.0 - a));
+          a = max(a, wet * 0.35);
+          a *= smoothstep(-5.9, -5.45, vW.z);
           gl_FragColor = vec4(grade(c), a * uFade);
         }`,
     }));

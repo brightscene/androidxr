@@ -35,7 +35,7 @@ export const SCENES = {
   affirm: { type: AffirmationScene, label: 'Affirmation field', group: 'Dimensions', cruise: 2.2, nebula: 0.75, world: 'full' },
   cycle: { type: ImageCycleScene, label: 'Image cycling', group: 'Dimensions', cruise: 0.2, nebula: 0.75, world: 'full' },
   quantum: { type: QuantumScene, label: 'Quantum field', group: 'Dimensions', cruise: 0, nebula: 0, world: 'bare' },
-  stargate: { type: StarGateScene, label: 'Star gate', group: 'Dimensions', cruise: 0, nebula: 0, world: 'bare' },
+  stargate: { type: StarGateScene, label: 'Wormhole', group: 'Dimensions', cruise: 0, nebula: 0, world: 'bare' },
   labyrinth: { type: LabyrinthScene, label: 'Space labyrinth', group: 'Dimensions', cruise: 0, nebula: 0, world: 'stars' },
   portal: { type: TimePortalScene, label: 'Time portal', group: 'Dimensions', cruise: 4, nebula: 0, world: 'bare' },
   kaleido: { type: KaleidosphereScene, label: 'Kaleidosphere', group: 'Dimensions', cruise: 0, nebula: 0, world: 'bare' },

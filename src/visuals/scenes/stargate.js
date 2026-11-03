@@ -196,6 +196,7 @@ export class StarGateScene extends BaseScene {
 
     this.world = 0;
     this.st = { phase: 'idle', t: 0, lock: 0 };
+    this.tunnelOnly = true;   // the gate itself is gone; only the wormhole ride remains
   }
 
   _sfx(kind, opts) { if (this.fade > 0.5) SFX.play(kind, opts); }
@@ -210,8 +211,27 @@ export class StarGateScene extends BaseScene {
     U.uGround.value.setRGB(...w.ground); U.uMoons.value = w.moons;
   }
 
-  update(dt) {
+  update(dt, t) {
     const U = this.uniforms, st = this.st;
+    if (this.tunnelOnly) {
+      // just the wormhole: ride it endlessly, easing between a glide and a rush,
+      // with a surge (and a rush of air) every so often
+      this.gate.visible = this.sky.visible = this.ground.visible = this.dust.visible = false;
+      this.flash.visible = false;
+      U.uWorm.value = 1;
+      this.worm.visible = true;
+      this.wNext = (this.wNext ?? 8) - dt;
+      if (this.wNext <= 0) {
+        this.wTarget = [0.6, 1.2, 2.2, 3.5][Math.floor(Math.random() * 4)];
+        if (this.wTarget > 2 && this.fade > 0.5) SFX.play('whoosh', { pan: 0, dur: 3, gain: 0.6 });
+        this.wNext = 9 + Math.random() * 9;
+      }
+      this.wSpeed = damp(this.wSpeed ?? 1.2, this.wTarget ?? 1.2, 0.5, dt);
+      U.uWormT.value += dt * this.wSpeed;
+      this.streaks.userData.u.uAlpha.value = 0.9;
+      this.streaks.userData.u.uBoost.value = Math.max(0, this.wSpeed - 1.2) * 0.6;
+      return;
+    }
     st.t += dt;
     U.uRipple.value *= Math.exp(-dt * 1.5);
     U.uLockFlash.value *= Math.exp(-dt * 3);
