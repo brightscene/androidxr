@@ -8,7 +8,7 @@ import { MandalaScene } from './mandala.js';
 import { CymaticsScene } from './cymatics.js';
 import { MeadowScene, BeachScene, UnderwaterScene, ZenGardenScene, GlowForestScene, SnowPeaksScene, DesertNightScene } from './nature.js';
 import { LanternLakeScene, RainLakeScene, CloudFlightScene, LotusPondScene, BambooGroveScene, FloatingIslandsScene } from './skywater.js';
-import { TimePortalScene, KaleidosphereScene } from './dimensions.js';
+import { TimePortalScene, KaleidosphereScene, NebulaFlightScene, WarpGateScene, MandalaBloomScene, SilkVortexScene } from './dimensions.js';
 import { MoonViewScene, FractalTunnelScene, CrystalCaveScene, NebulaScene, LightRibbonsScene, BlackHoleScene, ChakraScene } from './cosmic.js';
 
 // world: what the shared space environment shows behind the scene
@@ -26,6 +26,10 @@ export const SCENES = {
   portal: { type: TimePortalScene, label: 'Time portal', group: 'Dimensions', cruise: 4, nebula: 0, world: 'bare' },
   kaleido: { type: KaleidosphereScene, label: 'Kaleidosphere', group: 'Dimensions', cruise: 0, nebula: 0, world: 'bare' },
   tunnel: { type: FractalTunnelScene, label: 'Fractal tunnel', group: 'Dimensions', cruise: 2.5, nebula: 0, world: 'bare' },
+  nebulaflight: { type: NebulaFlightScene, label: 'Nebula flight', group: 'Dimensions', cruise: 3, nebula: 0, world: 'bare' },
+  warp: { type: WarpGateScene, label: 'Warp gate', group: 'Dimensions', cruise: 9, nebula: 0, world: 'bare' },
+  bloom: { type: MandalaBloomScene, label: 'Mandala bloom', group: 'Dimensions', cruise: 2, nebula: 0, world: 'bare' },
+  silk: { type: SilkVortexScene, label: 'Silk vortex', group: 'Dimensions', cruise: 4, nebula: 0, world: 'stars' },
 
   meadow: { type: MeadowScene, label: 'Meadow', group: 'Nature', cruise: 0, nebula: 0, world: 'bare' },
   beach: { type: BeachScene, label: 'White beach', group: 'Nature', cruise: 0, nebula: 0, world: 'bare' },
