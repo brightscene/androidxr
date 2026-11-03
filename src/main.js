@@ -768,7 +768,7 @@ window.app = new App();
       if (tag) tag.textContent = 'Tap anywhere to begin';
       const flat = document.createElement('button');
       flat.className = 'splash-flat';
-      flat.textContent = 'Stay on this screen';
+      flat.textContent = 'or enter non-immersive';
       flat.addEventListener('click', (e) => { e.stopPropagation(); tapped = true; hide(); });
       splash.appendChild(flat);
     }, Math.max(600, 3400 - performance.now()));   // about 3.4 s from opening the app
