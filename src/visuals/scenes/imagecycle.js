@@ -72,6 +72,39 @@ function cell(c, S, ox, oy, draw, label) {
   c.restore();
 }
 
+// An affirmation slide: glowing words on a soft nebula.
+function slide(text, seed) {
+  return (c, S) => {
+    const hues = [[124, 92, 255], [94, 214, 208], [242, 155, 208], [243, 199, 122]];
+    c.fillStyle = '#0b0a1f'; c.fillRect(0, 0, S, S);
+    for (let i = 0; i < 4; i++) {
+      const h = hues[(i + seed) % 4], x = S * (0.2 + 0.6 * ((Math.sin(seed * 12.9 + i * 4.1) + 1) / 2)), y = S * (0.2 + 0.6 * ((Math.cos(seed * 7.3 + i * 2.7) + 1) / 2));
+      const g = c.createRadialGradient(x, y, 0, x, y, S * 0.6);
+      g.addColorStop(0, `rgba(${h[0]},${h[1]},${h[2]},0.8)`); g.addColorStop(1, 'rgba(0,0,0,0)');
+      c.fillStyle = g; c.fillRect(0, 0, S, S);
+    }
+    c.fillStyle = 'rgba(255,255,255,0.8)';
+    for (let i = 0; i < 70; i++) { const x = (Math.sin(i * 91.7 + seed) * 0.5 + 0.5) * S, y = (Math.sin(i * 37.3 + seed * 3) * 0.5 + 0.5) * S; c.beginPath(); c.arc(x, y, 0.6 + (i % 3) * 0.5, 0, 7); c.fill(); }
+    // wrap into lines that fit
+    c.textAlign = 'center'; c.textBaseline = 'middle';
+    const font = (z) => `500 ${z}px "Comfortaa", "Jost", "Nunito", system-ui, sans-serif`;
+    let size = S * 0.105, lines;
+    for (;;) {
+      c.font = font(size);
+      lines = []; let line = '';
+      for (const w of text.split(' ')) { const t = line ? line + ' ' + w : w; if (c.measureText(t).width > S * 0.74 && line) { lines.push(line); line = w; } else line = t; }
+      lines.push(line);
+      if (lines.length <= 3 || size < S * 0.06) break;
+      size -= 2;
+    }
+    const lh = size * 1.3, y0 = S / 2 - (lines.length - 1) * lh / 2;
+    c.shadowColor = 'rgba(255,240,255,0.9)'; c.shadowBlur = S * 0.04;
+    c.fillStyle = '#ffffff';
+    lines.forEach((l, i) => c.fillText(l, S / 2, y0 + i * lh));
+    c.shadowBlur = 0;
+  };
+}
+
 function cover(img) {
   return (cc, S) => {
     const k = Math.max(S / img.width, S / img.height);
@@ -81,8 +114,8 @@ function cover(img) {
 
 // sets: [{ title, items: [{ draw, label }] }] -> one texture atlas plus where each set lives in it
 function packAtlas(sets, kind) {
-  const S = 512;
   const total = sets.reduce((n, s) => n + s.items.length, 0);
+  const S = total > 36 ? 448 : 512;   // keep the atlas texture a sensible size for the headset
   const G = Math.max(2, Math.ceil(Math.sqrt(total)));
   const cv = document.createElement('canvas');
   cv.width = cv.height = S * G;
@@ -107,7 +140,8 @@ export function buildAtlas(userImages, photoSets) {
     return packAtlas([{ title: 'Your vision', items: userImages.slice(0, 16).map((img) => ({ draw: cover(img), label: '' })) }], 'user');
   }
   if (photoSets && photoSets.length) {
-    return packAtlas(photoSets.map((s) => ({ title: s.title, items: s.items.map((it) => ({ draw: cover(it.img), label: it.cap })) })), 'photo');
+    let n = 0;
+    return packAtlas(photoSets.map((s) => ({ title: s.title, items: s.items.map((it) => (it.text ? { draw: slide(it.text, n++), label: '' } : { draw: cover(it.img), label: it.cap })) })), 'photo');
   }
   return packAtlas(SETS.map((s) => ({ title: s.title, items: s.items.map((name) => ({ draw: PAINT[name], label: name })) })), 'painted');
 }
@@ -122,9 +156,11 @@ export function loadPhotoSets() {
     photoPromise = (async () => {
       try {
         const man = await (await fetch('photos/photos.json')).json();
+        try { await Promise.race([document.fonts.load('500 40px "Comfortaa"'), new Promise((r) => setTimeout(r, 2500))]); } catch {}
         const sets = [];
         for (const s of man.sets) {
           const items = (await Promise.all(s.items.map(async (it) => {
+            if (it.text) return it;
             try { return { ...it, img: await loadImage('photos/' + it.f) }; } catch { return null; }
           }))).filter(Boolean);
           if (items.length >= 2) sets.push({ title: s.title, items });

@@ -99,7 +99,7 @@ export class DomUI {
     });
     fetch('photos/photos.json').then((r) => r.json()).then((m) => {
       const ul = this.$('#photo-credits');
-      for (const set of m.sets) for (const it of set.items) {
+      for (const set of m.sets) for (const it of set.items.filter((x) => x.f)) {
         const li = document.createElement('li');
         const a = document.createElement('a');
         a.href = it.src; a.target = '_blank'; a.rel = 'noopener'; a.textContent = it.cap;
