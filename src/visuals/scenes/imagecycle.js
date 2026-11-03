@@ -432,7 +432,7 @@ export class ImageCycleScene extends BaseScene {
         im.mix = 0; im.timer = 0;
         // each image lands with a dull thud, alternating right and left ear
         this.side = -(this.side || -1);
-        this._sfx('thud', { pan: this.side * 0.85, decay: Math.max(0.07, Math.min(0.4, 0.7 / this.rate)), gain: 0.9 - Math.min(0.35, this.rate * 0.025) });
+        this._sfx('thud', { pan: this.side * 0.85, decay: Math.max(0.07, Math.min(0.4, 0.7 / this.rate)), gain: 2.4 - Math.min(0.5, this.rate * 0.035) });
       }
       this.advance = false;
       im.mix = Math.min(1, im.mix + dt * Math.max(6, this.rate * 4));

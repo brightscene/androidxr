@@ -107,9 +107,19 @@ export class AudioEngine {
       n.buffer = this.whiteNoise; nf.type = 'lowpass'; nf.frequency.value = 320;
       ng.gain.setValueAtTime(0.22 * gain, t); ng.gain.exponentialRampToValueAtTime(0.0006, t + Math.min(0.09, decay * 0.4));
       n.connect(nf).connect(ng).connect(p);
+      // a second, higher body so the thud is heard on small headset speakers too
+      const o2 = ctx.createOscillator(), g2 = ctx.createGain();
+      o2.type = 'triangle';
+      o2.frequency.setValueAtTime(170, t);
+      o2.frequency.exponentialRampToValueAtTime(85, t + decay * 0.5);
+      g2.gain.setValueAtTime(0, t);
+      g2.gain.linearRampToValueAtTime(0.3 * gain, t + 0.004);
+      g2.gain.exponentialRampToValueAtTime(0.0006, t + decay * 0.7);
+      o2.connect(g2).connect(p);
       o.start(t); o.stop(t + decay + 0.05);
+      o2.start(t); o2.stop(t + decay + 0.05);
       n.start(t, Math.random() * 4); n.stop(t + 0.12);
-      nodes.push(o, g, lp, n, nf, ng);
+      nodes.push(o, g, lp, n, nf, ng, o2, g2);
       end(decay + 0.1);
     } else if (kind === 'whoosh') {
       const n = ctx.createBufferSource(), bp = ctx.createBiquadFilter(), g = ctx.createGain();
