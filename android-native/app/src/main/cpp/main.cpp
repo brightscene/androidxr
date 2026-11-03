@@ -17,7 +17,9 @@
 #include <openxr/openxr.h>
 #include <openxr/openxr_platform.h>
 
+#include <array>
 #include <chrono>
+#include <cstdlib>
 #include <cmath>
 #include <cstring>
 #include <string>
@@ -66,7 +68,23 @@ struct App {
   float pal[3][3] = {{0.04f, 0.1f, 0.2f}, {0.12f, 0.43f, 0.55f}, {0.6f, 0.88f, 0.85f}};
   GLuint program = 0, vao = 0, noiseTex = 0;
   GLint uRot = -1, uTan = -1, uTime = -1, uFade = -1, uTravel = -1, uC0 = -1, uC1 = -1, uC2 = -1;
+  GLint uSkyRot = -1, uShoot = -1, uShootDir = -1;
   double t0 = 0;
+
+  // per scene, as in src/visuals/scenes/index.js
+  float cruise = 0;            // drift speed through space (m/s)
+  bool stars = false;          // the star sky with its slow turn and shooting stars
+  float skyRot = 0, nextShoot = 4, shootT = -1, shootSpeed = 0.7f;
+  float shoot[4] = {0, 0, 0, -1}, shootDir[3] = {1, 0, 0};
+
+  // drifting particles (src/visuals/scenes/kit.js particles())
+  struct Particles {
+    GLuint vao = 0, vbo = 0; int count = 0;
+    float min[3], max[3], vel[3], sway, size[2], alpha;
+  };
+  std::vector<Particles> particles;
+  GLuint pProgram = 0;
+  GLint pView = -1, pProj = -1, pMin = -1, pMax = -1, pVel = -1, pSway = -1, pTime = -1, pViewH = -1, pSize = -1, pAlpha = -1, pFade = -1;
 };
 
 double now() {
@@ -137,21 +155,127 @@ GLuint compile(GLenum type, const std::string& src) {
 }
 
 const char* VS = R"(#version 300 es
-uniform mat3 uRot;      // head orientation
+uniform mat3 uHead;     // head orientation
 uniform vec4 uTan;      // eye field of view: tan(left), tan(right), tan(down), tan(up)
 out vec3 vDir;
 void main() {
   vec2 p = vec2(float((gl_VertexID << 1) & 2), float(gl_VertexID & 2)) * 2.0 - 1.0;   // one big triangle
   vec2 uv = p * 0.5 + 0.5;
-  vDir = uRot * vec3(mix(uTan.x, uTan.y, uv.x), mix(uTan.z, uTan.w, uv.y), -1.0);
+  vDir = uHead * vec3(mix(uTan.x, uTan.y, uv.x), mix(uTan.z, uTan.w, uv.y), -1.0);
   gl_Position = vec4(p, 0.0, 1.0);
 }
 )";
 
+const char* PVS = R"(#version 300 es
+layout(location = 0) in vec3 position;
+layout(location = 1) in float aSeed;
+layout(location = 2) in vec3 aCol;
+uniform mat4 uView, uProj;
+uniform vec3 uMin, uMax, uVel;
+uniform float uSway, uTime, uViewH;
+uniform vec2 uSize;
+out float vS; out vec3 vC; out float vA; out float vPtA;
+float pointPx(float worldSize, vec4 mv){
+  float px = worldSize * uProj[1][1] * uViewH / max(0.05, -mv.z);
+  vPtA = clamp(px * px / 6.25, 0.0, 1.0);
+  return max(px, 2.5);
+}
+void main(){
+  vec3 range = uMax - uMin;
+  vec3 p = uMin + mod(position - uMin + uVel * uTime * (0.6 + aSeed * 0.8), max(range, vec3(1e-3)));
+  p.x += sin(uTime * (0.4 + aSeed) + aSeed * 30.0) * uSway;
+  p.z += cos(uTime * (0.33 + aSeed * 0.7) + aSeed * 17.0) * uSway;
+  vec3 q = (p - uMin) / max(range, vec3(1e-3));
+  vA = smoothstep(0.0, 0.08, q.y) * smoothstep(1.0, 0.92, q.y) * smoothstep(0.0, 0.05, q.x) * smoothstep(1.0, 0.95, q.x) * smoothstep(0.0, 0.05, q.z) * smoothstep(1.0, 0.95, q.z);
+  vS = aSeed; vC = aCol;
+  p.y -= 1.6;   // the web app stands you 1.6 m above the floor; here you're at the origin
+  vec4 mv = uView * vec4(p, 1.0);
+  gl_PointSize = max(1.0, pointPx(mix(uSize.x, uSize.y, aSeed), mv));
+  gl_Position = uProj * mv;
+}
+)";
+
+const char* PFS = R"(#version 300 es
+precision highp float;
+uniform float uAlpha, uFade;
+in float vS; in vec3 vC; in float vA; in float vPtA;
+out vec4 outColor;
+vec3 toLinear(vec3 c){ c = max(c, 0.0); return mix(c / 12.92, pow((c + 0.055) / 1.055, vec3(2.4)), step(0.04045, c)); }
+void main(){
+  float d = length(gl_PointCoord - 0.5) * 2.0;
+  float a = smoothstep(1.0, 0.0, d) * smoothstep(1.0, 0.2, d) * vPtA;
+  outColor = vec4(toLinear(vC), a * vA * uAlpha * uFade);
+}
+)";
+
+float rnd() { return (float)rand() / (float)RAND_MAX; }
+
+void hexColour(const char* hex, float out[3]) {
+  unsigned v = (unsigned)strtoul(hex + 1, nullptr, 16);
+  out[0] = srgbToLinear(((v >> 16) & 255) / 255.f);
+  out[1] = srgbToLinear(((v >> 8) & 255) / 255.f);
+  out[2] = srgbToLinear((v & 255) / 255.f);
+}
+
+void addParticles(App& a, int count, std::array<float, 3> mn, std::array<float, 3> mx, std::array<float, 3> vel,
+                  float sway, std::array<float, 2> size, std::vector<const char*> colours, float alpha, float clear = 0) {
+  App::Particles p;
+  p.count = count;
+  for (int i = 0; i < 3; i++) { p.min[i] = mn[i]; p.max[i] = mx[i]; p.vel[i] = vel[i]; }
+  p.sway = sway; p.size[0] = size[0]; p.size[1] = size[1]; p.alpha = alpha;
+  std::vector<float> data(count * 7);
+  for (int i = 0; i < count; i++) {
+    float x, z;
+    do { x = mn[0] + rnd() * (mx[0] - mn[0]); z = mn[2] + rnd() * (mx[2] - mn[2]); } while (clear > 0 && std::hypot(x, z) < clear);
+    float* d = &data[i * 7];
+    d[0] = x; d[1] = mn[1] + rnd() * (mx[1] - mn[1]); d[2] = z;
+    d[3] = rnd();
+    hexColour(colours[i % colours.size()], d + 4);
+  }
+  glGenVertexArrays(1, &p.vao);
+  glBindVertexArray(p.vao);
+  glGenBuffers(1, &p.vbo);
+  glBindBuffer(GL_ARRAY_BUFFER, p.vbo);
+  glBufferData(GL_ARRAY_BUFFER, data.size() * sizeof(float), data.data(), GL_STATIC_DRAW);
+  glEnableVertexAttribArray(0); glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 28, (void*)0);
+  glEnableVertexAttribArray(1); glVertexAttribPointer(1, 1, GL_FLOAT, GL_FALSE, 28, (void*)12);
+  glEnableVertexAttribArray(2); glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 28, (void*)16);
+  glBindVertexArray(0);
+  a.particles.push_back(p);
+}
+
+bool buildParticles(App& a) {
+  GLuint v = compile(GL_VERTEX_SHADER, PVS), f = compile(GL_FRAGMENT_SHADER, PFS);
+  if (!v || !f) return false;
+  a.pProgram = glCreateProgram();
+  glAttachShader(a.pProgram, v); glAttachShader(a.pProgram, f);
+  glLinkProgram(a.pProgram);
+  glDeleteShader(v); glDeleteShader(f);
+  auto U = [&](const char* n) { return glGetUniformLocation(a.pProgram, n); };
+  a.pView = U("uView"); a.pProj = U("uProj"); a.pMin = U("uMin"); a.pMax = U("uMax"); a.pVel = U("uVel");
+  a.pSway = U("uSway"); a.pTime = U("uTime"); a.pViewH = U("uViewH"); a.pSize = U("uSize"); a.pAlpha = U("uAlpha"); a.pFade = U("uFade");
+  return true;
+}
+
+// what each ported scene contains (the rest fall back to Nebula drift for now)
+std::string setupScene(App& a) {
+  const std::string& s = a.scene;
+  if (s == "stars" || s == "bluestars" || s == "starsaura" || s == "bluestarsaura") {
+    a.stars = true;
+    a.cruise = 0;
+    if (s == "bluestars" || s == "bluestarsaura")   // blue stars drifting slowly past you
+      addParticles(a, 900, {-40, -25, -60}, {40, 35, 10}, {0, 0, 1.6f}, 0.15f, {0.07f, 0.16f}, {"#5f9bff", "#9fc4ff", "#cfe4ff", "#3f7bff"}, 1.0f, 3);
+    return "stars";
+  }
+  // Nebula drift
+  a.cruise = 1.5f;
+  addParticles(a, 700, {-25, -8, -25}, {25, 15, 25}, {0, 0, 0.3f}, 0.6f, {0.03f, 0.08f}, {"#ffe8ff", "#c8ecff"}, 0.8f);
+  return "nebula";
+}
+
 bool buildScene(App& a) {
   std::string prelude = asset(a, "shaders/prelude.glsl");
-  std::string body = asset(a, "shaders/" + a.scene + ".frag");
-  if (body.empty()) { LOG("no native shader for %s yet, using nebula", a.scene.c_str()); body = asset(a, "shaders/nebula.frag"); }
+  std::string body = asset(a, "shaders/" + setupScene(a) + ".frag");
   std::string fs = prelude + body + R"(
 void main() {
   vec4 c = scene(normalize(vDir));
@@ -170,7 +294,7 @@ void main() {
   glGetProgramiv(a.program, GL_LINK_STATUS, &ok);
   if (!ok) { LOG("link failed"); return false; }
   glUseProgram(a.program);
-  a.uRot = glGetUniformLocation(a.program, "uRot");
+  a.uRot = glGetUniformLocation(a.program, "uHead");
   a.uTan = glGetUniformLocation(a.program, "uTan");
   a.uTime = glGetUniformLocation(a.program, "uTime");
   a.uFade = glGetUniformLocation(a.program, "uFade");
@@ -181,6 +305,14 @@ void main() {
   glUniform1i(glGetUniformLocation(a.program, "uNoiseTex"), 0);
   glUniform1f(glGetUniformLocation(a.program, "uOct"), 4.f);
   glUniform1f(glGetUniformLocation(a.program, "uEnergy"), 0.4f);
+  a.uSkyRot = glGetUniformLocation(a.program, "uRot");
+  a.uShoot = glGetUniformLocation(a.program, "uShoot");
+  a.uShootDir = glGetUniformLocation(a.program, "uShootDir");
+  bool blue = a.scene == "bluestars" || a.scene == "bluestarsaura";
+  bool aura = a.scene == "starsaura" || a.scene == "bluestarsaura";
+  glUniform1f(glGetUniformLocation(a.program, "uBlue"), blue ? 1.f : 0.f);
+  glUniform1f(glGetUniformLocation(a.program, "uAura"), aura ? 1.f : 0.f);
+  if (!buildParticles(a)) return false;
   glGenVertexArrays(1, &a.vao);
   return true;
 }
@@ -387,6 +519,32 @@ void quatToMat3(const XrQuaternionf& q, float m[9]) {
   m[6] = 2 * (x * z + y * w);     m[7] = 2 * (y * z - x * w);     m[8] = 1 - 2 * (x * x + y * y);
 }
 
+// view matrix (column-major): the inverse of the eye's pose
+void viewMatrix(const XrPosef& pose, float m[16]) {
+  float r[9];
+  quatToMat3(pose.orientation, r);   // columns are the eye's axes in world space
+  // inverse rotation = transpose
+  m[0] = r[0]; m[4] = r[1]; m[8] = r[2];
+  m[1] = r[3]; m[5] = r[4]; m[9] = r[5];
+  m[2] = r[6]; m[6] = r[7]; m[10] = r[8];
+  m[3] = m[7] = m[11] = 0;
+  const XrVector3f& p = pose.position;
+  m[12] = -(m[0] * p.x + m[4] * p.y + m[8] * p.z);
+  m[13] = -(m[1] * p.x + m[5] * p.y + m[9] * p.z);
+  m[14] = -(m[2] * p.x + m[6] * p.y + m[10] * p.z);
+  m[15] = 1;
+}
+
+// projection matrix (column-major) for an asymmetric OpenXR field of view
+void projMatrix(const XrFovf& fov, float n, float f, float m[16]) {
+  float l = std::tan(fov.angleLeft), r = std::tan(fov.angleRight), d = std::tan(fov.angleDown), u = std::tan(fov.angleUp);
+  float w = r - l, h = u - d;
+  for (int i = 0; i < 16; i++) m[i] = 0;
+  m[0] = 2 / w; m[5] = 2 / h;
+  m[8] = (r + l) / w; m[9] = (u + d) / h; m[10] = -(f + n) / (f - n); m[11] = -1;
+  m[14] = -2 * f * n / (f - n);
+}
+
 void input(App& a, float dt) {
   XrActiveActionSet aas{a.actionSet, XR_NULL_PATH};
   XrActionsSyncInfo sync{XR_TYPE_ACTIONS_SYNC_INFO};
@@ -413,6 +571,18 @@ void frame(App& a) {
   float dt = (float)std::min(0.1, tnow - last);
   last = tnow;
   input(a, dt);
+  if (a.stars) {
+    a.skyRot += dt * 0.004f;                 // the sky wheels slowly round
+    a.nextShoot -= dt;
+    if (a.nextShoot <= 0 && a.shootT < 0) {  // a shooting star, mostly in front of you
+      float ang = -1.5708f + (rnd() - 0.5f) * 2.2f, el = 0.1f + rnd() * 0.6f;
+      a.shoot[0] = std::cos(ang) * std::cos(el); a.shoot[1] = std::sin(el); a.shoot[2] = std::sin(ang) * std::cos(el); a.shoot[3] = 0;
+      float dx = rnd() - 0.5f, dy = -0.3f - rnd() * 0.4f, dz = rnd() - 0.5f, l = std::sqrt(dx * dx + dy * dy + dz * dz);
+      a.shootDir[0] = dx / l; a.shootDir[1] = dy / l; a.shootDir[2] = dz / l;
+      a.shootT = 0; a.nextShoot = 6 + rnd() * 10;
+    }
+    if (a.shootT >= 0) { a.shootT += dt / a.shootSpeed; a.shoot[3] = a.shootT; if (a.shootT > 1) { a.shootT = -1; a.shoot[3] = -1; } }
+  }
 
   std::vector<XrCompositionLayerProjectionView> pviews;
   XrCompositionLayerProjection layer{XR_TYPE_COMPOSITION_LAYER_PROJECTION};
@@ -434,7 +604,10 @@ void frame(App& a) {
       glBindTexture(GL_TEXTURE_3D, a.noiseTex);
       glUniform1f(a.uTime, t);
       glUniform1f(a.uFade, std::min(1.f, t / 2.5f));      // fade in from black
-      glUniform1f(a.uTravel, t * 0.5f);
+      glUniform1f(a.uTravel, t * a.cruise);
+      glUniform1f(a.uSkyRot, a.skyRot);
+      glUniform4fv(a.uShoot, 1, a.shoot);
+      glUniform3fv(a.uShootDir, 1, a.shootDir);
       glUniform3fv(a.uC0, 1, a.pal[0]);
       glUniform3fv(a.uC1, 1, a.pal[1]);
       glUniform3fv(a.uC2, 1, a.pal[2]);
@@ -455,6 +628,28 @@ void frame(App& a) {
         glUniformMatrix3fv(a.uRot, 1, GL_FALSE, rot);
         glUniform4f(a.uTan, std::tan(v.fov.angleLeft), std::tan(v.fov.angleRight), std::tan(v.fov.angleDown), std::tan(v.fov.angleUp));
         glDrawArrays(GL_TRIANGLES, 0, 3);
+        if (!a.particles.empty()) {
+          float view[16], proj[16];
+          viewMatrix(v.pose, view);
+          projMatrix(v.fov, 0.05f, 400.f, proj);
+          glUseProgram(a.pProgram);
+          glEnable(GL_BLEND);
+          glBlendFunc(GL_SRC_ALPHA, GL_ONE);
+          glUniformMatrix4fv(a.pView, 1, GL_FALSE, view);
+          glUniformMatrix4fv(a.pProj, 1, GL_FALSE, proj);
+          glUniform1f(a.pTime, t);
+          glUniform1f(a.pViewH, sc.h * 0.5f);
+          glUniform1f(a.pFade, std::min(1.f, t / 2.5f));
+          for (auto& p : a.particles) {
+            glUniform3fv(a.pMin, 1, p.min); glUniform3fv(a.pMax, 1, p.max); glUniform3fv(a.pVel, 1, p.vel);
+            glUniform1f(a.pSway, p.sway); glUniform2fv(a.pSize, 1, p.size); glUniform1f(a.pAlpha, p.alpha);
+            glBindVertexArray(p.vao);
+            glDrawArrays(GL_POINTS, 0, p.count);
+          }
+          glDisable(GL_BLEND);
+          glUseProgram(a.program);
+          glBindVertexArray(a.vao);
+        }
 
         XrSwapchainImageReleaseInfo ri{XR_TYPE_SWAPCHAIN_IMAGE_RELEASE_INFO};
         xrReleaseSwapchainImage(sc.handle, &ri);
