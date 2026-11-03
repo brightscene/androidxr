@@ -421,25 +421,30 @@ export class ImageCycleScene extends BaseScene {
       }
     } else if (st.phase === 'cycle') {
       // Accelerate from one image every 1.5 s to fourteen a second over 30 s,
-      // then hold at full overload for 6 s before everything goes still.
+      // hold for 6 s, then a final surge up to 24 a second (36-40 s), held
+      // to 46 s, before everything goes still.
       const k = Math.min(1, st.t / 30);
-      this.rate = 0.65 + Math.pow(k, 1.8) * 13.35;
+      if (st.t < 30) this.rate = 0.65 + Math.pow(k, 1.8) * 13.35;
+      else if (st.t < 36) this.rate = 14;
+      else { const f = Math.min(1, (st.t - 36) / 4); this.rate = 14 + f * f * (3 - 2 * f) * 10; }
+      this.surge = st.t > 36 ? Math.min(1, (st.t - 36) / 4) : 0;
       const im = this.img;
       im.timer += dt;
-      if ((this.rate >= 2.2 && im.timer > 1 / this.rate) || (this.advance && im.timer > 0.35) || im.timer > 1 / this.rate + 0.6) {
+      if ((this.rate >= 2.2 && im.timer >= 1 / this.rate - 0.004) || (this.advance && im.timer > 0.35) || im.timer > 1 / this.rate + 0.6) {
         im.cur = im.next;
         im.next = this._wrap(im.next + 1);
         im.mix = 0; im.timer = 0;
         // each image lands with a dull thud, alternating right and left ear
         this.side = -(this.side || -1);
-        this._sfx('thud', { pan: this.side * 0.85, decay: Math.max(0.07, Math.min(0.4, 0.7 / this.rate)), gain: 2.4 - Math.min(0.5, this.rate * 0.035) });
+        this._sfx('thud', { pan: this.side * 0.85, decay: Math.max(0.04, Math.min(0.4, 0.7 / this.rate)), gain: 2.4 - Math.min(0.5, this.rate * 0.035) });
       }
       this.advance = false;
       im.mix = Math.min(1, im.mix + dt * Math.max(6, this.rate * 4));
       fu.uGlow.value = Math.min(1, k * 1.2);
       titleA = Math.max(0, 1 - st.t / 6);
       obst = firstStation ? 1 : 0;
-      if (st.t >= 36) this._next('condense');
+      fu.uRing.value = Math.max(fu.uRing.value, this.surge * 0.7);
+      if (st.t >= 46) this._next('condense');
     } else if (st.phase === 'condense') {
       const k = Math.min(1, st.t / 5);
       scale = Math.max(0.001, 1 - k * 1.2);
