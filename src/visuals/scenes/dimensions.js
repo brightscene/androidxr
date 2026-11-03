@@ -142,25 +142,25 @@ export class KaleidosphereScene extends BaseScene {
       // coloured glass, like the pieces in a child's kaleidoscope
       vec3 gem(float i){
         i = mod(floor(i), 8.0);
-        if (i < 1.0) return vec3(0.9, 0.08, 0.16);   // ruby
-        if (i < 2.0) return vec3(1.0, 0.5, 0.04);    // amber
-        if (i < 3.0) return vec3(1.0, 0.84, 0.18);   // gold
-        if (i < 4.0) return vec3(0.08, 0.72, 0.3);   // emerald
-        if (i < 5.0) return vec3(0.04, 0.72, 0.78);  // turquoise
-        if (i < 6.0) return vec3(0.1, 0.24, 0.95);   // sapphire
-        if (i < 7.0) return vec3(0.56, 0.14, 0.88);  // amethyst
-        return vec3(0.95, 0.16, 0.55);               // magenta
+        if (i < 1.0) return vec3(0.45, 0.03, 0.09);   // deep ruby
+        if (i < 2.0) return vec3(0.3, 0.03, 0.12);    // burgundy
+        if (i < 3.0) return vec3(0.52, 0.12, 0.32);   // dusky rose
+        if (i < 4.0) return vec3(0.02, 0.24, 0.3);    // deep teal
+        if (i < 5.0) return vec3(0.03, 0.05, 0.28);   // midnight blue
+        if (i < 6.0) return vec3(0.08, 0.15, 0.55);   // sapphire
+        if (i < 7.0) return vec3(0.3, 0.08, 0.52);    // amethyst
+        return vec3(0.42, 0.06, 0.36);                // plum
       }
-      // one colour scheme at a time across the whole kaleidoscope: three
+      // one colour scheme at a time across the whole kaleidoscope: three deep
       // glass colours that belong together, changing to the next scheme now and then
       vec3 scheme(float s){
         s = mod(s, 6.0);
-        if (s < 1.0) return vec3(0.0, 1.0, 2.0);   // ruby, amber, gold
-        if (s < 2.0) return vec3(3.0, 4.0, 2.0);   // emerald, turquoise, gold
-        if (s < 3.0) return vec3(5.0, 6.0, 4.0);   // sapphire, amethyst, turquoise
-        if (s < 4.0) return vec3(6.0, 7.0, 1.0);   // amethyst, magenta, amber
-        if (s < 5.0) return vec3(6.0, 3.0, 2.0);   // amethyst, emerald, gold
-        return vec3(5.0, 0.0, 2.0);                // sapphire, ruby, gold
+        if (s < 1.0) return vec3(1.0, 0.0, 2.0);   // burgundy, ruby, rose
+        if (s < 2.0) return vec3(4.0, 3.0, 5.0);   // midnight, teal, sapphire
+        if (s < 3.0) return vec3(4.0, 6.0, 2.0);   // midnight, amethyst, rose
+        if (s < 4.0) return vec3(1.0, 7.0, 6.0);   // burgundy, plum, amethyst
+        if (s < 5.0) return vec3(3.0, 5.0, 6.0);   // teal, sapphire, amethyst
+        return vec3(4.0, 0.0, 7.0);                // midnight, ruby, plum
       }
       vec3 pick(float s, float k){ vec3 g = scheme(s); k = mod(floor(k), 3.0); return gem(k < 1.0 ? g.x : (k < 2.0 ? g.y : g.z)); }
       vec3 glassAt(float k){ float s = floor(uHue); float t = smoothstep(0.0, 1.0, fract(uHue)); return mix(pick(s, k), pick(s + 1.0, k), t); }
@@ -169,13 +169,18 @@ export class KaleidosphereScene extends BaseScene {
       void main(){
         vec3 d0 = normalize(vDir);
         float t = uTime * 0.02;
-        vec3 d = rotY(rotX(d0, t * 0.7), t);
+        // a tighter kaleidoscope: first mirror the view into 16 narrow wedges
+        // around the direction you're facing, like looking down the tube
+        float wa = atan(d0.y, d0.x) + uTime * 0.015, wr = length(d0.xy), W = 6.28318 / 16.0;
+        wa = abs(mod(wa, W) - W * 0.5);
+        vec3 dw = vec3(cos(wa) * wr, sin(wa) * wr, d0.z);
+        vec3 d = rotY(rotX(dw, t * 0.7), t);
         // octahedral mirror folds: the same image reflected 48 ways around you
         vec3 p = abs(d);
         if (p.x < p.y) p.xy = p.yx;
         if (p.x < p.z) p.xz = p.zx;
         if (p.y < p.z) p.yz = p.zy;
-        vec3 q = p * (1.1 + uBreath * 0.1) + vec3(0.0, 0.0, sin(uTime * 0.04) * 0.07);
+        vec3 q = p * (1.9 + uBreath * 0.12) + vec3(0.0, 0.0, sin(uTime * 0.04) * 0.07);
         vec3 k = vec3(0.52 + 0.04 * sin(uTime * 0.037), 0.41 + 0.04 * cos(uTime * 0.029), 0.62 + uMorph * 0.05);
         float acc = 0.0, prev = 0.0, trap = 1e3, trap2 = 1e3;
         for (int i = 0; i < 8; i++) {
@@ -191,9 +196,9 @@ export class KaleidosphereScene extends BaseScene {
         float pid = acc * 2.6 + trap2 * 0.8 + (p.x - p.z) * 1.2;   // darker glass gets the deeper colour, bright glass the lightest
         float f = fract(pid);
         vec3 glass = mix(glassAt(pid), glassAt(pid + 1.0), smoothstep(0.9, 1.0, f));
-        float lit = 0.25 + acc * 0.95;
+        float lit = 0.3 + acc * 1.15;
         vec3 col = glass * lit;
-        col += vec3(1.0, 0.97, 0.9) * exp(-trap * 22.0) * (0.2 + uPulse * 0.35);     // bright edges where the glass pieces meet
+        col += mix(glass, vec3(0.85, 0.8, 1.0), 0.5) * exp(-trap * 22.0) * (0.18 + uPulse * 0.3);     // bright edges where the glass pieces meet
         col *= 1.0 - 0.55 * smoothstep(0.82, 1.0, f) * smoothstep(1.0, 0.9, f);       // dark lead lines between pieces
         col *= 0.85;
         col += vec3(stars(d0)) * 0.9;
