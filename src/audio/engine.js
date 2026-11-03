@@ -137,6 +137,31 @@ export class AudioEngine {
       });
       const send = ctx.createGain(); send.gain.value = 0.5; p.connect(send).connect(this.reverbSend); nodes.push(send);
       end(dur + 0.2);
+    } else if (kind === 'crackle') {
+      // a log fire's crackle: a cluster of tiny bright clicks and a soft pop
+      const clicks = 1 + Math.floor(Math.random() * 5);
+      for (let i = 0; i < clicks; i++) {
+        const n = ctx.createBufferSource(), hp = ctx.createBiquadFilter(), g = ctx.createGain();
+        n.buffer = this.whiteNoise; hp.type = 'bandpass'; hp.frequency.value = 1800 + Math.random() * 3500; hp.Q.value = 0.9;
+        const at = t + i * (0.01 + Math.random() * 0.05), len = 0.004 + Math.random() * 0.02;
+        const amp = (0.15 + Math.random() * 0.5) * gain * (i ? 0.6 : 1);
+        g.gain.setValueAtTime(0, at); g.gain.linearRampToValueAtTime(amp, at + 0.001); g.gain.exponentialRampToValueAtTime(0.0005, at + len);
+        n.connect(hp).connect(g).connect(p);
+        n.start(at, Math.random() * 5); n.stop(at + len + 0.02);
+        nodes.push(n, hp, g);
+      }
+      end(0.4);
+    } else if (kind === 'hiss') {
+      // the steady soft roar and hiss of a fire, for 'dur' seconds
+      const n = ctx.createBufferSource(), lp = ctx.createBiquadFilter(), g = ctx.createGain();
+      n.buffer = this.noise || this.whiteNoise; n.loop = true;
+      lp.type = 'lowpass'; lp.frequency.value = 900;
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.16 * gain, t + 2);
+      g.gain.setValueAtTime(0.16 * gain, t + dur - 2); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      n.connect(lp).connect(g).connect(p);
+      n.start(t, Math.random() * 3); n.stop(t + dur + 0.1);
+      nodes.push(n, lp, g);
+      end(dur + 0.2);
     } else if (kind === 'whoosh') {
       const n = ctx.createBufferSource(), bp = ctx.createBiquadFilter(), g = ctx.createGain();
       n.buffer = this.noise || this.whiteNoise;

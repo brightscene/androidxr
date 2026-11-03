@@ -12,6 +12,8 @@ import { AffirmationScene } from './affirm.js';
 import { ImageCycleScene } from './imagecycle.js';
 import { LabyrinthScene } from './labyrinth.js';
 import { ReikiScene } from './reiki.js';
+import { StarGateScene } from './stargate.js';
+import { MurmurationScene, FireplaceScene } from './cozy.js';
 import { DrumJourneyScene, IllusionScene, MindsEyeScene } from './lighttracks.js';
 import { TimePortalScene, KaleidosphereScene, NebulaFlightScene, WarpGateScene, MandalaBloomScene, SilkVortexScene } from './dimensions.js';
 import { MoonViewScene, FractalTunnelScene, CrystalCaveScene, NebulaScene, LightRibbonsScene, BlackHoleScene, ChakraScene } from './cosmic.js';
@@ -30,6 +32,7 @@ export const SCENES = {
 
   affirm: { type: AffirmationScene, label: 'Affirmation field', group: 'Dimensions', cruise: 2.2, nebula: 0.75, world: 'full' },
   cycle: { type: ImageCycleScene, label: 'Image cycling', group: 'Dimensions', cruise: 0.2, nebula: 0.75, world: 'full' },
+  stargate: { type: StarGateScene, label: 'Star gate', group: 'Dimensions', cruise: 0, nebula: 0, world: 'bare' },
   labyrinth: { type: LabyrinthScene, label: 'Space labyrinth', group: 'Dimensions', cruise: 0, nebula: 0, world: 'stars' },
   portal: { type: TimePortalScene, label: 'Time portal', group: 'Dimensions', cruise: 4, nebula: 0, world: 'bare' },
   kaleido: { type: KaleidosphereScene, label: 'Kaleidosphere', group: 'Dimensions', cruise: 0, nebula: 0, world: 'bare' },
@@ -39,6 +42,8 @@ export const SCENES = {
   bloom: { type: MandalaBloomScene, label: 'Mandala bloom', group: 'Dimensions', cruise: 2, nebula: 0, world: 'bare' },
   silk: { type: SilkVortexScene, label: 'Silk vortex', group: 'Dimensions', cruise: 4, nebula: 0, world: 'stars' },
 
+  murmuration: { type: MurmurationScene, label: 'Starling murmuration', group: 'Nature', cruise: 0, nebula: 0, world: 'bare' },
+  fireplace: { type: FireplaceScene, label: 'Fireplace', group: 'Nature', cruise: 0, nebula: 0, world: 'off' },
   meadow: { type: MeadowScene, label: 'Meadow', group: 'Nature', cruise: 0, nebula: 0, world: 'bare' },
   beach: { type: BeachScene, label: 'White beach', group: 'Nature', cruise: 0, nebula: 0, world: 'bare' },
   underwater: { type: UnderwaterScene, label: 'Underwater', group: 'Nature', cruise: 0, nebula: 0, world: 'bare' },
