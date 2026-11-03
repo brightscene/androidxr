@@ -185,7 +185,7 @@ const BOARD_FS = /* glsl */ `uniform float uTime, uFade, uMirror; varying vec2 v
   void main(){ vec2 uv = vUv; float s = vInfo.x, kind = vInfo.y, t = uTime;
     vec3 c;
     float scene = floor(t / 6.0 + s * 5.0);          // each board changes its advert every few seconds
-    float k = mod(kind + scene, 4.0);
+    float k = mod(kind + scene, 8.0);
     vec3 a = neonCol(h1(s + scene)), b = neonCol(h1(s * 3.0 + scene + 0.5));
     if (k < 1.0) {
       // flowing colour waves with a big glyph
@@ -204,6 +204,62 @@ const BOARD_FS = /* glsl */ `uniform float uTime, uFade, uMirror; varying vec2 v
       c = mix(a * 0.15, b * 0.5, uv.y);
       c += mix(vec3(1.0), b, 0.3) * smoothstep(0.03, 0.0, abs(r - 0.28 - 0.03 * sin(t * 3.0))) * 1.5;
       c += a * smoothstep(0.2, 0.0, r) * (0.6 + 0.4 * sin(t * 2.0));
+    } else if (k > 3.5 && k < 4.5) {
+      // manga panel: speed lines bursting from a big character, clean ink on bright tone
+      vec2 p = (uv - 0.5) * vec2(1.6, 1.0);
+      float ang = atan(p.y, p.x), r = length(p);
+      float lines = step(0.6, fract(ang * 18.0 / 6.2831 + h1(floor(ang * 18.0 / 6.2831) + s) * 0.5)) * smoothstep(0.12, 0.5, r);
+      c = mix(vec3(1.0, 0.97, 0.9), a * 0.9, 0.25) * (1.0 - lines * 0.85);
+      vec2 q = (uv - vec2(0.5, 0.5)) * vec2(2.6, 1.6) + 0.5;
+      c = mix(c, vec3(0.05), glyph(q, s * 11.0 + scene));
+      c *= 0.75;
+    } else if (k > 4.5 && k < 5.5) {
+      // an original chibi mascot: a round cat face that blinks and smiles
+      vec2 p = (uv - 0.5) * vec2(1.6, 1.0);
+      c = mix(b * 0.35, a * 0.55, uv.y);
+      float face = smoothstep(0.31, 0.3, length(p * vec2(1.0, 1.15)));
+      float earL = step(0.0, p.y - 0.12) * step(abs(p.x + 0.18) * 1.6, 0.42 - p.y);
+      float earR = step(0.0, p.y - 0.12) * step(abs(p.x - 0.18) * 1.6, 0.42 - p.y);
+      vec3 fur = vec3(1.0, 0.96, 0.92);
+      c = mix(c, fur, max(face, max(earL, earR) * step(p.y, 0.4)));
+      float blink = step(0.06, fract(t * 0.3 + s));
+      float eye = smoothstep(0.045, 0.04, length((vec2(abs(p.x), p.y) - vec2(0.11, 0.03)) * vec2(1.0, mix(6.0, 1.0, blink))));
+      c = mix(c, vec3(0.08, 0.05, 0.1), eye * face);
+      c = mix(c, vec3(1.0), smoothstep(0.015, 0.01, length(vec2(abs(p.x), p.y) - vec2(0.125, 0.05))) * face * blink);
+      float mouth = smoothstep(0.012, 0.0, abs(length(vec2(abs(p.x) - 0.035, p.y + 0.06)) - 0.035)) * step(p.y, -0.06);
+      c = mix(c, vec3(0.15, 0.05, 0.08), mouth * face);
+      c += vec3(1.0, 0.45, 0.6) * smoothstep(0.05, 0.0, length(vec2(abs(p.x), p.y) - vec2(0.19, -0.05))) * 0.5 * face;   // blush
+    } else if (k > 5.5 && k < 6.5) {
+      // big sparkling anime eyes, glancing about
+      vec2 p = (uv - 0.5) * vec2(1.6, 1.0);
+      c = mix(vec3(0.98, 0.93, 0.9), a * 0.4, 0.2);
+      vec2 look = vec2(sin(t * 0.7 + s * 9.0), cos(t * 0.5)) * 0.03;
+      for (int e = 0; e < 2; e++) {
+        vec2 ce = vec2(e == 0 ? -0.28 : 0.28, 0.0);
+        vec2 d = (p - ce) * vec2(1.0, 0.8);
+        float white = smoothstep(0.2, 0.19, length(d));
+        float iris = smoothstep(0.13, 0.12, length(d - look));
+        float pupil = smoothstep(0.06, 0.05, length(d - look));
+        vec3 ic = mix(b * 0.4, a, smoothstep(-0.13, 0.13, (d - look).y));
+        c = mix(c, vec3(1.0), white);
+        c = mix(c, ic, iris);
+        c = mix(c, vec3(0.03), pupil);
+        c = mix(c, vec3(1.0), smoothstep(0.03, 0.02, length(d - look - vec2(0.04, 0.05))) + smoothstep(0.015, 0.01, length(d - look + vec2(0.05, 0.04))));
+        c = mix(c, vec3(0.05), smoothstep(0.012, 0.0, abs(d.y - 0.19 + 0.6 * d.x * d.x)) * step(abs(d.x), 0.22));   // lash line
+      }
+      c *= 0.8;
+    } else if (k > 6.5) {
+      // sakura petals drifting over a twilight gradient with a big glyph
+      c = mix(vec3(0.12, 0.05, 0.2), vec3(1.0, 0.55, 0.7), uv.y * 0.8);
+      for (int j = 0; j < 12; j++) {
+        float fj = float(j);
+        vec2 pc = vec2(fract(h1(fj + s) + t * 0.05 * (0.5 + h1(fj * 3.0))), fract(h1(fj * 7.0 + s) - t * 0.08 * (0.5 + h1(fj))));
+        vec2 d = (uv - pc) * vec2(1.6, 1.0);
+        float an = t + fj;
+        d = mat2(cos(an), -sin(an), sin(an), cos(an)) * d;
+        c = mix(c, vec3(1.0, 0.8, 0.88), smoothstep(0.022, 0.016, length(d * vec2(1.0, 1.8))));
+      }
+      c = mix(c, vec3(1.0), glyph((uv - vec2(0.15, 0.5)) * vec2(2.2, 1.4) + 0.5, s * 5.0 + scene) * 0.9);
     } else {
       // an abstract product shot: a glowing shape turning, light sweeping across
       vec2 p = (uv - 0.5) * vec2(1.6, 1.0);
@@ -273,9 +329,9 @@ function buildCity() {
           const bw = out ? 7 + Math.random() * 5 : Math.min(w * 0.9, 13 + Math.random() * 10), bh = bw * (out ? 0.6 + Math.random() * 0.5 : 0.5 + Math.random() * 0.25);
           const by = pod + 4 + Math.random() * Math.max(4, Math.min(H, 75) - pod - bh - 8);
           const bx = out ? side * (x0 + set - bw / 2 - 0.5) : side * (x0 + set) - side * 0.6;
-          boards.push({ p: [bx, by + bh / 2, zc + (out ? w / 2 - 1 : 0)], w: bw, h: bh, side, out, i: [Math.random(), Math.floor(Math.random() * 4), 0, zc] });
+          boards.push({ p: [bx, by + bh / 2, zc + (out ? w / 2 - 1 : 0)], w: bw, h: bh, side, out, i: [Math.random(), Math.floor(Math.random() * 8), 0, zc] });
         }
-        z += w + (row ? 3 : 0.5 + Math.random() * 3);
+        z += w + (row ? 5 + Math.random() * 6 : 3 + Math.random() * 7);   // alleys and gaps between towers
       }
     }
   }
@@ -351,8 +407,12 @@ export class NeonCityScene extends BaseScene {
   update(dt, t) {
     const U = this.uniforms;
     this.next -= dt;
-    if (this.next <= 0) { this.target = [16, 24, 32, 42][Math.floor(Math.random() * 4)]; this.next = 8 + Math.random() * 8; }
-    this.speed = damp(this.speed, this.target, 0.35, dt);
+    if (this.next <= 0) {
+      // sometimes glide to a stop and hover, gazing at the city; otherwise speed up or ease off
+      if (this.target > 0 && Math.random() < 0.25) { this.target = 0; this.next = 5 + Math.random() * 5; }
+      else { this.target = [8, 16, 26, 38, 50][Math.floor(Math.random() * 5)]; this.next = 7 + Math.random() * 8; }
+    }
+    this.speed = damp(this.speed, this.target, this.target === 0 ? 0.5 : 0.3, dt);
     U.uZ.value += dt * this.speed;
     // a gentle weave down the street, rising and dipping a little
     this.world.position.x = Math.sin(t * 0.11) * 2.0;

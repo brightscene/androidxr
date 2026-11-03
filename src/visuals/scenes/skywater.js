@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { BaseScene, NOISE, GRADE, damp } from '../common.js';
+import { BaseScene, NOISE, GRADE, POINT_SIZE, SOFT_DOT, damp } from '../common.js';
 import { sky, terrain, water, particles, rain, solidMat, noise2, rng, mix3, hex, clamp01 } from './kit.js';
 import { mergeGeos } from './nature.js';
 
@@ -29,10 +29,9 @@ export class LanternLakeScene extends BaseScene {
     const dock = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.15, 7), solidMat(U, { color: '#3a2c22', color2: '#4a3a2c', ambient: 0.5, sunDir: moon }));
     dock.position.set(0, -0.08, -1.5);
     this.group.add(dock);
-    const L = { count: 420, min: [-45, 0, -60], max: [45, 32, -5], vel: [0.06, 0.3, -0.05], sway: 0.6, size: [0.55, 1.0], shape: 'lantern', colors: ['#ff9a3c', '#ffb85a', '#ff7f3a'], clear: 6 };
-    this.lanterns = particles(U, L);
+    this.lanterns = paperLanterns(U, 380, 1);
     this.group.add(this.lanterns);
-    const refl = particles(U, { ...L, alpha: 0.28 });
+    const refl = paperLanterns(U, 380, 0.3, this.lanterns.geometry);
     refl.scale.y = -1;
     refl.position.y = -0.8;
     this.group.add(refl);
@@ -42,6 +41,66 @@ export class LanternLakeScene extends BaseScene {
     if (e.type === 'chord') this.lanterns.userData.u.uBoost.value = 0.6;
   }
   update(dt) { this.lanterns.userData.u.uBoost.value *= Math.exp(-dt); }
+}
+
+// Paper sky lanterns: a tapered paper shade, lit from inside by a candle at its
+// open base. Each has its own colour of paper and its own flickering flame.
+const LANTERN_COLS = ['#ff6a3a', '#ffb347', '#ff4f6d', '#ffd36b', '#ff8fb4', '#ffe2b8', '#ff7f2a', '#e86bff', '#ffa07a'];
+function paperLanterns(U, n, alpha, shareGeo) {
+  let g = shareGeo;
+  if (!g) {
+    const pos = new Float32Array(n * 3), seed = new Float32Array(n), col = new Float32Array(n * 3);
+    for (let i = 0; i < n; i++) {
+      let x, z;
+      do { x = -45 + Math.random() * 90; z = -60 + Math.random() * 55; } while (Math.hypot(x, z) < 6);
+      pos.set([x, Math.random() * 32, z], i * 3);
+      seed[i] = Math.random();
+      const c = new THREE.Color(LANTERN_COLS[i % LANTERN_COLS.length]);
+      col.set([c.r, c.g, c.b], i * 3);
+    }
+    g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    g.setAttribute('aSeed', new THREE.BufferAttribute(seed, 1));
+    g.setAttribute('aCol', new THREE.BufferAttribute(col, 3));
+  }
+  const u = { ...U, uBoost: { value: 0 }, uAlpha: { value: alpha } };
+  const m = new THREE.Points(g, new THREE.ShaderMaterial({
+    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, uniforms: u,
+    vertexShader: /* glsl */ `attribute float aSeed; attribute vec3 aCol; uniform float uTime, uViewH; varying vec3 vCol; varying float vFl; varying float vS;
+      ${POINT_SIZE}
+      void main(){ vec3 p = position;
+        // drift up slowly on the night air, swaying, and loop back to the water
+        p.y = mod(p.y + uTime * (0.22 + aSeed * 0.18), 34.0);
+        p.x += sin(uTime * 0.13 + aSeed * 40.0) * 1.2 + uTime * 0.05;
+        p.z += cos(uTime * 0.11 + aSeed * 23.0) * 0.8;
+        p.x = mod(p.x + 45.0, 90.0) - 45.0;
+        vec4 mv = modelViewMatrix * vec4(p, 1.0);
+        gl_PointSize = pointPx(0.9 + aSeed * 0.5, mv);
+        // a candle flicker: quick little wavers and the odd dip
+        float t = uTime * (7.0 + aSeed * 5.0) + aSeed * 100.0;
+        vFl = 0.78 + 0.12 * sin(t) + 0.07 * sin(t * 2.3 + 1.0) - 0.18 * step(0.97, fract(sin(floor(uTime * 6.0 + aSeed * 50.0) * 91.7) * 4375.5));
+        vCol = aCol; vS = aSeed;
+        gl_Position = projectionMatrix * mv; }`,
+    fragmentShader: /* glsl */ `uniform float uFade, uAlpha, uBoost; varying vec3 vCol; varying float vFl; varying float vS; ${SOFT_DOT}
+      void main(){ vec2 q = (gl_PointCoord - 0.5) * vec2(2.0, -2.0);
+        // the shade: wider at the top, tapering toward the open base
+        float y = q.y;                                    // -1 bottom .. 1 top
+        float halfW = mix(0.24, 0.4, smoothstep(-0.7, 0.6, y));
+        float body = step(-0.7, y) * step(y, 0.65) * smoothstep(halfW, halfW - 0.05, abs(q.x));
+        float rim = smoothstep(0.66, 0.62, y) * smoothstep(0.58, 0.62, y) * step(abs(q.x), 0.4);
+        // light through the paper: brightest low down near the flame, ribs faintly visible
+        float lit = mix(1.0, 0.45, smoothstep(-0.7, 0.65, y)) * (0.85 + 0.15 * cos(q.x * 26.0));
+        vec3 paper = vCol * lit * vFl;
+        vec3 c = paper * body * 1.2 + vCol * rim * 0.3;
+        // the flame at the base, and a soft halo around the lantern
+        float flame = exp(-dot((q - vec2(0.0, -0.62)) * vec2(9.0, 6.0), (q - vec2(0.0, -0.62)) * vec2(9.0, 6.0)));
+        c += vec3(1.0, 0.85, 0.55) * flame * 1.6 * vFl;
+        c += vCol * exp(-dot(q, q) * 2.2) * 0.22 * vFl;
+        gl_FragColor = vec4(c * uAlpha * (1.0 + uBoost) * uFade, 1.0); }`,
+  }));
+  m.frustumCulled = false;
+  m.userData.u = u;
+  return m;
 }
 
 // ===================================================================== Rain lake
