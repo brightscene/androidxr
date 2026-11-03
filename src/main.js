@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { XRHandModelFactory } from 'three/examples/jsm/webxr/XRHandModelFactory.js';
 import { AudioEngine } from './audio/engine.js';
 import { Composer, ImportedPlayer, StreamPlayer } from './audio/composer.js';
 import { TRACKS, GUIDED, LIGHT_TRACKS } from './audio/tracks.js';
@@ -107,6 +108,15 @@ class App {
     this.scene.add(this.menu.group);
     this.menu.attachControllers(r, this.scene);
     for (let i = 0; i < 2; i++) this.scene.add(this.renderer.xr.getHand(i));   // fingertips for tracing scenes
+    // realistic hand models, shown in scenes that want your hands (the jet ski)
+    const handSkin = new THREE.ShaderMaterial({
+      uniforms: { uCol: { value: new THREE.Color('#e9c3a8') } },
+      vertexShader: '#include <common>\n#include <skinning_pars_vertex>\nvarying vec3 vN; varying vec3 vV;\nvoid main(){\n#include <skinbase_vertex>\n#include <begin_vertex>\n#include <beginnormal_vertex>\n#include <skinnormal_vertex>\n#include <skinning_vertex>\n  vN = normalize(normalMatrix * objectNormal); vec4 mv = modelViewMatrix * vec4(transformed, 1.0); vV = normalize(-mv.xyz); gl_Position = projectionMatrix * mv;\n}',
+      fragmentShader: 'uniform vec3 uCol; varying vec3 vN; varying vec3 vV; void main(){ vec3 n = normalize(vN); float l = 0.45 + 0.55 * max(dot(n, normalize(vec3(0.3, 0.8, 0.5))), 0.0); float rim = pow(1.0 - abs(dot(n, vV)), 3.0); gl_FragColor = vec4(uCol * l + vec3(1.0, 0.9, 0.85) * rim * 0.35, 1.0); }',
+    });
+    const handFactory = new XRHandModelFactory(null, (obj) => obj.traverse((o) => { if (o.isMesh || o.isSkinnedMesh) { o.material = handSkin; o.frustumCulled = false; } }));
+    handFactory.setPath('hands/');
+    this.handModels = [0, 1].map((i) => { const m = handFactory.createHandModel(this.renderer.xr.getHand(i), 'mesh'); m.visible = false; this.renderer.xr.getHand(i).add(m); return m; });
 
     this.active = null;
     this.outgoing = [];
@@ -566,6 +576,7 @@ class App {
     U.uBeat.value *= Math.exp(-dt * 3);
 
     this._updatePointers();
+    for (const m of this.handModels || []) m.visible = !!this.active?.wantsHands;
     if (this.active) {
       this.active.setFade(damp(this.active.fade, 1, 0.8, dt));
       this.active.update(dt, t, s);

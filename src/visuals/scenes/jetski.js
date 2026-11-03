@@ -26,7 +26,7 @@ function height(x, z, ox, oz, T) {
   return h;
 }
 
-const LIT_VS = 'varying vec3 vN; varying vec3 vP; void main(){ vN = normalize(mat3(modelMatrix) * normal); vP = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }';
+const LIT_VS = 'varying vec3 vN; varying vec3 vP; void main(){ vec4 p = vec4(position, 1.0);\n#ifdef USE_INSTANCING\n p = instanceMatrix * p;\n#endif\n vN = normalize(mat3(modelMatrix) * normal); vP = position; gl_Position = projectionMatrix * modelViewMatrix * p; }';
 function litMat(U, a, b) {
   return new THREE.ShaderMaterial({
     uniforms: { ...U, uA: { value: new THREE.Color(a) }, uB: { value: new THREE.Color(b) } }, vertexShader: LIT_VS,
@@ -37,6 +37,17 @@ function litMat(U, a, b) {
         vec3 c = base * (0.25 + 0.55 * dif + 0.3 * sky) + vec3(1.0) * pow(max(dot(reflect(-L, n), vec3(0.0, 0.0, 1.0)), 0.0), 24.0) * 0.35;
         gl_FragColor = vec4(grade(c) * uFade, 1.0); }`,
   });
+}
+
+// a marker buoy: a red float with a white band and a little mast
+function mergeBuoy() {
+  const parts = [new THREE.CylinderGeometry(0.35, 0.45, 0.7, 14).translate(0, -0.25, 0), new THREE.ConeGeometry(0.35, 0.5, 14).translate(0, 0.35, 0), new THREE.CylinderGeometry(0.03, 0.03, 0.8, 6).translate(0, 0.9, 0)];   // red float below, white top
+  const pos = [], nrm = [];
+  for (const g of parts) { const n = g.toNonIndexed(); pos.push(...n.attributes.position.array); nrm.push(...n.attributes.normal.array); }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute('normal', new THREE.Float32BufferAttribute(nrm, 3));
+  return g;
 }
 
 export class JetSkiScene extends BaseScene {
@@ -61,6 +72,11 @@ export class JetSkiScene extends BaseScene {
           float cov = smoothstep(0.4, 0.75, cl * 0.7 + cl2 * 0.3) * smoothstep(0.0, 0.12, h);
           vec3 cc = mix(vec3(0.12, 0.13, 0.16), vec3(0.75, 0.72, 0.7), cl2) + vec3(1.0, 0.8, 0.55) * pow(s, 4.0) * 0.6;
           c = mix(c, cc, cov * 0.85);
+          // distant islands along parts of the horizon, so you can see yourself turn
+          float az = atan(d.x, -d.z);
+          float isl = smoothstep(0.55, 0.62, fbm(vec3(az * 1.3, 0.0, 4.0)));
+          float top = 0.012 + 0.05 * isl * (0.6 + 0.4 * fbm(vec3(az * 9.0, 0.0, 8.0)));
+          c = mix(c, vec3(0.2, 0.25, 0.3), smoothstep(top + 0.002, top - 0.002, h) * step(-0.005, h) * step(0.01, isl));
           gl_FragColor = vec4(grade(c), uFade); }`,
     }));
     sky.renderOrder = -10;
@@ -138,6 +154,13 @@ export class JetSkiScene extends BaseScene {
       return { g, pg, lg };
     });
     this.yaw = 0; this.steer = 0; this.off = new THREE.Vector2();
+    const buoyG = mergeBuoy();
+    this.buoys = new THREE.InstancedMesh(buoyG, litMat(U, '#c8241c', '#f2f2f2'), 24);
+    this.buoys.frustumCulled = false;
+    this.buoyPos = Array.from({ length: 24 }, () => [(Math.random() - 0.5) * 160, (Math.random() - 0.5) * 160]);
+    this.world.add(this.buoys);
+    this.BM = new THREE.Matrix4();
+    this.wantsHands = true;   // show your hands as proper hand models
     this.ski = ski;
     this.group.add(ski);
 
@@ -150,7 +173,7 @@ export class JetSkiScene extends BaseScene {
   _hands(dt, hands = INPUT.hands || [], pointers = INPUT.pointers) {
     this.handViz.forEach((v, i) => {
       const h = hands[i];
-      v.g.visible = !!h;
+      v.g.visible = false;   // the skeleton is replaced by real hand models
       if (!h) return;
       const pa = v.pg.attributes.position, la = v.lg.attributes.position;
       h.joints.forEach((j, k) => { if (j) pa.setXYZ(k, j.x, j.y, j.z); });
@@ -165,7 +188,7 @@ export class JetSkiScene extends BaseScene {
       const [a, b] = grips.slice(0, 2).sort((p, q) => p.x - q.x);
       const centre = new THREE.Vector3(0, 0.86, -0.42);
       const near = a.distanceTo(centre) < 0.6 && b.distanceTo(centre) < 0.6;
-      if (near) target = Math.max(-0.7, Math.min(0.7, Math.atan2(a.z - b.z, b.x - a.x)));
+      if (near) target = Math.max(-0.9, Math.min(0.9, Math.atan2(a.z - b.z, b.x - a.x) * 1.6));
     }
     this.steer = damp(this.steer, target, 6, dt);
     this.bars.rotation.y = this.steer * 0.8;
@@ -179,12 +202,20 @@ export class JetSkiScene extends BaseScene {
     this.speed = damp(this.speed, this.target, 0.4, dt);
     if (!this.testHands) this._hands(dt); else this._hands(dt, this.testHands, []);
     // steering turns your heading; you travel along it
-    this.yaw += this.steer * dt * (0.5 + this.speed * 0.05);
+    this.yaw += this.steer * dt * (0.9 + this.speed * 0.06);
     const fx = Math.sin(this.yaw), fz = -Math.cos(this.yaw), rx = Math.cos(this.yaw), rz = Math.sin(this.yaw);
     this.off.x += fx * this.speed * dt; this.off.y += fz * this.speed * dt;
     this.S += this.speed * dt; this.T += dt;
     U.uS.value = this.S; U.uT.value = this.T; U.uOff.value.copy(this.off);
     const H = (x, z) => height(x, z, this.off.x, this.off.y, this.T);
+    for (let i = 0; i < this.buoyPos.length; i++) {
+      const [bx, bz] = this.buoyPos[i];
+      const x = ((bx - this.off.x) % 160 + 240) % 160 - 80, z = ((bz - this.off.y) % 160 + 240) % 160 - 80;
+      const y = H(x, z) + 0.35;
+      this.BM.makeRotationZ(Math.sin(this.T * 1.3 + i) * 0.12); this.BM.setPosition(x, y, z);
+      this.buoys.setMatrixAt(i, this.BM);
+    }
+    this.buoys.instanceMatrix.needsUpdate = true;
     // ride the water under the ski: follow the surface, but leave it briefly over the crests
     const h = H(fx * 0.6, fz * 0.6);
     const hAhead = H(fx * 2.6, fz * 2.6), hSide = H(rx * 0.8 + fx * 0.6, rz * 0.8 + fz * 0.6) - H(-rx * 0.8 + fx * 0.6, -rz * 0.8 + fz * 0.6);
