@@ -179,12 +179,7 @@ export const LIGHT_TRACKS = [
     scene: 'bliss', seed: 6001, profile: 'relax', dives: false,
     palette: ['#05030f', '#3a2a8a', '#ffd6f0'], breath: [4, 2, 6, 0], arc: ARC,
   },
-  {
-    id: 'slow-buchla-sunshine', title: 'Slow Buchla Sunshine', freq: 432, intent: 'Above & Beyond with Elena Brower · music and spoken word', plain: true,
-    stream: 'tracks/slow-buchla-sunshine.mp3', metaUrl: 'tracks/slow-buchla-sunshine.json',
-    scene: 'hope', seed: 6002, profile: 'relax', dives: false,
-    palette: ['#0a0612', '#c46a3a', '#ffe2b0'], breath: [4, 2, 6, 0], arc: ARC,
-  },
+
 ];
 
 export const SOLFEGGIO = [174, 285, 396, 417, 528, 639, 741, 852, 963];
