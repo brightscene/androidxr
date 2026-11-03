@@ -100,7 +100,7 @@ export class RainbowRoadScene extends BaseScene {
           // bands of colour across the road, shimmering
           vec3 c = rainbow(x * 0.92 + 0.02) * (0.5 + 0.15 * sin(z * 0.6 - uTime * 3.0));
           // chevrons of light streaming along beneath you
-          float chev = fract((z - abs(x - 0.5) * 6.0) / 7.0 - uTime * 0.45);
+          float chev = fract((z - abs(x - 0.5) * 6.0) / 7.0 - uTime * (0.45 + uBoost * 1.5));
           c += vec3(1.0) * smoothstep(0.08, 0.0, abs(chev - 0.5) - 0.42) * 0.25 * (1.0 + uBoost);
           // panel seams and sparkle
           c *= 0.85 + 0.15 * step(0.04, fract(z / 4.0));
@@ -150,12 +150,20 @@ export class RainbowRoadScene extends BaseScene {
   update(dt) {
     const U = this.uniforms;
     this.next -= dt;
-    if (this.next <= 0) {
-      if (Math.random() < 0.3) { this.boost = 1; if (this.fade > 0.5) SFX.play('whoosh', { pan: 0, dur: 3, gain: 0.5 }); }
-      this.target = [16, 22, 28, 36][Math.floor(Math.random() * 4)]; this.next = 7 + Math.random() * 7;
+    if (this.next <= 0) { this.target = [16, 22, 28, 36][Math.floor(Math.random() * 4)]; this.next = 7 + Math.random() * 7; }
+    // every so often, a burst: race at full tilt for 5-10 seconds, then ease right down
+    this.nextBurst = (this.nextBurst ?? 14) - dt;
+    if (this.nextBurst <= 0 && !this.burst) {
+      this.burst = 5 + Math.random() * 5;
+      this.nextBurst = this.burst + 15 + Math.random() * 15;
+      if (this.fade > 0.5) SFX.play('whoosh', { pan: 0, dur: 4, gain: 0.7 });
     }
-    this.boost *= Math.exp(-dt * 0.6);
-    this.speed = damp(this.speed, this.target + this.boost * 25, 0.6, dt);
+    if (this.burst) {
+      this.burst -= dt;
+      if (this.burst <= 0) { this.burst = 0; this.target = 14; this.next = 6 + Math.random() * 4; if (this.fade > 0.5) SFX.play('whoosh', { pan: 0, dur: 3, gain: 0.3 }); }
+    }
+    this.boost = damp(this.boost, this.burst ? 1 : 0, this.burst ? 1.4 : 0.5, dt);
+    this.speed = damp(this.speed, this.burst ? 95 : this.target, this.burst ? 0.9 : 0.45, dt);
     this.s += this.speed * dt;
     U.uBoost.value = this.boost;
     // ride the road: sit at eye height above it, looking a little way ahead, banking with it
@@ -176,5 +184,6 @@ export class RainbowRoadScene extends BaseScene {
     this.sky.quaternion.copy(inv);   // the galaxy turns around you as the road turns
     this.world.position.copy(eye).applyQuaternion(inv).negate().add(new THREE.Vector3(0, 1.6, 0));
     this.dust.userData.u.uVel.value.set(0, 0, this.speed * 0.8);
+    this.dust.userData.u.uBoost.value = this.boost;
   }
 }
