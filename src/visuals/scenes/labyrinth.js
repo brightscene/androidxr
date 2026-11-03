@@ -18,6 +18,35 @@ const C = 4.2;         // cell size (m)
 const H = 3.3;         // corridor height
 const WALL = 0.3;
 const ALL = AFFIRMATIONS.flat();
+const EYE = 1.6;
+
+// turn the exploration into flowing flights: each one runs from where you are,
+// along the corridors, to the next dead end, where you hover and read the words
+function legsOf(events, start) {
+  const legs = [];
+  let pts = [centre(start)];
+  for (const e of events) {
+    if (e.type === 'dead') { legs.push({ pts, dead: e }); pts = [centre(e.cell)]; }
+    else pts.push(centre(e.cell));
+  }
+  if (pts.length > 1) legs.push({ pts, dead: null });
+  // hover a little short of each dead end's wall, and set off again from there
+  for (let i = 0; i < legs.length; i++) {
+    const L = legs[i];
+    if (!L.dead || L.pts.length < 2) continue;
+    const [ax, az] = L.pts[L.pts.length - 2], [bx, bz] = L.pts[L.pts.length - 1];
+    const d = Math.hypot(bx - ax, bz - az) || 1;
+    const hover = [bx - (bx - ax) / d * 0.6, bz - (bz - az) / d * 0.6];
+    L.pts[L.pts.length - 1] = hover;
+    if (legs[i + 1]) legs[i + 1].pts[0] = hover;
+  }
+  for (const L of legs) {
+    L.curve = new THREE.CatmullRomCurve3(L.pts.map(([x, z]) => new THREE.Vector3(x, 0, z)), false, 'centripetal');
+    L.curve.arcLengthDivisions = L.pts.length * 120;   // fine enough that the glide speed never stutters
+    L.len = L.curve.getLength();
+  }
+  return legs.filter((L) => L.len > 0.05 || L.dead);
+}
 
 function makeMaze(rnd) {
   const open = Array.from({ length: N * N }, () => new Set());   // open neighbours of each cell
@@ -80,7 +109,11 @@ export class LabyrinthScene extends BaseScene {
     const U = this.uniforms;
     Object.assign(U, { uPulse: { value: 0 }, uHue: { value: Math.random() }, uSpot: { value: new THREE.Vector4(0, 0, 0, 0) }, uDim: { value: 1 } });
     this.maze = new THREE.Group();
-    this.group.add(this.maze);
+    // the drone: a rig at eye height that banks into turns and hovers gently
+    this.rig = new THREE.Group();
+    this.rig.position.y = EYE;
+    this.rig.add(this.maze);
+    this.group.add(this.rig);
     this.mat = new THREE.ShaderMaterial({
       transparent: true, uniforms: U,
       vertexShader: /* glsl */ `varying vec3 vP; varying vec3 vN; varying float vD;
@@ -141,15 +174,11 @@ export class LabyrinthScene extends BaseScene {
     this.mesh.frustumCulled = false;
     this.maze.add(this.mesh);
     const start = Math.floor(rnd() * N * N);
-    this.events = explore(this.open, start, rnd);
+    this.legs = legsOf(explore(this.open, start, rnd), start);
     const [x, z] = centre(start);
-    const first = this.events.find((e) => e.type === 'go');
-    const [fx, fz] = first ? centre(first.cell) : [x, z - 1];
-    this.pose = { x, z, yaw: yawTo(fx - x, fz - z) };
-    this.K = { x, z }; this.w = 0;   // a guide point runs the corridors; the view glides after it
-    this.cell = start;
-    this.cur = null;
-    this.speed = 0; this.runSpeed = 1.6; this.lastType = 'go';
+    this.pose = { x, z, yaw: 0 };
+    this.leg = null; this.state = 'next'; this.s = 0; this.v = 0; this.w = 0; this.roll = 0;
+    if (this.legs[0]) { const t = this.legs[0].curve.getTangentAt(0); this.pose.yaw = yawTo(t.x, t.z); }
     this.uniforms.uHue.value = Math.random();
   }
 
@@ -167,92 +196,98 @@ export class LabyrinthScene extends BaseScene {
     return t;
   }
 
-  // does the step after this one need us to stop (a corner, a change between
-  // forward and reverse, or a dead end)? If not, keep gliding through.
-  _stopsAfter(e) {
-    const next = this.events[0];
-    return !next || next.type === 'dead' || next.type !== e.type;
+  _aim(L, s) {
+    // where to look: a little way ahead along the flight path
+    const p = L.curve.getPointAt(Math.min(1, (s + 1.4) / L.len));
+    const P = this.pose;
+    const dx = p.x - P.x, dz = p.z - P.z;
+    return Math.hypot(dx, dz) > 0.05 ? yawTo(dx, dz) : P.yaw;
   }
 
   update(dt, t) {
     const U = this.uniforms;
     U.uPulse.value *= Math.exp(-dt * 2.2);
+    U.uDim.value = damp(U.uDim.value, this.state === 'swap' ? 0 : 1, 2.2, dt);
     const P = this.pose;
-    let spot = 0;
-    U.uDim.value = damp(U.uDim.value, this.swapping ? 0 : 1, 2.2, dt);
-    if (!this.cur) {
-      const e = this.events.shift();
-      if (!e) {
-        // finished this maze: dim softly, then fade up inside a new one
-        this.swapping = true;
-        if (U.uDim.value < 0.02) { this._newMaze(); this.swapping = false; }
-        return;
-      }
-      this.cur = { ...e, t: 0, idx: 0 };
-      if (e.type === 'go' || e.type === 'back') {
-        const [cx, cz] = centre(e.cell), [px, pz] = centre(this.cell);
-        // forward: face where you're going; reverse: keep facing the way you came from
-        this.cur.yaw = e.type === 'go' ? yawTo(cx - px, cz - pz) : yawTo(px - cx, pz - cz);
-        // only turn on the spot when setting off forward again after backing out
-        this.cur.turning = this.lastType !== 'go' && e.type === 'go' && Math.abs(wrap(this.cur.yaw - P.yaw)) > 0.3;
-        if (this.speed < 0.2) this.runSpeed = [1.0, 1.5, 2.1, 2.8][Math.floor(Math.random() * 4)];
-        this.lastType = e.type;
-        this.cur.stop = this._stopsAfter(e);
-      } else {
-        this.lastType = 'dead';
-        const [cx, cz] = centre(e.cell), [fx, fz] = centre(e.from);
-        const dx = Math.sign(cx - fx), dz = Math.sign(cz - fz);
-        const wx = cx + dx * (C / 2 - WALL / 2 - 0.03), wz = cz + dz * (C / 2 - WALL / 2 - 0.03);
-        const words = this._pick();
-        this.text.userData.set(words);
-        this.text.position.set(wx, 1.65, wz);
-        this.text.rotation.set(0, Math.atan2(-dx, -dz), 0);   // facing back toward you
-        this.cur.wall = [wx, wz];
-        this._sfx('thud', { pan: 0, decay: 0.55, gain: 1.6 });
-        const id = affirmationId(words);
-        if (id && this.fade > 0.5) setTimeout(() => SFX.say(id, 0, words), 350);
-      }
+    let yawTarget = null;
+
+    if (this.state === 'next') {
+      this.leg = this.legs.shift();
+      if (!this.leg) { this.state = 'swap'; }
+      else { if (this.leg.pts.length && this.prevDead) this.v = 0; this.state = 'fly'; this.s = 0; this.cruise = [1.1, 1.5, 1.9, 2.3][Math.floor(Math.random() * 4)]; }
     }
-    const c = this.cur;
-    c.t += dt;
-    if (c.type === 'dead') {
-      // hold for five seconds with the words on the wall
-      const a = Math.min(1, c.t / 0.5) * (1 - Math.max(0, c.t - 5.2) / 0.6);
-      this.text.material.uniforms.uA.value = a;
-      spot = a;
-      U.uSpot.value.set(c.wall[0], 0, c.wall[1], spot);
-      this.speed = 0;
-      if (c.t >= 5.8) { this.text.material.uniforms.uA.value = 0; U.uSpot.value.w = 0; this.cur = null; }
-    } else {
-      const K = this.K;
-      const near = Math.hypot(K.x - P.x, K.z - P.z) < 0.08;
-      if (c.turning && (Math.abs(wrap(c.yaw - P.yaw)) > 0.04 || !near)) {
-        // ease round on the spot, slow at the start and the end of the turn
-        this.speed = damp(this.speed, 0, 3, dt);
-      } else {
-        c.turning = false;
-        const [tx, tz] = centre(c.cell);
-        const dist = Math.hypot(tx - K.x, tz - K.z);
-        const target = c.stop ? Math.min(this.runSpeed, 0.25 + dist * 0.7) : this.runSpeed;
-        this.speed = damp(this.speed, target, 1.1, dt);
-        const step = Math.min(dist, this.speed * dt);
-        if (dist > 1e-4) { K.x += (tx - K.x) / dist * step; K.z += (tz - K.z) / dist * step; }
-        if (dist - step < 0.01) { K.x = tx; K.z = tz; this.cell = c.cell; this.cur = null; }
+
+    if (this.state === 'swap') {
+      // finished this maze: dim softly, then fade up inside a new one
+      if (U.uDim.value < 0.02) this._newMaze();
+    } else if (this.state === 'fly') {
+      const L = this.leg;
+      const rem = L.len - this.s;
+      // ease off into bends, and glide to a gentle stop before each dead end
+      const t0 = L.curve.getTangentAt(Math.min(1, this.s / L.len)), t1 = L.curve.getTangentAt(Math.min(1, (this.s + 2.5) / L.len));
+      const bend = Math.acos(Math.max(-1, Math.min(1, t0.dot(t1))));
+      let target = this.cruise * (1 - 0.55 * Math.min(1, bend / (Math.PI / 2)));
+      this.v = damp(this.v, target, 0.9, dt);
+      if (L.dead) this.v = Math.min(this.v, Math.sqrt(2 * 0.28 * Math.max(0, rem)) + 0.004);
+      this.s = Math.min(L.len, this.s + this.v * dt);
+      const p = L.curve.getPointAt(this.s / L.len);
+      P.x = p.x; P.z = p.z;
+      yawTarget = this._aim(L, this.s);
+      if (L.len - this.s < 0.002) {
+        this.prevDead = !!L.dead;
+        if (L.dead) this._arrive(L.dead); else this.state = 'next';
       }
+    } else if (this.state === 'hover') {
+      this.h += dt;
+      const a = Math.min(1, this.h / 0.8) * (1 - Math.max(0, this.h - 5.6) / 0.8);
+      this.text.material.uniforms.uA.value = Math.max(0, a);
+      U.uSpot.value.set(this.wall[0], 0, this.wall[1], Math.max(0, a));
+      yawTarget = this.face;
+      if (this.h >= 6.2) {
+        this.text.material.uniforms.uA.value = 0; U.uSpot.value.w = 0;
+        // a slow, graceful about-turn
+        this.state = 'turn'; this.h = 0; this.y0 = P.yaw; this.dir = Math.random() < 0.5 ? 1 : -1;
+      }
+    } else if (this.state === 'turn') {
+      this.h += dt;
+      const k = Math.min(1, this.h / 4.5), e = k * k * k * (k * (k * 6 - 15) + 10);
+      const prev = P.yaw;
+      P.yaw = this.y0 + this.dir * Math.PI * e;
+      this.w = (P.yaw - prev) / Math.max(dt, 1e-3);
+      if (k >= 1) { this.w = 0; this.state = 'next'; }
     }
-    // the view chases the guide point, so corners become smooth curves
-    const k = 1 - Math.exp(-dt * 3.2);
-    P.x += (this.K.x - P.x) * k; P.z += (this.K.z - P.z) * k;
-    if (c.yaw !== undefined) {
-      const dy = wrap(c.yaw - P.yaw);
-      // turn speed eases in and out and never exceeds a gentle maximum
-      const max = c.turning ? 0.7 : 0.9;
-      const wT = Math.max(-max, Math.min(max, dy * 1.6));
-      this.w = damp(this.w || 0, wT, 2.5, dt);
-      P.yaw += Math.abs(this.w * dt) > Math.abs(dy) ? dy : this.w * dt;
+
+    if (yawTarget !== null) {
+      // turn like a drone: smoothly, never faster than a gentle maximum
+      const dy = wrap(yawTarget - P.yaw);
+      const wT = Math.max(-0.75, Math.min(0.75, dy * 1.4));
+      this.w = damp(this.w, wT, 2.0, dt);
+      P.yaw += this.w * dt;
     }
-    // place the maze so that the travelling viewpoint sits at your feet, facing ahead
+    // bank softly into turns, and hover with a slight float
+    this.roll = damp(this.roll, Math.max(-0.07, Math.min(0.07, -this.w * 0.09)), 2.5, dt);
+    this.rig.rotation.z = this.roll;
+    this.rig.position.y = EYE + Math.sin(t * 0.7) * 0.025;
+    // place the maze so that the drone's viewpoint sits at your eyes, facing ahead
     this.maze.rotation.y = -P.yaw;
-    this.maze.position.set(-P.x, 0, -P.z).applyAxisAngle(new THREE.Vector3(0, 1, 0), -P.yaw);
+    this.maze.position.set(-P.x, -EYE, -P.z).applyAxisAngle(new THREE.Vector3(0, 1, 0), -P.yaw);
+    this.maze.position.y = -EYE;
+  }
+
+  _arrive(e) {
+    // hover in front of the dead end; the words appear on its wall
+    const [cx, cz] = centre(e.cell), [fx, fz] = centre(e.from);
+    const dx = Math.sign(cx - fx), dz = Math.sign(cz - fz);
+    const wx = cx + dx * (C / 2 - WALL / 2 - 0.03), wz = cz + dz * (C / 2 - WALL / 2 - 0.03);
+    const words = this._pick();
+    this.text.userData.set(words);
+    this.text.position.set(wx, 1.65, wz);
+    this.text.rotation.set(0, Math.atan2(-dx, -dz), 0);
+    this.wall = [wx, wz];
+    this.face = yawTo(dx, dz);
+    this.state = 'hover'; this.h = 0;
+    this._sfx('thud', { pan: 0, decay: 0.55, gain: 1.0 });
+    const id = affirmationId(words);
+    if (id && this.fade > 0.5) setTimeout(() => SFX.say(id, 0, words), 600);
   }
 }

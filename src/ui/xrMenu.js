@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { SYMBOLS } from '../visuals/strobe.js';
-import { BACKGROUNDS } from '../visuals/scenes/index.js';
+import { BACKGROUNDS, SCENES } from '../visuals/scenes/index.js';
 
 // In-headset UI: canvas-textured panels you point at and pinch (hands) or
 // trigger (controllers). Works with any WebXR input that has a target ray,
@@ -168,7 +168,7 @@ export class XRMenu {
       c.textAlign = 'center';
       c.textBaseline = 'middle';
       const label = app.playing ? (app.playingTrack === app.selected ? 'Resume' : 'Play selected') : 'Begin';
-      c.fillText(`${label}: ${app.selected.title}`.slice(0, 34), w / 2, h / 2 + 2);
+      c.fillText(label, w / 2, h / 2 + 2);
     }, () => app.beginOrResume()), -0.3, fy);
     this.endBtn = this._btn(this.panel, new Button(0.24, 0.09, pill('End session'), () => app.stop()), 0.07, fy);
     this.closeBtn = this._btn(this.panel, new Button(0.18, 0.09, pill('Close'), () => this.show(false)), 0.3, fy);
@@ -264,22 +264,35 @@ export class XRMenu {
 
   _buildScene() {
     const app = this.app, p = this.pages.Scene;
-    this._btn(p, new Button(0.32, 0.07, textDraw('Background', { alpha: 0.65 })), LX + 0.16, ROW0, false);
-    BACKGROUNDS.forEach(([v, label], i) => {
-      const col = i % 5, row = Math.floor(i / 5);
-      this._btn(p, new Button(0.215, 0.068, pill(label, () => app.background === v), () => app.setBackground(v)), PX + 0.11 + col * 0.228, ROW0 - row * 0.082);
+    // scenes are grouped into categories, so the list never spills over the controls below
+    const GROUPS = ['Simple', 'Space', 'Dimensions', 'Mind', 'Nature', 'Sky & water', 'Light journeys'];
+    const groupOf = (v) => (v === 'auto' ? 'Simple' : SCENES[v]?.group || 'Simple');
+    this.sceneGroup = groupOf(app.background);
+    const gw = 0.2;
+    GROUPS.forEach((g, i) => {
+      this._btn(p, new Button(gw, 0.065, pill(g, () => this.sceneGroup === g), () => { this.sceneGroup = g; this._layoutScenes(); }), LX + gw / 2 + i * (gw + 0.012), 0.42);
     });
-    const rows = Math.ceil(BACKGROUNDS.length / 5);
-    this._row(p, rows * 0.82 + 0.1, 'Deep dives', [['Gentle', 'gentle'], ['Full speed', 'full'], ['Off', 'off']], () => app.dives, (v) => app.setDives(v));
-    this._row(p, rows * 0.82 + 1.05, 'Visual quality', [['Smooth', 'smooth'], ['Balanced', 'balanced'], ['Sharp', 'sharp']], () => app.quality, (v) => app.setQuality(v));
-    this._row(p, rows * 0.82 + 2.0, 'Centre view', [['Centre now', 'now']], () => null, () => app.recentre(), [0.28]);
+    this.sceneBtns = BACKGROUNDS.map(([v, label]) => ({ g: groupOf(v), b: this._btn(p, new Button(0.27, 0.068, pill(label, () => app.background === v), () => app.setBackground(v)), 0, 0) }));
+    this._layoutScenes = () => {
+      let i = 0;
+      for (const { g, b } of this.sceneBtns) {
+        b.mesh.visible = g === this.sceneGroup;
+        if (!b.mesh.visible) continue;
+        const col = i % 5, row = Math.floor(i / 5); i++;
+        b.mesh.position.set(LX + 0.135 + col * 0.284, 0.32 - row * 0.08, 0);
+      }
+    };
+    this._layoutScenes();
+    this._row(p, 3.9, 'Deep dives', [['Gentle', 'gentle'], ['Full speed', 'full'], ['Off', 'off']], () => app.dives, (v) => app.setDives(v));
+    this._row(p, 4.85, 'Visual quality', [['Smooth', 'smooth'], ['Balanced', 'balanced'], ['Sharp', 'sharp']], () => app.quality, (v) => app.setQuality(v));
+    this._row(p, 5.8, 'Centre view', [['Centre now', 'now']], () => null, () => app.recentre(), [0.28]);
     this._btn(p, new Button(1.46, 0.06, textDraw(() => {
       const b = app.background;
       if (b === 'off') return app.xrMode === 'immersive-ar' ? 'Off: only your room and the lights.' : 'Off: pure black. Only the lights (and this menu) are shown.';
       if (b === 'stars') return 'Stars only: a still, quiet starry sky with no nebula, travel or effects.';
       if (b === 'auto') return `Auto: each track uses its own scene (${(app.playing ? app.playingTrack : app.selected).scene} for the selected track).`;
       return 'This scene is used for every track until you switch back to Auto.';
-    }, { alpha: 0.6, size: 0.46 })), 0, ROW0 - (rows * 0.82 + 2.95) * ROWH);
+    }, { alpha: 0.6, size: 0.46 })), 0, ROW0 - 6.75 * ROWH);
   }
 
   _buildSound() {
@@ -377,6 +390,11 @@ export class XRMenu {
   setTab(name) {
     this.tab = name;
     for (const [t, g] of Object.entries(this.pages)) g.visible = t === name;
+    if (name === 'Scene' && this._layoutScenes) {
+      const v = this.app.background;
+      this.sceneGroup = v === 'auto' ? 'Simple' : SCENES[v]?.group || this.sceneGroup;
+      this._layoutScenes();
+    }
     this.refresh();
   }
 

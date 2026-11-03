@@ -19,6 +19,7 @@ import { WombScene } from './womb.js';
 import { HopeScene, BlissScene } from './hope.js';
 import { EarthJourneyScene } from './earth.js';
 import { JetSkiScene } from './jetski.js';
+import { NeonCityScene } from './neon.js';
 import { DrumJourneyScene, IllusionScene, MindsEyeScene } from './lighttracks.js';
 import { TimePortalScene, KaleidosphereScene, NebulaFlightScene, WarpGateScene, MandalaBloomScene, SilkVortexScene } from './dimensions.js';
 import { MoonViewScene, FractalTunnelScene, CrystalCaveScene, NebulaScene, LightRibbonsScene, BlackHoleScene, ChakraScene } from './cosmic.js';
@@ -41,6 +42,7 @@ export const SCENES = {
   stargate: { type: StarGateScene, label: 'Wormhole', group: 'Dimensions', cruise: 0, nebula: 0, world: 'bare' },
   hope: { type: HopeScene, label: 'Hope', group: 'Mind', cruise: 0, nebula: 0, world: 'off' },
   bliss: { type: BlissScene, label: 'Bliss', group: 'Mind', cruise: 0, nebula: 0, world: 'off' },
+  neoncity: { type: NeonCityScene, label: 'Neon Tokyo flight', group: 'Dimensions', cruise: 0, nebula: 0, world: 'off' },
   jetski: { type: JetSkiScene, label: 'Jet ski', group: 'Sky & water', cruise: 0, nebula: 0, world: 'off' },
   earthcore: { type: EarthJourneyScene, label: 'Journey to the centre of the earth', group: 'Dimensions', cruise: 0, nebula: 0, world: 'off' },
   wormviolet: { type: class extends WormholeScene { constructor() { super('violet'); } }, label: 'Wormhole · violet drift', group: 'Dimensions', cruise: 0, nebula: 0, world: 'bare' },
@@ -57,6 +59,7 @@ export const SCENES = {
   silk: { type: SilkVortexScene, label: 'Silk vortex', group: 'Dimensions', cruise: 4, nebula: 0, world: 'stars' },
 
   murmuration: { type: MurmurationScene, label: 'Starling murmuration', group: 'Nature', cruise: 0, nebula: 0, world: 'bare' },
+  murmurblack: { type: class extends MurmurationScene { constructor() { super(true); } }, label: 'Starlings at sunset', group: 'Nature', cruise: 0, nebula: 0, world: 'bare' },
   campfire: { type: CampfireScene, label: 'Campfire under the stars', group: 'Nature', cruise: 0, nebula: 0, world: 'off' },
   fireplace: { type: FireplaceScene, label: 'Fireplace', group: 'Nature', cruise: 0, nebula: 0, world: 'off' },
   meadow: { type: MeadowScene, label: 'Meadow', group: 'Nature', cruise: 0, nebula: 0, world: 'bare' },

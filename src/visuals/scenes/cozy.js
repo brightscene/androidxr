@@ -7,16 +7,32 @@ import { particles } from './kit.js';
 // pouring, folding and rippling across the sky, sometimes sweeping right over
 // you with a rush of wings. The flock's shape and pace follow the music.
 export class MurmurationScene extends BaseScene {
-  constructor() {
+  constructor(black = false) {
     super();
     const U = this.uniforms;
-    Object.assign(U, { uFlock: { value: 0 }, uWave: { value: 0 } });
+    // black: real starlings as dark silhouettes against a glowing sunset
+    Object.assign(U, { uFlock: { value: 0 }, uWave: { value: 0 }, uBlack: { value: black ? 1 : 0 } });
     const sky = new THREE.Mesh(new THREE.SphereGeometry(150, 48, 32), new THREE.ShaderMaterial({
       side: THREE.BackSide, depthWrite: false, transparent: true, uniforms: U,
       vertexShader: 'varying vec3 vDir; void main(){ vDir = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
-      fragmentShader: /* glsl */ `uniform float uTime, uFade; varying vec3 vDir; ${NOISE} ${GRADE} ${STARS}
+      fragmentShader: /* glsl */ `uniform float uTime, uFade, uBlack; varying vec3 vDir; ${NOISE} ${GRADE} ${STARS}
         void main(){ vec3 d = normalize(vDir); float h = d.y;
           vec3 sunDir = normalize(vec3(0.3, 0.03, -1.0));
+          if (uBlack > 0.5) {
+            // a glowing winter sunset: amber low down, rose, then soft blue above
+            float sb = max(dot(d, sunDir), 0.0);
+            vec3 c = mix(vec3(1.0, 0.55, 0.25), vec3(0.85, 0.5, 0.5), smoothstep(0.0, 0.18, h));
+            c = mix(c, vec3(0.42, 0.45, 0.62), smoothstep(0.12, 0.45, h));
+            c = mix(c, vec3(0.16, 0.22, 0.4), smoothstep(0.4, 0.9, h));
+            c += vec3(1.0, 0.7, 0.4) * (pow(sb, 10.0) * 0.5 + pow(sb, 500.0) * 2.0);
+            float cl = fbm(vec3(d.xz * 2.5 / (h + 0.25), uTime * 0.01)) * smoothstep(0.03, 0.2, h) * smoothstep(0.5, 0.2, h);
+            c = mix(c, mix(vec3(0.6, 0.38, 0.42), vec3(1.0, 0.7, 0.5), pow(sb, 3.0)), cl * 0.5);
+            float reeds = 0.012 + 0.02 * fbm(vec3(atan(d.z, d.x) * 40.0, 0.0, 0.0));
+            c = mix(c, vec3(0.06, 0.04, 0.05), smoothstep(reeds + 0.003, reeds - 0.003, h) * step(-0.02, h));
+            vec3 water = mix(vec3(0.45, 0.3, 0.32), vec3(1.0, 0.6, 0.35), pow(max(dot(normalize(vec3(d.x, -d.y, d.z)), sunDir), 0.0), 20.0));
+            c = mix(c, water * (0.8 + 0.25 * fbm(vec3(d.x * 40.0 / (-h + 0.02), d.z * 6.0 / (-h + 0.02), uTime * 0.2))), step(h, -0.02));
+            gl_FragColor = vec4(grade(c), uFade); return;
+          }
           float s = max(dot(d, sunDir), 0.0);
           // late dusk: just a dark ember of light left on the horizon
           vec3 c = mix(vec3(0.3, 0.12, 0.08), vec3(0.08, 0.05, 0.12), smoothstep(0.0, 0.2, h));
@@ -49,7 +65,7 @@ export class MurmurationScene extends BaseScene {
     g.setAttribute('position', new THREE.BufferAttribute(base, 3));
     g.setAttribute('aSeed', new THREE.BufferAttribute(seed, 1));
     this.flock = new THREE.Points(g, new THREE.ShaderMaterial({
-      transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, uniforms: U,
+      transparent: true, depthWrite: false, blending: black ? THREE.NormalBlending : THREE.AdditiveBlending, uniforms: U,
       vertexShader: /* glsl */ `attribute float aSeed; uniform float uTime, uViewH, uFlock, uWave; varying float vA; varying float vS; varying float vFlap; varying vec3 vCol;
         ${NOISE} ${POINT_SIZE}
         vec3 rotY(vec3 p, float a){ float c = cos(a), s = sin(a); return vec3(c * p.x + s * p.z, p.y, -s * p.x + c * p.z); }
@@ -92,7 +108,7 @@ export class MurmurationScene extends BaseScene {
           vA *= smoothstep(0.0, 6.0, dist) * clamp(px * px / 9.0, 0.35, 1.0);
           gl_Position = projectionMatrix * mv;
         }`,
-      fragmentShader: /* glsl */ `uniform float uFade; varying float vA; varying float vS; varying float vFlap; varying vec3 vCol;
+      fragmentShader: /* glsl */ `uniform float uFade, uBlack; varying float vA; varying float vS; varying float vFlap; varying vec3 vCol;
         void main(){
           // a small bird: a body and two swept wings that beat
           vec2 p = (gl_PointCoord - 0.5) * vec2(2.0, -2.0);
@@ -101,12 +117,13 @@ export class MurmurationScene extends BaseScene {
           float wl = smoothstep(0.12, 0.0, abs(p.y - wingY * abs(p.x) * 1.4 + 0.05)) * smoothstep(0.95, 0.4, abs(p.x));
           float shape = max(body, wl);
           float glow = exp(-dot(p, p) * 3.0) * 0.35;
+          if (uBlack > 0.5) { if (shape < 0.05) discard; gl_FragColor = vec4(vec3(0.015, 0.012, 0.02), shape * uFade * 0.95); return; }
           gl_FragColor = vec4(vCol * (shape + glow) * vA * uFade, 1.0);
         }`,
     }));
     this.flock.frustumCulled = false;
     this.group.add(this.flock);
-    this.group.add(particles(U, { count: 300, min: [-30, 0.5, -40], max: [30, 6, 10], vel: [0.2, 0.05, 0], sway: 0.4, size: [0.02, 0.04], colors: ['#ffd8a0', '#ffffff'], alpha: 0.2 }));
+    if (!black) this.group.add(particles(U, { count: 300, min: [-30, 0.5, -40], max: [30, 6, 10], vel: [0.2, 0.05, 0], sway: 0.4, size: [0.02, 0.04], colors: ['#ffd8a0', '#ffffff'], alpha: 0.2 }));
     this.speed = 1;
   }
   onEvent(e) {
