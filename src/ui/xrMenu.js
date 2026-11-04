@@ -54,6 +54,34 @@ function roundRect(c, x, y, w, h, r) {
 
 const val = (v) => (typeof v === 'function' ? v() : v);
 
+// little white icons for the mixer's layers, centred at (x, y), size r
+function drawIcon(c, kind, x, y, r) {
+  c.save(); c.translate(x, y); c.fillStyle = '#fff'; c.strokeStyle = '#fff'; c.lineWidth = r * 0.22; c.lineCap = 'round'; c.lineJoin = 'round';
+  if (kind === 'note') {
+    c.beginPath(); c.ellipse(-r * 0.3, r * 0.55, r * 0.38, r * 0.28, -0.4, 0, Math.PI * 2); c.fill();
+    c.beginPath(); c.moveTo(r * 0.05, r * 0.5); c.lineTo(r * 0.05, -r * 0.9); c.quadraticCurveTo(r * 0.55, -r * 0.6, r * 0.6, -r * 0.2); c.stroke();
+  } else if (kind === 'wave') {
+    c.beginPath(); for (let k = 0; k <= 30; k++) { const t = k / 30, xx = (t - 0.5) * 2 * r, yy = Math.sin(t * Math.PI * 4) * r * 0.45; k ? c.lineTo(xx, yy) : c.moveTo(xx, yy); } c.stroke();
+  } else if (kind === 'rings') {
+    for (const rr of [0.25, 0.6, 0.95]) { c.beginPath(); c.arc(0, 0, r * rr, 0, Math.PI * 2); c.lineWidth = r * 0.14; c.stroke(); }
+  } else if (kind === 'drop') {
+    c.beginPath(); c.moveTo(0, -r); c.bezierCurveTo(r * 0.8, -r * 0.1, r * 0.75, r * 0.9, 0, r * 0.9); c.bezierCurveTo(-r * 0.75, r * 0.9, -r * 0.8, -r * 0.1, 0, -r); c.fill();
+  } else if (kind === 'speech') {
+    roundRect(c, -r, -r * 0.75, r * 2, r * 1.3, r * 0.4); c.fill();
+    c.beginPath(); c.moveTo(-r * 0.4, r * 0.5); c.lineTo(-r * 0.6, r * 1.0); c.lineTo(-r * 0.05, r * 0.5); c.fill();
+  } else if (kind === 'sparkle') {
+    c.beginPath(); for (let k = 0; k < 8; k++) { const a = (k / 8) * Math.PI * 2, rr = k % 2 ? r * 0.3 : r; c.lineTo(Math.cos(a) * rr, Math.sin(a) * rr); } c.closePath(); c.fill();
+  } else if (kind === 'speaker') {
+    c.beginPath(); c.moveTo(-r * 0.9, -r * 0.3); c.lineTo(-r * 0.45, -r * 0.3); c.lineTo(0, -r * 0.75); c.lineTo(0, r * 0.75); c.lineTo(-r * 0.45, r * 0.3); c.lineTo(-r * 0.9, r * 0.3); c.closePath(); c.fill();
+    for (const rr of [0.4, 0.75]) { c.beginPath(); c.arc(r * 0.05, 0, r * rr, -0.85, 0.85); c.stroke(); }
+  } else if (kind === 'centre') {
+    c.beginPath(); c.arc(0, 0, r * 0.62, 0, Math.PI * 2); c.stroke();
+    c.beginPath(); c.arc(0, 0, r * 0.16, 0, Math.PI * 2); c.fill();
+    for (const a of [0, Math.PI / 2, Math.PI, Math.PI * 1.5]) { c.beginPath(); c.moveTo(Math.cos(a) * r * 0.75, Math.sin(a) * r * 0.75); c.lineTo(Math.cos(a) * r * 1.05, Math.sin(a) * r * 1.05); c.stroke(); }
+  }
+  c.restore();
+}
+
 function pill(label, isOn) {
   return (c, w, h, b) => {
     const on = isOn ? isOn() : false;
@@ -273,15 +301,18 @@ export class XRMenu {
     this.buttons.push(this.orb);
     // the orb lives on your left wrist during a session: a short note says so, where it used to be
     // beside it on the wrist: the sound mixer, one tap away
-    this.soundBtn = new Button(0.1, 0.1, (c, w, h, b) => {
-      c.beginPath(); c.arc(w / 2, h / 2, w / 2 - 5, 0, Math.PI * 2);
-      c.fillStyle = b.hover ? 'rgba(40,36,80,0.85)' : 'rgba(10,10,28,0.6)'; c.fill();
-      c.strokeStyle = 'rgba(200,190,255,0.6)'; c.lineWidth = 3; c.stroke();
-      c.fillStyle = '#fff';   // a little speaker with sound waves
-      c.beginPath(); c.moveTo(w * 0.24, h * 0.42); c.lineTo(w * 0.34, h * 0.42); c.lineTo(w * 0.48, h * 0.3); c.lineTo(w * 0.48, h * 0.7); c.lineTo(w * 0.34, h * 0.58); c.lineTo(w * 0.24, h * 0.58); c.fill();
-      c.strokeStyle = '#fff'; c.lineWidth = 4;
-      for (const r of [0.12, 0.2]) { c.beginPath(); c.arc(w * 0.48, h * 0.5, w * r, -0.8, 0.8); c.stroke(); }
-    }, () => { this.show(true); this.setTab('Sound'); }, 600);
+    const wristIcon = (icon, cols) => (c, w, h, b) => {
+      const g = c.createLinearGradient(0, 0, w, h); g.addColorStop(0, cols[0]); g.addColorStop(1, cols[1]);
+      c.beginPath(); c.arc(w / 2, h / 2, w / 2 - 8, 0, Math.PI * 2);
+      c.globalAlpha = b.hover ? 1 : 0.85; c.fillStyle = g; c.fill(); c.globalAlpha = 1;
+      c.strokeStyle = b.hover ? '#fff' : 'rgba(255,255,255,0.55)'; c.lineWidth = 6; c.stroke();
+      drawIcon(c, icon, w / 2, h / 2, w * 0.22);
+    };
+    this.soundBtn = new Button(0.1, 0.1, wristIcon('speaker', ['#7a5aff', '#2ec4b6']), () => { this.show(true); this.setTab('Sound'); }, 2560);
+    this.centreBtn = new Button(0.1, 0.1, wristIcon('centre', ['#3a8aff', '#a493ff']), () => this.app.recentre(), 2560);
+    this.centreBtn.mesh.visible = false;
+    this.group.add(this.centreBtn.mesh);
+    this.buttons.push(this.centreBtn);
     this.soundBtn.mesh.visible = false;
     this.group.add(this.soundBtn.mesh);
     this.buttons.push(this.soundBtn);
@@ -551,32 +582,119 @@ export class XRMenu {
     }, { alpha: 0.6, size: 0.46 })), 0, ROW0 - 8.5 * ROWH);
   }
 
-  // the sound mixer: quick mixes, then a row per layer (on/off, level, and its kind)
+  // the sound mixer: colourful quick-mix chips, then a card per layer with its
+  // icon, an on/off switch, a gradient slider you grab and drag (or tap), and
+  // its kind (tone type, nature sound); master volume at the bottom
   _buildSound() {
     const app = this.app, p = this.pages.Sound;
-    this._row(p, 0, 'Quick mix', [['Everything', 'all'], ['Music only', 'music'], ['Tones only', 'tones'], ['Scene only', 'scene'], ['Silent', 'silent']], () => null, (v) => { app.mixPreset(v); this.refresh(); }, [0.17, 0.17, 0.16, 0.17, 0.12]);
-    const layer = (i, label, k, extras = [], get, set) => {
-      const y = ROW0 - i * ROWH;
-      this._btn(p, new Button(0.32, 0.07, textDraw(label, { alpha: 0.65 })), LX + 0.16, y, false);
-      let x = PX;
-      const add = (w, b) => { this._btn(p, b, x + w / 2, y); x += w + 0.012; };
-      add(0.12, new Button(0.12, 0.07, pill(() => (app.layerOn(k) ? 'On' : 'Off'), () => app.layerOn(k)), () => { app.setLayerOn(k, !app.layerOn(k)); this.refresh(); }));
-      const step = (d) => () => { app.setLayerLevel(k, Math.round((app.mixLevels[k] + d) * 10) / 10); this.refresh(); };
-      add(0.07, new Button(0.07, 0.07, pill('\u2212', () => false), step(-0.1)));
-      add(0.11, new Button(0.11, 0.07, pill(() => `${Math.round(app.mixLevels[k] * 100)}%`, () => false), () => {}));
-      add(0.07, new Button(0.07, 0.07, pill('+', () => false), step(0.1)));
-      x += 0.02;
-      for (const [t, v, w] of extras) add(w, new Button(w, 0.07, pill(t, () => get() === v), () => { set(v); this.refresh(); }));
-    };
-    layer(1, 'Music', 'music');
-    layer(2, 'Brainwave tones', 'tones', [['Binaural', 'binaural', 0.15], ['Isochronic', 'isochronic', 0.16], ['Both', 'both', 0.1]], () => app.toneType, (v) => app.setToneType(v));
-    layer(3, 'Solfeggio tone', 'sol');
-    layer(4, 'Nature', 'nature', [['Soft rain', 'rain', 0.15], ['Ocean', 'ocean', 0.12]], () => app.natureType, (v) => app.setNatureType(v));
-    layer(5, 'Voice', 'voice');
-    layer(6, 'Scene & instrument', 'scene');
-    this._row(p, 7, 'Volume', [['\u2212', 'down'], [() => `${Math.round(app.volume * 100)}%`, 'x'], ['+', 'up']], () => null,
-      (v) => { if (v !== 'x') { app.setVolume(Math.min(1, Math.max(0, Math.round((app.volume + (v === 'up' ? 0.1 : -0.1)) * 10) / 10))); this.refresh(); } }, [0.1, 0.14, 0.1]);
-    this._btn(p, new Button(1.4, 0.05, textDraw('Binaural tones need headphones; isochronic works on speakers. Changes apply straight away.', { alpha: 0.5, size: 0.48 }), null), 0, ROW0 - 7.75 * ROWH, false);
+    const y0 = ROW0 + 0.01, RH = 0.093;
+    // quick mixes
+    const QUICK = [['all', 'Everything', ['#ff7ab8', '#ffd27a', '#7af0c8', '#8ab4ff']], ['music', 'Music only', ['#8a6aff', '#d08aff']], ['tones', 'Tones only', ['#2ec4b6', '#7af0e0']], ['scene', 'Scene only', ['#4a9aff', '#9ad8ff']], ['silent', 'Silent', ['#5a5a6a', '#8a8a9a']]];
+    let qx = LX;
+    for (const [v, label, cols] of QUICK) {
+      const w = v === 'silent' ? 0.17 : 0.27;
+      this._btn(p, new Button(w, 0.068, (c, W, H, b) => {
+        roundRect(c, 3, 3, W - 6, H - 6, (H - 6) / 2);
+        const g = c.createLinearGradient(0, 0, W, 0);
+        cols.forEach((col, i) => g.addColorStop(cols.length > 1 ? i / (cols.length - 1) : 0, col));
+        c.globalAlpha = b.hover ? 0.95 : 0.7; c.fillStyle = g; c.fill(); c.globalAlpha = 1;
+        c.strokeStyle = b.hover ? '#fff' : 'rgba(255,255,255,0.35)'; c.lineWidth = 3; c.stroke();
+        c.fillStyle = '#fff'; c.font = `600 ${Math.round(H * 0.4)}px ${FONT}`; c.textAlign = 'center'; c.textBaseline = 'middle';
+        c.shadowColor = 'rgba(0,0,0,0.5)'; c.shadowBlur = 6; c.fillText(label, W / 2, H / 2 + 2); c.shadowBlur = 0;
+      }, () => { app.mixPreset(v); this.refresh(); }, 1600), qx + w / 2, y0);
+      qx += w + 0.016;
+    }
+    const LAYERS = [
+      { k: 'music', name: 'Music', sub: 'the journey\u2019s soundscape', cols: ['#7a5aff', '#d08aff'], icon: 'note' },
+      { k: 'tones', name: 'Brainwave tones', sub: 'binaural or isochronic beats', cols: ['#1fb5a8', '#7af0e0'], icon: 'wave', types: [['binaural', 'Binaural'], ['isochronic', 'Isochronic'], ['both', 'Both']], get: () => app.toneType, set: (v) => app.setToneType(v) },
+      { k: 'sol', name: 'Solfeggio tone', sub: 'the healing frequency', cols: ['#f0a030', '#ffe08a'], icon: 'rings' },
+      { k: 'nature', name: 'Nature', sub: 'rain or ocean', cols: ['#2fae5a', '#9af0a0'], icon: 'drop', types: [['rain', 'Soft rain'], ['ocean', 'Ocean']], get: () => app.natureType, set: (v) => app.setNatureType(v) },
+      { k: 'voice', name: 'Voice', sub: 'guide and whispers', cols: ['#ff5a9a', '#ffb0d0'], icon: 'speech' },
+      { k: 'scene', name: 'Scene & instrument', sub: 'chanting, bowls, synth\u2026', cols: ['#3a8aff', '#9ad8ff'], icon: 'sparkle' },
+    ];
+    LAYERS.forEach((L, i) => {
+      const y = y0 - 0.1 - i * RH;
+      const on = () => app.layerOn(L.k);
+      // the card: icon and name
+      this._btn(p, new Button(0.5, 0.082, (c, W, H) => {
+        const a = on() ? 1 : 0.45;
+        roundRect(c, 3, 3, W - 6, H - 6, 22);
+        const g = c.createLinearGradient(0, 0, W, 0); g.addColorStop(0, L.cols[0] + (on() ? '55' : '22')); g.addColorStop(1, 'rgba(255,255,255,0.02)');
+        c.fillStyle = g; c.fill();
+        // icon disc
+        const r = H * 0.34, cx = H * 0.5, cy = H / 2;
+        const ig = c.createLinearGradient(cx - r, cy - r, cx + r, cy + r); ig.addColorStop(0, L.cols[0]); ig.addColorStop(1, L.cols[1]);
+        c.globalAlpha = a; c.beginPath(); c.arc(cx, cy, r, 0, Math.PI * 2); c.fillStyle = ig; c.fill();
+        drawIcon(c, L.icon, cx, cy, r * 0.6);
+        c.fillStyle = '#fff'; c.textAlign = 'left'; c.textBaseline = 'alphabetic';
+        c.font = `600 ${Math.round(H * 0.3)}px ${FONT}`; c.fillText(L.name, H * 0.98, H * 0.47);
+        c.font = `400 ${Math.round(H * 0.2)}px ${FONT}`; c.globalAlpha = a * 0.6; c.fillText(L.sub, H * 0.98, H * 0.76);
+        c.globalAlpha = 1;
+      }, null, 1600), LX + 0.25, y);
+      // the switch
+      this._btn(p, new Button(0.11, 0.062, (c, W, H, b) => {
+        const o = on();
+        roundRect(c, 4, 4, W - 8, H - 8, (H - 8) / 2);
+        if (o) { const g = c.createLinearGradient(0, 0, W, 0); g.addColorStop(0, L.cols[0]); g.addColorStop(1, L.cols[1]); c.fillStyle = g; } else c.fillStyle = 'rgba(255,255,255,0.14)';
+        c.fill();
+        if (b.hover) { c.strokeStyle = '#fff'; c.lineWidth = 3; c.stroke(); }
+        const kr = (H - 8) / 2 - 5;
+        c.beginPath(); c.arc(o ? W - 4 - kr - 5 : 4 + kr + 5, H / 2, kr, 0, Math.PI * 2);
+        c.fillStyle = '#fff'; c.shadowColor = 'rgba(0,0,0,0.4)'; c.shadowBlur = 6; c.fill(); c.shadowBlur = 0;
+      }, () => { app.setLayerOn(L.k, !on()); this.refresh(); }, 1600), -0.165, y);
+      // the slider
+      const sw = L.types ? 0.36 : 0.86, sx = -0.095 + sw / 2;
+      const slider = this._slider(p, sw, sx, y, L.cols, () => app.mixLevels[L.k], (v) => app.setLayerLevel(L.k, v), on);
+      // its kind
+      if (L.types) {
+        let tx = sx + sw / 2 + 0.02;
+        const tw = (0.765 - tx) / L.types.length - 0.01;
+        for (const [v, t] of L.types) {
+          this._btn(p, new Button(tw, 0.062, (c, W, H, b) => {
+            const sel = L.get() === v;
+            roundRect(c, 3, 3, W - 6, H - 6, (H - 6) / 2);
+            if (sel) { const g = c.createLinearGradient(0, 0, W, 0); g.addColorStop(0, L.cols[0]); g.addColorStop(1, L.cols[1]); c.fillStyle = g; } else c.fillStyle = b.hover ? 'rgba(255,255,255,0.22)' : 'rgba(255,255,255,0.08)';
+            c.fill();
+            c.fillStyle = '#fff'; c.font = `500 ${Math.round(H * 0.4)}px ${FONT}`; c.textAlign = 'center'; c.textBaseline = 'middle';
+            let size = Math.round(H * 0.4);
+            while (c.measureText(t).width > W - 16 && size > 10) { size -= 2; c.font = `500 ${size}px ${FONT}`; }
+            c.fillText(t, W / 2, H / 2 + 2);
+          }, () => { L.set(v); this.refresh(); }, 1600), tx + tw / 2, y);
+          tx += tw + 0.01;
+        }
+      }
+    });
+    // master volume
+    const vy = y0 - 0.1 - LAYERS.length * RH - 0.01;
+    this._btn(p, new Button(0.5, 0.075, (c, W, H) => {
+      c.fillStyle = '#fff'; c.textAlign = 'left'; c.textBaseline = 'middle';
+      c.font = `600 ${Math.round(H * 0.34)}px ${FONT}`; c.fillText('Master volume', 14, H / 2 + 2);
+    }, null, 1600), LX + 0.25, vy);
+    this._slider(p, 0.97, -0.205 + 0.97 / 2, vy, ['#ffffff', '#c8b8ff'], () => app.volume, (v) => app.setVolume(v), () => true);
+  }
+
+  // a graphical slider: a rounded track, a gradient fill and a glowing knob.
+  // Pinch (or pull the trigger) on it and drag; a tap jumps to where you point.
+  _slider(parent, w, x, y, cols, get, set, enabled) {
+    const PAD = 0.03;
+    const b = this._btn(parent, new Button(w, 0.07, (c, W, H, bb) => {
+      const v = Math.max(0, Math.min(1, get())), on = enabled();
+      const pad = (PAD / w) * W, tx0 = pad, tx1 = W - pad - 125, th = H * 0.26, ty = H / 2 - th / 2;
+      roundRect(c, tx0, ty, tx1 - tx0, th, th / 2); c.fillStyle = 'rgba(255,255,255,0.12)'; c.fill();
+      const fx = tx0 + (tx1 - tx0) * v;
+      if (fx > tx0 + 2) {
+        roundRect(c, tx0, ty, fx - tx0, th, th / 2);
+        const g = c.createLinearGradient(tx0, 0, tx1, 0); g.addColorStop(0, cols[0]); g.addColorStop(1, cols[1]);
+        c.globalAlpha = on ? 1 : 0.35; c.fillStyle = g; c.fill(); c.globalAlpha = 1;
+      }
+      const kr = H * 0.3;
+      c.beginPath(); c.arc(fx, H / 2, kr * (bb.hover || bb.dragging ? 1.15 : 1), 0, Math.PI * 2);
+      c.fillStyle = '#fff'; c.shadowColor = on ? cols[1] : 'rgba(0,0,0,0.5)'; c.shadowBlur = bb.dragging ? 22 : 12; c.fill(); c.shadowBlur = 0;
+      c.fillStyle = on ? '#fff' : 'rgba(255,255,255,0.5)'; c.font = `500 ${Math.round(H * 0.36)}px ${FONT}`; c.textAlign = 'right'; c.textBaseline = 'middle';
+      c.fillText(`${Math.round(v * 100)}%`, W - 6, H / 2 + 2);
+    }, () => {}, 1600), x, y);
+    b.slider = { x0: x - w / 2 + PAD, x1: x + w / 2 - PAD - (125 / 1600), set: (v) => { set(Math.max(0, Math.min(1, Math.round(v * 100) / 100))); b.redraw(); } };
+    return b;
   }
 
   // how a session runs: its length, the brainwave journey, and the deep dives
@@ -765,7 +883,9 @@ export class XRMenu {
         const y = this._panelY(ctl);
         if (y != null && y < J_TOP && y > J_BOT) this.jDrag = { ctl, y, s: this.jScroll, t: performance.now() };
       });
-      ctl.addEventListener('selectend', () => { if (this.jDrag?.ctl === ctl) this.jDrag = null; if (this.brandHold?.ctl === ctl) this.brandHold = null; });
+      ctl.addEventListener('selectend', () => { if (this.jDrag?.ctl === ctl) this.jDrag = null; if (this.brandHold?.ctl === ctl) this.brandHold = null; if (this.sDrag?.ctl === ctl) { this.sDrag.b.dragging = false; this.sDrag.b.redraw(); this.sDrag = null; } });
+      // grab a slider and drag it
+      ctl.addEventListener('selectstart', () => { if (!this.visible) return; const b = this._hit(ctl); if (b?.slider) { this.sDrag = { ctl, b }; b.dragging = true; } });
       ctl.addEventListener('selectstart', () => { if (this.visible && this._hit(ctl) === this.brandBtn) this.brandHold = { ctl, t: performance.now() }; });
       ctl.addEventListener('disconnected', () => { ctl.userData.connected = false; ray.visible = false; dot.visible = false; });
       ctl.addEventListener('select', () => {
@@ -810,6 +930,15 @@ export class XRMenu {
     return hits.length ? hits[0].object.userData.button : null;
   }
 
+  _panelX(ctl) {
+    this.raycaster.setFromXRController(ctl);
+    this.panel.updateMatrixWorld();
+    const n = new THREE.Vector3(0, 0, 1).transformDirection(this.panel.matrixWorld);
+    const o = new THREE.Vector3().setFromMatrixPosition(this.panel.matrixWorld);
+    const p = this.raycaster.ray.intersectPlane(new THREE.Plane().setFromNormalAndCoplanarPoint(n, o), new THREE.Vector3());
+    return p ? this.panel.worldToLocal(p).x : null;
+  }
+
   // where a controller's ray meets the panel, in panel space (y only)
   _panelY(ctl) {
     this.raycaster.setFromXRController(ctl);
@@ -826,7 +955,7 @@ export class XRMenu {
   // its old place, low in front of you.
   _wristOrb(dt) {
     const o = this.orb.mesh;
-    if (!this.orbWanted || this.visible) { this.soundBtn.mesh.visible = false; return; }
+    if (!this.orbWanted || this.visible) { this.soundBtn.mesh.visible = this.centreBtn.mesh.visible = false; return; }
     const xr = this.app.renderer.xr;
     let wrist = null;
     for (let i = 0; i < 2; i++) {
@@ -840,9 +969,10 @@ export class XRMenu {
     if (!wrist) {   // nothing to wear it on: back to its spot in front of you
       if (this.orbHome) { o.position.copy(this.orbHome.pos); o.rotation.copy(this.orbHome.rot); }
       o.scale.setScalar(1); o.visible = true; this.orbOnWrist = false;
-      const sb = this.soundBtn.mesh;
-      sb.visible = true; sb.scale.setScalar(1); sb.quaternion.copy(o.quaternion);
-      sb.position.copy(o.position).add(new THREE.Vector3(0.13, 0.02, 0).applyQuaternion(o.quaternion));
+      for (const [m, dx] of [[this.soundBtn.mesh, 0.13], [this.centreBtn.mesh, -0.13]]) {
+        m.visible = true; m.scale.setScalar(1); m.quaternion.copy(o.quaternion);
+        m.position.copy(o.position).add(new THREE.Vector3(dx, 0.02, 0).applyQuaternion(o.quaternion));
+      }
       return;
     }
     this.orbOnWrist = true;
@@ -857,15 +987,20 @@ export class XRMenu {
     o.lookAt(head);
     o.scale.setScalar(0.55 * (0.6 + 0.4 * this._wristA));
     // the sound button just beside it
-    const sb = this.soundBtn.mesh;
-    sb.visible = o.visible;
-    sb.quaternion.copy(o.quaternion);
-    sb.position.copy(o.position).add(new THREE.Vector3(0.075, -0.012, 0).applyQuaternion(o.quaternion));
-    sb.scale.copy(o.scale);
+    for (const [m, dx] of [[this.soundBtn.mesh, 0.075], [this.centreBtn.mesh, -0.075]]) {
+      m.visible = o.visible;
+      m.quaternion.copy(o.quaternion);
+      m.position.copy(o.position).add(new THREE.Vector3(dx, -0.012, 0).applyQuaternion(o.quaternion));
+      m.scale.copy(o.scale);
+    }
   }
 
   update(dt = 1 / 72) {
     if (this.app.renderer.xr.isPresenting) this._wristOrb(dt);
+    if (this.sDrag) {
+      const x = this._panelX(this.sDrag.ctl), S = this.sDrag.b.slider;
+      if (x != null) S.set((x - S.x0) / (S.x1 - S.x0));
+    }
     // the one-time note saying where the menu went
     this.wristNoteT += dt;
     const nA = this.orbWanted && !this.visible && this.orbOnWrist !== false ? Math.max(0, Math.min(1, this.wristNoteT / 0.8, (8 - this.wristNoteT) / 1.5)) : 0;
