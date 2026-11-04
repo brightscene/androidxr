@@ -107,13 +107,13 @@ export const SCENES = {
   geometry: { type: GeometryScene, label: 'Sacred geometry', group: 'Mind', cruise: 0.45, nebula: 0.7, world: 'full' },
   cymatics: { type: CymaticsScene, label: 'Cymatics', group: 'Mind', cruise: 0.4, nebula: 0.7, world: 'full' },
 
-  stars: { type: StarsScene, label: 'White stars', group: 'Simple', cruise: 0, nebula: 0, world: 'off' },
-  bluestars: { type: class extends StarsScene { constructor() { super({ blue: true }); } }, label: 'Blue stars', group: 'Simple', cruise: 0, nebula: 0, world: 'off' },
-  starsaura: { type: class extends StarsScene { constructor() { super({ aura: true }); } }, label: 'White stars with aura', group: 'Simple', cruise: 0, nebula: 0, world: 'off' },
-  bluestarsaura: { type: class extends StarsScene { constructor() { super({ blue: true, aura: true }); } }, label: 'Blue stars with aura', group: 'Simple', cruise: 0, nebula: 0, world: 'off' },
-  greenstarsaura: { type: class extends StarsScene { constructor() { super({ green: true, aura: true, auraColours: 'green' }); } }, label: 'Green stars with aura', group: 'Simple', cruise: 0, nebula: 0, world: 'off' },
-  neonstarsaura: { type: class extends StarsScene { constructor() { super({ neon: true, aura: true, auraColours: 'amber' }); } }, label: 'Neon stars with amber aura', group: 'Simple', cruise: 0, nebula: 0, world: 'off' },
+  stars: { type: StarsScene, label: 'White stars', group: 'Simple', journey: true, cruise: 0, nebula: 0, world: 'off' },
+  bluestars: { type: class extends StarsScene { constructor() { super({ blue: true }); } }, label: 'Blue stars', group: 'Simple', journey: true, cruise: 0, nebula: 0, world: 'off' },
+  starsaura: { type: class extends StarsScene { constructor() { super({ aura: true }); } }, label: 'White stars with aura', group: 'Simple', journey: true, cruise: 0, nebula: 0, world: 'off' },
+  bluestarsaura: { type: class extends StarsScene { constructor() { super({ blue: true, aura: true }); } }, label: 'Blue stars with aura', group: 'Simple', journey: true, cruise: 0, nebula: 0, world: 'off' },
+  greenstarsaura: { type: class extends StarsScene { constructor() { super({ green: true, aura: true, auraColours: 'green' }); } }, label: 'Green stars with aura', group: 'Simple', journey: true, cruise: 0, nebula: 0, world: 'off' },
+  neonstarsaura: { type: class extends StarsScene { constructor() { super({ neon: true, aura: true, auraColours: 'amber' }); } }, label: 'Neon stars with amber aura', group: 'Simple', journey: true, cruise: 0, nebula: 0, world: 'off' },
   off: { type: BaseScene, label: 'Off (black)', group: 'Simple', cruise: 0, nebula: 0, world: 'off' },
 };
 
-export const BACKGROUNDS = [['auto', 'Auto (per track)'], ...Object.entries(SCENES).filter(([, v]) => !v.hidden && !v.premium).map(([k, v]) => [k, v.label])];
+export const BACKGROUNDS = [['auto', 'Auto (per track)'], ...Object.entries(SCENES).filter(([, v]) => !v.hidden && !v.premium && !v.journey).map(([k, v]) => [k, v.label])];

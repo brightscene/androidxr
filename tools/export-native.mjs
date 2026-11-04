@@ -8,7 +8,7 @@ const SITE = 'https://brightscene.github.io/androidxr/';
 const src = fs.readFileSync(new URL('../src/visuals/scenes/index.js', import.meta.url), 'utf8');
 const scenes = [];
 for (const m of src.matchAll(/^\s+(\w+): \{ type: \w+, label: '((?:[^'\\]|\\.)*)', group: '([^']+)'(.*)\},?$/gm)) {
-  if (/hidden: true|premium: true/.test(m[4])) continue;
+  if (/hidden: true|premium: true|journey: true/.test(m[3] + m[4])) continue;
   scenes.push({ id: m[1], label: m[2].replace(/\\'/g, "'"), group: m[3] });
 }
 const pal = JSON.parse(fs.readFileSync(new URL('../src/ui/scenePalettes.json', import.meta.url), 'utf8'));

@@ -50,6 +50,8 @@ class App {
     this.nature = p.nature || 'off';
     this.voiceChoice = p.voice || 'auto';
     this.background = p.background || 'auto';
+    // a scene that's no longer on the Scene tab (the star skies are journeys now)
+    if (this.background !== 'auto' && (!SCENES[this.background] || SCENES[this.background].journey || SCENES[this.background].hidden)) this.background = 'auto';
     this.quality = p.quality || 'balanced'; // smooth | balanced | sharp
     this.breathText = p.breathGuide ?? false;
     this.guideVoice = p.guideVoice ?? true;   // speak the guided sessions (off = music, scenes and captions only)
@@ -212,7 +214,7 @@ class App {
   // scene (image cycling, the affirmation field, Reiki, Womb): those always keep their own world.
   sceneFor(track) {
     const own = SCENES[track.scene];
-    return this.background === 'auto' || own?.premium || own?.own ? track.scene : this.background;
+    return this.background === 'auto' || own?.premium || own?.own || own?.journey ? track.scene : this.background;
   }
 
   setBackground(b) {
