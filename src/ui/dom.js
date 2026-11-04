@@ -1,5 +1,6 @@
 import { LIGHT_COLOURS, LIGHT_SYMBOLS, LIGHT_LOOKS, drawStyle } from './lightThumbs.js';
 import { SYMBOLS } from '../visuals/strobe.js';
+import { drawIcon } from './xrMenu.js';
 import { SCENES, BACKGROUNDS } from '../visuals/scenes/index.js';
 import SCENE_PALETTES from './scenePalettes.json';
 import { PRICES } from '../journeys.js';
@@ -515,26 +516,42 @@ export class DomUI {
   _buildMixer(sel, presetSel) {
     const app = this.app, host = this.$(sel), pre = this.$(presetSel);
     if (!host) return;
-    const PRESETS = [['all', 'Everything'], ['music', 'Music only'], ['tones', 'Tones only'], ['scene', 'Scene only'], ['silent', 'Silent']];
-    pre.innerHTML = PRESETS.map(([v, t]) => `<button data-preset="${v}">${t}</button>`).join('');
+    // the same look as the headset mixer: gradient chips, colour cards with icons, colour sliders
+    const PRESETS = [['all', 'Everything', ['#ff7ab8', '#ffd27a', '#7af0c8', '#8ab4ff']], ['music', 'Music only', ['#8a6aff', '#d08aff']], ['tones', 'Tones only', ['#2ec4b6', '#7af0e0']], ['scene', 'Scene only', ['#4a9aff', '#9ad8ff']], ['silent', 'Silent', ['#5a5a6a', '#8a8a9a']]];
+    pre.classList.add('looks'); pre.classList.remove('seg');
+    pre.innerHTML = PRESETS.map(([v, t, cs]) => `<button data-preset="${v}" style="background:linear-gradient(90deg, ${cs.join(', ')})">${t}</button>`).join('');
     pre.addEventListener('click', (e) => { const v = e.target.dataset.preset; if (v) { app.mixPreset(v); this.refresh(); } });
     const LAYERS = [
-      ['music', 'Music', 'The journey\u2019s soundscape'],
-      ['tones', 'Brainwave tones', null, [['binaural', 'Binaural'], ['isochronic', 'Isochronic'], ['both', 'Both']], () => app.toneType, (v) => app.setToneType(v)],
-      ['sol', 'Solfeggio tone'],
-      ['nature', 'Nature', null, [['rain', 'Soft rain'], ['ocean', 'Ocean']], () => app.natureType, (v) => app.setNatureType(v)],
-      ['voice', 'Voice', 'Guide and whispers'],
-      ['scene', 'Scene & instrument', 'Chanting, bowls, synth\u2026'],
+      ['music', 'Music', 'The journey\u2019s soundscape', ['#7a5aff', '#d08aff'], 'note'],
+      ['tones', 'Brainwave tones', 'Binaural or isochronic beats', ['#1fb5a8', '#7af0e0'], 'wave', [['binaural', 'Binaural'], ['isochronic', 'Isochronic'], ['both', 'Both']], () => app.toneType, (v) => app.setToneType(v)],
+      ['sol', 'Solfeggio tone', 'The healing frequency', ['#f0a030', '#ffe08a'], 'rings'],
+      ['nature', 'Nature', 'Rain or ocean', ['#2fae5a', '#9af0a0'], 'drop', [['rain', 'Soft rain'], ['ocean', 'Ocean']], () => app.natureType, (v) => app.setNatureType(v)],
+      ['voice', 'Voice', 'Guide and whispers', ['#ff5a9a', '#ffb0d0'], 'speech'],
+      ['scene', 'Scene & instrument', 'Chanting, bowls, synth\u2026', ['#3a8aff', '#9ad8ff'], 'sparkle'],
     ];
-    const rows = LAYERS.map(([k, label, sub, opts, get, set]) => {
-      const r = document.createElement('div'); r.className = 'mrow';
-      r.innerHTML = `<button class="mtog"><span class="sw"></span><span>${label}${sub ? `<br><small class="muted">${sub}</small>` : ''}</span></button><input type="range" min="0" max="1" step="0.05" />${opts ? `<select>${opts.map(([v, t]) => `<option value="${v}">${t}</option>`).join('')}</select>` : '<span></span>'}`;
+    const rows = LAYERS.map(([k, label, sub, cols, icon, opts, get, set]) => {
+      const r = document.createElement('div'); r.className = 'mrow mcard';
+      r.style.setProperty('--c0', cols[0]); r.style.setProperty('--c1', cols[1]);
+      r.innerHTML = `<div class="mname"><canvas width="96" height="96"></canvas><span>${label}<small>${sub}</small></span></div>`
+        + `<button class="mtog" aria-label="${label} on or off"><span class="sw"></span></button>`
+        + `<div class="mslide"><input type="range" min="0" max="1" step="0.05" /><b></b></div>`
+        + (opts ? `<div class="mtypes">${opts.map(([v, t]) => `<button data-v="${v}">${t}</button>`).join('')}</div>` : '');
+      const ic = r.querySelector('canvas').getContext('2d');
+      const g = ic.createLinearGradient(0, 0, 96, 96); g.addColorStop(0, cols[0]); g.addColorStop(1, cols[1]);
+      ic.fillStyle = g; ic.beginPath(); ic.arc(48, 48, 46, 0, Math.PI * 2); ic.fill();
+      drawIcon(ic, icon, 48, 48, 26);
+      const inp = r.querySelector('input'), val = r.querySelector('.mslide b');
+      const paint = () => { const v = Number(inp.value); inp.style.setProperty('--p', `${v * 100}%`); val.textContent = `${Math.round(v * 100)}%`; };
       r.querySelector('.mtog').addEventListener('click', () => { app.setLayerOn(k, !app.layerOn(k)); this.refresh(); });
-      r.querySelector('input').addEventListener('input', (e) => app.setLayerLevel(k, Number(e.target.value)));
-      const s = r.querySelector('select');
-      if (s) s.addEventListener('change', (e) => { set(e.target.value); this.refresh(); });
+      inp.addEventListener('input', () => { app.setLayerLevel(k, Number(inp.value)); paint(); });
+      const types = r.querySelector('.mtypes');
+      if (types) types.addEventListener('click', (e) => { const v = e.target.dataset.v; if (v) { set(v); this.refresh(); } });
       host.append(r);
-      return () => { r.classList.toggle('off', !app.layerOn(k)); r.querySelector('input').value = app.mixLevels[k]; if (s) s.value = get(); };
+      return () => {
+        r.classList.toggle('off', !app.layerOn(k));
+        inp.value = app.mixLevels[k]; paint();
+        if (types) for (const b of types.children) b.classList.toggle('on', b.dataset.v === get());
+      };
     });
     (this.mixers ||= []).push(() => rows.forEach((f) => f()));
   }

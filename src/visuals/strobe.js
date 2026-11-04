@@ -84,13 +84,33 @@ const FRAG = /* glsl */ `
     else if (uStyle < 1.5) { // glowing orb: solid filled disc, white-hot core, corona
       float disc = smoothstep(0.37, 0.34, r);
       col = uCol * (disc * 1.25 + exp(-r * 3.2) * 0.7) + vec3(1.0) * exp(-r * r * 28.0) * 0.75 * disc;
+    } else if (uStyle > 3.5) { // MindLyte logo: seven nested rings spiralling into a bright core, swirling and breathing
+      float ang = 0.885 + uTime * 0.35 + sin(uTime * 0.5) * 0.5;
+      vec2 dir = vec2(cos(ang), sin(ang));
+      float off = 0.261 * (0.75 + 0.35 * sin(uTime * 0.7));
+      vec2 base = -dir * off * 0.4;
+      float lines = 0.0;
+      for (int i = 0; i < 7; i++) {
+        float fi = float(i);
+        float rr = (fi < 0.5 ? 50.0 : fi < 1.5 ? 39.0 : fi < 2.5 ? 30.0 : fi < 3.5 ? 22.0 : fi < 4.5 ? 15.0 : fi < 5.5 ? 9.5 : 5.5) / 50.0 * 0.46;
+        float fr = fi < 0.5 ? 0.0 : fi < 1.5 ? 0.239 : fi < 2.5 ? 0.417 : fi < 3.5 ? 0.572 : fi < 4.5 ? 0.722 : fi < 5.5 ? 0.867 : 1.0;
+        rr *= 1.0 + 0.06 * sin(uTime * 1.6 - fi * 0.9);           // a breath rolling inward ring by ring
+        float d = abs(length(p - base - dir * off * fr) - rr);
+        float wave = 0.55 + 0.45 * sin(uTime * 2.2 - fi * 0.9);    // light travelling into the core
+        lines += (exp(-d * 120.0) * 1.2 + exp(-d * 25.0) * 0.3) * wave * (0.6 + fi * 0.08);
+      }
+      vec2 cp = p - base - dir * off;
+      float cr = length(cp);
+      float core = exp(-cr * cr * 900.0) + exp(-cr * 22.0) * (0.45 + 0.25 * sin(uTime * 3.0));
+      col = uCol * lines + mix(uCol, vec3(1.0), 0.6) * core * 1.2;
     } else if (uStyle < 2.5) { // neon ring: thick solid ring with a hot centre line
       float dr = abs(r - 0.3);
       col = uCol * (smoothstep(0.06, 0.04, dr) * 1.3 + exp(-dr * 10.0) * 0.55) + vec3(1.0) * smoothstep(0.018, 0.0, dr) * 0.6;
     }
     // the glow: a soft field, plus a halo hugging the symbol itself
     float halo = exp(-r * r * 5.0) * smoothstep(0.75, 0.4, r);
-    col += uCol * uGlow * (field * (uStyle > 2.5 ? 1.1 : 0.75) + halo * (uStyle > 2.5 ? 0.3 : 0.6));
+    bool plain = uStyle > 2.5 && uStyle < 3.5;
+    col += uCol * uGlow * (field * (plain ? 1.1 : 0.75) + halo * (plain ? 0.3 : uStyle > 3.5 ? 0.25 : 0.6));
     gl_FragColor = vec4(col * b, 1.0);
   }`;
 
@@ -311,7 +331,7 @@ export class StrobeLayer {
     const sym = opts.symbol ?? -1;   // -1 glow, -2 wide glow, 0.. a symbol with its glow
     const wide = sym === -2;
     const glow = wide ? 0 : 1;
-    const shape = sym >= 0 && sym < SYMBOLS.length ? 0 : { 6: 1, 8: 2 }[sym] ?? 3;
+    const shape = sym >= 0 && sym < SYMBOLS.length ? 0 : { 6: 1, 8: 2, 10: 4 }[sym] ?? 3;
     this.wash.forEach((m, side) => {
       m.visible = show && wide;
       if (!m.visible) return;

@@ -56,7 +56,7 @@ function roundRect(c, x, y, w, h, r) {
 const val = (v) => (typeof v === 'function' ? v() : v);
 
 // little white icons for the mixer's layers, centred at (x, y), size r
-function drawIcon(c, kind, x, y, r) {
+export function drawIcon(c, kind, x, y, r) {
   c.save(); c.translate(x, y); c.fillStyle = '#fff'; c.strokeStyle = '#fff'; c.lineWidth = r * 0.22; c.lineCap = 'round'; c.lineJoin = 'round';
   if (kind === 'note') {
     c.beginPath(); c.ellipse(-r * 0.3, r * 0.55, r * 0.38, r * 0.28, -0.4, 0, Math.PI * 2); c.fill();

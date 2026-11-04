@@ -301,3 +301,32 @@ details.more summary { cursor: pointer; color: var(--muted); margin-bottom: 10px
 
 .lights2.unavail .lsec:not(:has(#lights-generated)) .tiles, .lights2.unavail .looks, .lights2.unavail .swatches, .lights2.unavail .sliders { opacity: 0.35; pointer-events: none; }
 .lights2.unavail #lights-status { color: #ffcf8a; }
+
+/* screen mixer, in the headset mixer's style */
+.mixpre.looks { display: flex; gap: 8px; flex-wrap: wrap; }
+.mixpre.looks button { border: 1.5px solid rgba(255,255,255,0.25); color: #fff; border-radius: 999px; padding: 8px 16px; font: inherit; font-size: 14px; font-weight: 600; opacity: 0.55; cursor: pointer; text-shadow: 0 1px 4px rgba(0,0,0,0.5); }
+.mixpre.looks button:hover { opacity: 0.8; }
+.mixpre.looks button.on { opacity: 1; border-color: #fff; }
+.mrow.mcard { grid-template-columns: minmax(150px, 210px) auto 1fr auto; gap: 14px; background: linear-gradient(90deg, color-mix(in srgb, var(--c0) 22%, transparent), rgba(255,255,255,0.02) 60%); border-color: color-mix(in srgb, var(--c0) 35%, transparent); }
+#mix-pop .mrow.mcard { grid-template-columns: minmax(130px, 180px) auto 1fr; row-gap: 8px; }
+#mix-pop .mcard .mtypes { grid-column: 3; }
+.mcard .mname { display: flex; align-items: center; gap: 10px; font-size: 15px; font-weight: 500; line-height: 1.2; }
+.mcard .mname canvas { width: 34px; height: 34px; flex: none; }
+.mcard .mname small { display: block; font-size: 11.5px; font-weight: 400; color: var(--muted, rgba(255,255,255,0.55)); }
+.mcard .mtog .sw { width: 46px; height: 26px; border-radius: 13px; }
+.mcard .mtog .sw::after { width: 20px; height: 20px; }
+.mcard:not(.off) .mtog .sw { background: linear-gradient(90deg, var(--c0), var(--c1)); }
+.mcard:not(.off) .mtog .sw::after { left: 23px; }
+.mcard .mslide { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.mcard .mslide b { font-weight: 500; font-size: 13px; min-width: 40px; text-align: right; color: rgba(255,255,255,0.8); }
+.mcard input[type=range] { -webkit-appearance: none; appearance: none; height: 8px; border-radius: 4px; flex: 1; min-width: 60px;
+  background: linear-gradient(90deg, var(--c0), var(--c1)) 0 / var(--p, 100%) 100% no-repeat, rgba(255,255,255,0.12); }
+.mcard input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 22px; height: 22px; border-radius: 50%; background: #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.45); cursor: pointer; }
+.mcard input[type=range]::-moz-range-thumb { width: 22px; height: 22px; border: 0; border-radius: 50%; background: #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.45); cursor: pointer; }
+.mcard .mtypes { display: flex; gap: 6px; }
+.mcard .mtypes button { border: 1px solid rgba(255,255,255,0.15); background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.75); border-radius: 999px; padding: 6px 12px; font: inherit; font-size: 13px; cursor: pointer; }
+.mcard .mtypes button.on { background: linear-gradient(90deg, var(--c0), var(--c1)); color: #fff; border-color: transparent; font-weight: 600; }
+.mcard.off .mslide, .mcard.off .mtypes { opacity: 0.4; }
+.mrow.mcard.off { opacity: 1; }
+.mcard.off .mname { opacity: 0.55; }
+@media (max-width: 700px) { .mrow.mcard, #mix-pop .mrow.mcard { grid-template-columns: 1fr auto; } .mcard .mslide, .mcard .mtypes { grid-column: 1 / -1; } }

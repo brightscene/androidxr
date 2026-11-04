@@ -16,7 +16,7 @@ export const LIGHT_COLOURS = [
 export const LIGHT_SYMBOLS = [
   [-1, 'Glow', 'field'], [-2, 'Glow wide', 'wide'],
   [0, 'Flower Life'], [1, 'Sri Yantra'], [2, 'Lotus'], [3, 'Merkaba'], [4, 'Ripples'], [5, 'Seed Life'],
-  [6, 'Glowing orb', 'orb'], [8, 'Neon ring', 'ring'], [9, 'Crystal', 'crystal'],
+  [6, 'Glowing orb', 'orb'], [8, 'Neon ring', 'ring'], [9, 'Crystal', 'crystal'], [10, 'MindLyte', 'logo'],
 ];
 export const LIGHT_LOOKS = [
   ['Gentle glow', ['#ffb84a', '#ff8ad0'], { lightSymbol: -1, lightColour: 'palette', lightMode: 'soft', lightMax: 1, lightDim: 0.8 }],
@@ -33,7 +33,7 @@ export function migrateLights(p) {
   if (shape != null) return shape;
   if (p.lightStyle === 'wide') return -2;
   if (p.lightSymbol === 7) return 6;
-  return Number.isInteger(p.lightSymbol) && p.lightSymbol >= 0 && p.lightSymbol <= 9 ? p.lightSymbol : -1;
+  return Number.isInteger(p.lightSymbol) && p.lightSymbol >= 0 && p.lightSymbol <= 10 ? p.lightSymbol : -1;
 }
 
 export const gradient = (c, x0, y0, x1, y1, cols) => {
@@ -47,7 +47,14 @@ export function drawStyle(c, kind, x, y, s, cols = ['#ff4ad0', '#2ee0ff']) {
   const cx = x + s / 2, cy = y + s / 2, r = s * 0.36;
   c.save();
   const glow = (gx, gy, gr, col) => { const g = c.createRadialGradient(gx, gy, 0, gx, gy, gr); g.addColorStop(0, col); g.addColorStop(1, 'rgba(0,0,0,0)'); c.fillStyle = g; c.beginPath(); c.arc(gx, gy, gr, 0, Math.PI * 2); c.fill(); };
-  if (kind === 'none') { c.strokeStyle = 'rgba(255,255,255,0.35)'; c.lineWidth = s * 0.025; c.setLineDash([s * 0.06, s * 0.05]); c.beginPath(); c.arc(cx, cy, r * 0.8, 0, Math.PI * 2); c.stroke(); c.setLineDash([]); c.beginPath(); c.moveTo(cx - r * 0.55, cy + r * 0.55); c.lineTo(cx + r * 0.55, cy - r * 0.55); c.stroke(); }
+  if (kind === 'logo') {   // the MindLyte mark: nested rings spiralling into a bright core
+    glow(cx, cy, r * 1.3, cols[0] + '77');
+    const k = (s * 0.86) / 100, ox = cx - 65 * k, oy = cy - 55 * k;
+    const R = [[56, 66, 50, '#5ED6D0'], [60.3, 60.8, 39, '#74CAE4'], [63.5, 56.9, 30, '#8BB4F4'], [66.3, 53.4, 22, '#A493FF'], [69, 50.1, 15, '#BB98F5'], [71.6, 47, 9.5, '#D59BE5'], [74, 44, 5.5, '#F29BD0']];
+    c.lineWidth = Math.max(1, s * 0.02);
+    for (const [x0, y0, rr, col] of R) { c.strokeStyle = col; c.beginPath(); c.arc(ox + x0 * k, oy + y0 * k, rr * k, 0, Math.PI * 2); c.stroke(); }
+    glow(ox + 74 * k, oy + 44 * k, 9 * k, '#FFF3D6'); c.fillStyle = '#FFF3D6'; c.beginPath(); c.arc(ox + 74 * k, oy + 44 * k, 2.4 * k, 0, Math.PI * 2); c.fill();
+  } else if (kind === 'none') { c.strokeStyle = 'rgba(255,255,255,0.35)'; c.lineWidth = s * 0.025; c.setLineDash([s * 0.06, s * 0.05]); c.beginPath(); c.arc(cx, cy, r * 0.8, 0, Math.PI * 2); c.stroke(); c.setLineDash([]); c.beginPath(); c.moveTo(cx - r * 0.55, cy + r * 0.55); c.lineTo(cx + r * 0.55, cy - r * 0.55); c.stroke(); }
   else if (kind === 'field') { glow(cx - r * 0.45, cy, r * 1.1, cols[0]); glow(cx + r * 0.45, cy, r * 1.1, cols[1]); }
   else if (kind === 'wide') {
     for (const [i, col] of [[0, cols[0]], [1, cols[1]]]) { const g = c.createLinearGradient(x, cy - r * 0.6, x, cy + r * 0.6); g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(0.5, col); g.addColorStop(1, 'rgba(0,0,0,0)'); c.fillStyle = g; c.fillRect(i ? cx : x + s * 0.06, cy - r * 0.6, s * 0.44, r * 1.2); }
