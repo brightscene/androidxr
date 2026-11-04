@@ -11,7 +11,7 @@ import { textPlane } from './imagecycle.js';
 // Touch a ringing bell down onto the table to damp it.
 //
 // Church bells: a tower ringing room. Six ropes hang in front of you, each with
-// its striped woolly sally; high above, through the open ceiling, six bells
+// its striped woolly sally at head height; take hold with your hand and pull. High above, through the open ceiling, six bells
 // rest mouth-up in their frame. Pull a rope and its bell swings right over and
 // speaks. A soft glow on the next sally leads you through rounds, treble to
 // tenor, or ring them however you like.
@@ -42,9 +42,9 @@ function strikeVoice(N, f, partials, gain, click) {
   // the clapper's strike: a tiny burst of bright noise
   if (N.noise && click) {
     const n = ctx.createBufferSource(); n.buffer = N.noise;
-    const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = Math.min(9000, f * click); bp.Q.value = 1.5;
+    const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = Math.min(9000, f * click); bp.Q.value = N.clickQ || 1.5;
     const g = ctx.createGain();
-    g.gain.setValueAtTime(gain * 0.5, now); g.gain.setTargetAtTime(0, now, 0.012);
+    g.gain.setValueAtTime(gain * (N.clickGain ?? 0.5), now); g.gain.setTargetAtTime(0, now, 0.012);
     n.connect(bp).connect(g).connect(N.out);
     n.start(now, Math.random() * 1.5, 0.12);
   }
@@ -150,7 +150,7 @@ class BellScene extends BaseScene {
 // ===================================================================== Handbells
 const HB_NOTES = [['C', 523.25], ['D', 587.33], ['E', 659.25], ['F', 698.46], ['G', 783.99], ['A', 880.0], ['B', 987.77], ['C', 1046.5]];
 // a handbell: a strong fundamental and its tuned twelfth, with a few bright, quick partials
-const HB_PARTIALS = [[1, 1, 5.5, 0.8], [3.0, 0.45, 3.0, 0], [4.18, 0.1, 1.3, 0], [5.42, 0.09, 0.9, 0], [6.8, 0.05, 0.6, 0], [2.0, 0.04, 2.0, 0]];
+const HB_PARTIALS = [[1, 1, 12, 1.1], [3.0, 0.42, 7, 0.7], [2.0, 0.1, 6, 0.5], [4.0, 0.06, 4, 0], [4.18, 0.05, 1.6, 0], [5.42, 0.05, 1.1, 0], [6.0, 0.03, 2.5, 0], [6.8, 0.025, 0.7, 0]];   // a long, shimmering ring
 const HB_TABLE = -0.5, HB_D = 0.52;
 
 export class HandbellsScene extends BellScene {
@@ -243,7 +243,7 @@ export class HandbellsScene extends BellScene {
       label.rotation.set(-Math.PI / 2 + 0.3, -a, 0, 'YXZ');
       this.rig.add(label);
       return { k, note, f, r, h, handle, a, g, u, halo, home, centre: () => g.position.clone().add(new THREE.Vector3(0, -handle - h * 0.5, 0)),
-        ring: 0, haloT: 9, holder: null, grab: 0, prev: null, vel: new THREE.Vector3(), peak: 0, armed: false, tilt: new THREE.Quaternion(), tipIn: new Map(), N: null };
+        ring: 0, haloT: 9, holder: null, grab: 0, prev: null, vel: new THREE.Vector3(), peak: 0, armed: false, tilt: new THREE.Quaternion(), rock: new THREE.Vector2(), rockV: new THREE.Vector2(), tipIn: new Map(), N: null };
     });
 
     this.hint = textPlane(U, 0.9, 0.06);
@@ -252,13 +252,18 @@ export class HandbellsScene extends BellScene {
     this.rig.add(this.hint);
   }
 
-  _ring(b, strength) {
-    if (!b.N || !b.N.ctx || b.N.dead) b.N = bellOut(this, Math.max(-0.8, Math.min(0.8, Math.sin(b.a) * 2.2)), 0.5);
+  _ring(b, strength, dir) {
+    // the bell rocks on its handle, away from where it was struck
+    const kick = (dir || new THREE.Vector3(0, 0, -1)).clone().setY(0);
+    if (kick.lengthSq() < 1e-6) kick.set(0, 0, -1);
+    kick.normalize().multiplyScalar(1.6 + strength * 2.4);
+    b.rockV.x += kick.z; b.rockV.y -= kick.x;
+    if (!b.N || !b.N.ctx || b.N.dead) { b.N = bellOut(this, Math.max(-0.8, Math.min(0.8, Math.sin(b.a) * 2.2)), 0.85); if (b.N) { b.N.clickGain = 0.12; b.N.clickQ = 5; } }
     const N = b.N;
     if (!N) { b.ring = 1; b.haloT = 0; return; }
     N.out.gain.cancelScheduledValues(N.ctx.currentTime);
     N.out.gain.setValueAtTime(1, N.ctx.currentTime);
-    strikeVoice(N, b.f, HB_PARTIALS, 0.12 * Math.min(1.3, 0.45 + strength), 6);
+    strikeVoice(N, b.f, HB_PARTIALS, 0.11 * Math.min(1.3, 0.5 + strength), 9);
     b.ring = 1; b.haloT = 0;
     this.hintA = Math.min(this.hintA, 0.99);
   }
@@ -297,17 +302,17 @@ export class HandbellsScene extends BellScene {
           const prev = b.tipIn.get(p.id);
           if (inside && prev && !prev.inside) {
             const sp = prev.pos.distanceTo(p.tip) / Math.max(dt, 1e-3);
-            if (sp > 0.3) this._ring(b, Math.min(1, sp / 1.5));
+            if (sp > 0.3) this._ring(b, Math.min(1, sp / 1.5), p.tip.clone().sub(prev.pos));
           }
           b.tipIn.set(p.id, { inside, pos: p.tip.clone() });
         }
       }
       if (best && p.press) {
-        this._ring(best, 0.5);
+        this._ring(best, 0.5, p.tip ? best.centre().sub(p.tip) : p.d);
         // and pick it up while the pinch is held
         best.holder = p.id;
         best.grab = p.tip ? 0 : best.g.position.distanceTo(p.o);
-        best.prev = null; best.peak = 0; best.armed = false;
+        best.prev = null; best.peak = 0; best.armed = false; best.lifted = false;
       }
     }
 
@@ -315,20 +320,19 @@ export class HandbellsScene extends BellScene {
       if (b.holder == null) {
         // settle home; touching down on the table damps it
         const d = b.g.position.distanceTo(b.home);
-        if (d > 0.002) { b.g.position.lerp(b.home, 1 - Math.exp(-dt * 7)); if (b.g.position.distanceTo(b.home) < 0.01 && b.ring > 0.05 && b.wasHeld) { this._damp(b); } }
-        else b.wasHeld = false;
+        if (d > 0.002) b.g.position.lerp(b.home, 1 - Math.exp(-dt * 7));
         b.vel.multiplyScalar(Math.exp(-dt * 6));
       } else {
-        b.wasHeld = true;
         // a flick: the bell speeds up, then stops sharply; that's when the clapper strikes
         if (b.prev) {
           const v = b.g.position.clone().sub(b.prev).divideScalar(Math.max(dt, 1e-3));
           b.vel.lerp(v, 1 - Math.exp(-dt * 25));
           const sp = b.vel.length();
-          if (sp > 0.9) { b.armed = true; b.peak = Math.max(b.peak, sp); }
-          if (b.armed && sp < b.peak * 0.45) { this._ring(b, Math.min(1, b.peak / 3)); b.armed = false; b.peak = 0; }
+          if (sp > 0.9) { b.armed = true; if (sp > b.peak) { b.peak = sp; b.flick = b.vel.clone(); } }
+          if (b.armed && sp < b.peak * 0.45) { this._ring(b, Math.min(1, b.peak / 3), b.flick || b.vel); b.armed = false; b.peak = 0; }
           // lowered onto the table: damped
-          if (b.g.position.y - b.handle - b.h < HB_TABLE + 0.01 && b.ring > 0.05) this._damp(b);
+          if (b.g.position.distanceTo(b.home) > 0.05) b.lifted = true;
+          if (b.lifted && b.g.position.y - b.handle - b.h < HB_TABLE + 0.012 && b.ring > 0.05) { this._damp(b); b.lifted = false; }
         }
         b.prev = b.g.position.clone();
       }
@@ -339,7 +343,13 @@ export class HandbellsScene extends BellScene {
       const q = new THREE.Quaternion();
       if (ang > 1e-3) q.setFromAxisAngle(new THREE.Vector3(0, 1, 0).cross(sw).normalize(), -ang);
       b.tilt.slerp(q, 1 - Math.exp(-dt * 10));
-      b.g.quaternion.copy(b.tilt);
+      // a struck bell rocks back and forth on its handle, settling
+      const k = (2 * Math.PI * 1.8) ** 2;
+      b.rockV.x += (-k * b.rock.x - 3.0 * b.rockV.x) * dt; b.rockV.y += (-k * b.rock.y - 3.0 * b.rockV.y) * dt;
+      b.rock.x += b.rockV.x * dt; b.rock.y += b.rockV.y * dt;
+      b.rock.clampLength(0, 0.35);
+      const rq = new THREE.Quaternion().setFromEuler(new THREE.Euler(b.rock.x, 0, b.rock.y));
+      b.g.quaternion.copy(b.tilt).multiply(rq);
       // light
       b.ring *= Math.exp(-dt / 1.2);
       b.haloT += dt;
@@ -367,12 +377,13 @@ export class HandbellsScene extends BellScene {
 const CB_NOTES = [['Treble', 987.77], ['2', 880.0], ['3', 783.99], ['4', 739.99], ['5', 659.25], ['Tenor', 587.33]];
 // a church bell's partials relative to its nominal: hum, prime, minor-third tierce, quint, nominal and above
 const CB_PARTIALS = [[0.25, 0.5, 14, 0.6], [0.5, 0.45, 9, 0.9], [0.595, 0.5, 7, 0], [0.75, 0.16, 4, 0], [1.0, 1.0, 5, 1.3], [1.25, 0.25, 2.6, 0], [1.5, 0.28, 2.0, 0], [2.0, 0.2, 1.3, 0], [2.52, 0.12, 0.9, 0], [3.0, 0.07, 0.6, 0]];
-const ROPE_R = 0.6, BELL_R = 1.65, BELL_Y = 4.1, CEIL = 2.0, FLOOR = -1.6, SWING = (172 / 180) * Math.PI, SWING_T = 1.5;
+const ROPE_R = 0.5, BELL_R = 1.65, BELL_Y = 4.1, CEIL = 2.0, FLOOR = -1.6, SWING = (172 / 180) * Math.PI, SWING_T = 1.5;
 
 export class ChurchBellsScene extends BellScene {
   constructor() {
     super();
-    this.viewPitch = 0.0;
+    this.viewPitch = 0.1;
+    this.wantsHands = true;   // you ring with your own hands, not a pointer
     const U = this.uniforms;
 
     // the tower: stone walls with lancet windows, a timber ceiling open in the
@@ -383,6 +394,36 @@ export class ChurchBellsScene extends BellScene {
       fragmentShader: /* glsl */ `uniform float uTime, uFade; varying vec3 vDir; ${NOISE} ${GRADE}
         const float WR = 3.0, CEIL = ${CEIL.toFixed(2)}, FLOOR = ${FLOOR.toFixed(2)}, TOP = 6.5, HOLE = 2.0;
         vec3 dusk(vec3 d){ return mix(vec3(0.95, 0.5, 0.28), vec3(0.18, 0.2, 0.42), smoothstep(-0.05, 0.5, d.y)) + vec3(1.0, 0.75, 0.4) * pow(max(dot(d, normalize(vec3(-0.6, 0.1, -0.8))), 0.0), 40.0); }
+        float h21(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+        vec3 brick(vec3 p){ vec2 b = vec2(atan(p.x, -p.z) * WR, p.y) / vec2(0.23, 0.075);
+          b.x += step(1.0, mod(floor(b.y), 2.0)) * 0.5;
+          vec2 id = floor(b), f = fract(b);
+          float m = smoothstep(0.0, 0.06, min(min(f.x, 1.0 - f.x) * 0.23 / 0.075, min(f.y, 1.0 - f.y)));
+          float r = h21(id);
+          vec3 c = mix(vec3(0.42, 0.12, 0.07), vec3(0.62, 0.26, 0.14), r) * (0.8 + 0.35 * fbm(p * 18.0));
+          c = mix(c, vec3(0.3, 0.16, 0.12), step(0.93, r) * 0.6);   // the odd darker, burnt brick
+          return mix(vec3(0.2, 0.18, 0.16), c, m); }
+        // stained glass: leaded panes in jewel colours, lit from outside by the dusk
+        vec3 glass(vec2 q, vec3 d){
+          // diamond quarries in pale tinted glass, a jewel-coloured border, and coloured panes in the middle
+          vec2 g = vec2(q.x * 0.7071 * 18.0 + q.y * 0.7071 * 12.0, -q.x * 0.7071 * 18.0 + q.y * 0.7071 * 12.0);
+          vec2 id = floor(g), f = fract(g);
+          float lead = smoothstep(0.07, 0.0, min(min(f.x, 1.0 - f.x), min(f.y, 1.0 - f.y)));
+          float r = h21(id + 3.0);
+          vec3 c = mix(vec3(0.95, 0.88, 0.62), vec3(0.8, 0.85, 0.75), r);
+          if (r > 0.82) c = r > 0.94 ? vec3(0.75, 0.1, 0.12) : r > 0.88 ? vec3(0.15, 0.3, 0.85) : vec3(0.2, 0.6, 0.3);
+          float edge = abs(q.x) - 0.27;
+          if (edge > 0.0 && q.y < 1.02) {   // the border strip, in small coloured panes
+            float bi = floor(q.y * 12.0), bf = fract(q.y * 12.0);
+            c = mod(bi, 3.0) < 1.0 ? vec3(0.75, 0.1, 0.12) : mod(bi, 3.0) < 2.0 ? vec3(0.12, 0.25, 0.8) : vec3(0.95, 0.65, 0.12);
+            lead = max(smoothstep(0.08, 0.0, min(bf, 1.0 - bf)), smoothstep(0.012, 0.0, abs(edge)));
+          }
+          // a rose at the top of each window
+          vec2 rq = q - vec2(0.0, 1.12);
+          float rr = length(rq), ra = atan(rq.y, rq.x);
+          if (rr < 0.17) { c = mix(vec3(0.85, 0.12, 0.2), vec3(0.98, 0.8, 0.25), step(0.5, fract(ra * 1.2732 + 0.25))); c = mix(c, vec3(0.2, 0.3, 0.9), step(rr, 0.06)); lead = max(smoothstep(0.012, 0.0, abs(rr - 0.06)), smoothstep(0.03, 0.0, abs(fract(ra * 1.2732 + 0.25) - 0.5) * rr)); }
+          vec3 light = dusk(d) * 1.4 + 0.15;
+          return c * light * (0.8 + 0.3 * fbm(vec3(q * 30.0, 2.0))) * (1.0 - lead * 0.9); }
         vec3 stone(vec3 p){ vec2 b = vec2(atan(p.x, -p.z) * WR, p.y); b.x += step(1.0, mod(floor(b.y / 0.3), 2.0)) * 0.22;
           vec2 f = fract(b / vec2(0.45, 0.3)); float m = smoothstep(0.0, 0.05, min(min(f.x, 1.0 - f.x) * 0.45, min(f.y, 1.0 - f.y) * 0.3) * 3.0);
           return mix(vec3(0.08, 0.06, 0.05), vec3(0.32, 0.26, 0.2) * (0.75 + 0.4 * fbm(p * 6.0)), m); }
@@ -397,13 +438,15 @@ export class ChurchBellsScene extends BellScene {
             c = mix(c, vec3(0.35, 0.05, 0.05) * (0.8 + 0.2 * fbm(p * 20.0)), smoothstep(1.25, 1.2, length(p.xz)));   // a red carpet ring where the ringers stand
           } else if (yw < CEIL) {
             vec3 p = d * tw;
-            c = stone(p) * (0.55 + 0.45 * smoothstep(FLOOR, CEIL, yw));
-            // tall lancet windows glowing with dusk, and boards with peal records between them
-            float k = fract(az / 6.2832 * 5.0) - 0.5, win = abs(k) * 6.2832 / 5.0 * WR;
-            float top = 1.3 + sqrt(max(0.0, 0.09 - win * win)) - 0.3;
-            if (win < 0.25 && yw > 0.0 && yw < top) c = dusk(d) * 0.7 * (1.0 - 0.7 * smoothstep(0.015, 0.0, abs(win - 0.0)));
-            else if (abs(k + 0.5) < 0.07 || abs(k - 0.5) < 0.07) {}
-            if (abs(abs(k) - 0.28) < 0.07 && yw > 0.2 && yw < 0.9) c = vec3(0.12, 0.06, 0.03) + vec3(0.6, 0.45, 0.15) * step(0.5, fbm(vec3(az * 80.0, yw * 40.0, 1.0))) * step(fract(yw * 14.0), 0.5) * 0.4;
+            c = brick(p) * (0.55 + 0.45 * smoothstep(FLOOR, CEIL, yw));
+            // tall arched windows of stained glass, in stone surrounds
+            float k = fract(az / 6.2832 * 6.0) - 0.5, wx = k * 6.2832 / 6.0 * WR;
+            const float W = 0.36, BASE = -0.35, SPRING = 1.0;
+            vec2 q = vec2(wx, yw);
+            float inArch = yw < SPRING ? step(abs(wx), W) : step(length(vec2(abs(wx) + W * 0.6, yw - SPRING)), W * 1.6);   // a pointed arch
+            float inSurround = yw < SPRING ? step(abs(wx), W + 0.07) : step(length(vec2(abs(wx) + W * 0.6, yw - SPRING)), W * 1.6 + 0.07);
+            if (yw > BASE - 0.07 && inSurround > 0.5) c = vec3(0.42, 0.38, 0.32) * (0.7 + 0.4 * fbm(p * 9.0));
+            if (yw > BASE && inArch > 0.5) c = glass(q, d);
             c += vec3(0.45, 0.25, 0.1) * 0.12 * smoothstep(1.2, -1.2, yw);   // warm light from below
           } else {
             vec3 p = d * (CEIL / d.y);
@@ -413,7 +456,7 @@ export class ChurchBellsScene extends BellScene {
             } else if (yw < TOP) {
               // the belfry: stone with louvred openings
               vec3 q = d * tw;
-              c = stone(q) * 0.45;
+              c = brick(q) * 0.4;
               float k = fract(az / 6.2832 * 4.0 + 0.125) - 0.5, wx = abs(k) * 6.2832 / 4.0 * WR;
               if (wx < 0.45 && yw > 3.3 && yw < 5.6) {
                 float louvre = step(0.45, fract(yw * 7.0));
@@ -492,7 +535,7 @@ export class ChurchBellsScene extends BellScene {
       const label = textPlane(U, 0.16, 0.035);
       label.userData.set(name);
       label.material.uniforms.uA.value = 0.35;
-      label.position.set(x * 0.8, -0.42, z * 0.8);
+      label.position.set(x * 0.8, -0.55, z * 0.8);
       label.rotation.y = -a;
       this.rig.add(label);
       return { k, name, f, a, R, u, halo, swing, lower, su, x, z, theta: SWING, from: SWING, to: SWING, st: 9, struck: true, ring: 0, haloT: 9, N: null, grab: null };
@@ -502,7 +545,7 @@ export class ChurchBellsScene extends BellScene {
 
     this.hint = textPlane(U, 1.0, 0.06);
     this.hint.position.set(0, 0.32, -0.95);
-    this.hint.userData.set('Pull a rope to ring its bell · follow the glow to ring rounds');
+    this.hint.userData.set('Take hold of a sally and pull down to ring its bell · follow the glow to ring rounds');
     this.rig.add(this.hint);
   }
 
@@ -527,39 +570,67 @@ export class ChurchBellsScene extends BellScene {
     this.rig.updateMatrixWorld(true);
     const inv = new THREE.Matrix4().copy(this.rig.matrixWorld).invert();
     const pointers = (this.demo ? this._demoPointers(t) : INPUT.pointers).map((p) => this._local(p, inv));
+    // no light-saber beams here: just your hands
     const over = this.hideRays ||= new Set();
     over.clear();
+    for (const p of INPUT.pointers) if (p.id !== 'mouse') over.add(p.id);
 
+    // hands: tracked hands close round a rope (a fist or a pinch); controllers squeeze at the rope
+    const hands = [];
+    for (const h of INPUT.hands) {
+      const J = h.joints, palm = J[10] || J[0];
+      if (!palm || !J[0]) continue;
+      const fist = J[14] && J[14].distanceTo(J[0]) < 0.105;
+      const pinch = J[4] && J[9] && J[4].distanceTo(J[9]) < 0.028;
+      hands.push({ id: 'hand-' + h.side, pos: palm.clone().applyMatrix4(inv), closed: fist || pinch });
+    }
+    if (!hands.length) for (const p of pointers) if (p.id !== 'mouse' && !this.demo) hands.push({ id: p.id, pos: (p.tip || p.o).clone(), closed: p.held || p.press });
+    for (const h of hands) {
+      const was = this.handWas?.get(h.id);
+      (this.handWas ||= new Map()).set(h.id, h.closed);
+      const grabbing = this.bells.find((b) => b.grab && b.grab.id === h.id);
+      if (grabbing) {
+        const drop = grabbing.grab.y - h.pos.y;
+        grabbing.su.uPull.value = Math.min(1, Math.max(0, drop / 0.08));
+        if (drop > 0.07) { this._pull(grabbing, Math.min(1, drop / 0.25 + 0.5)); grabbing.grab = null; }
+        else if (!h.closed) grabbing.grab = null;
+        continue;
+      }
+      if (!h.closed || was) continue;   // a hand closing round a rope takes hold
+      let best = null, bd = 0.09;
+      for (const b of this.bells) {
+        const y = h.pos.y - b.lower.position.y;
+        if (y < -1.05 || y > 0.25) continue;
+        const d = Math.hypot(h.pos.x - b.x, h.pos.z - b.z);
+        if (d < bd) { bd = d; best = b; }
+      }
+      if (best) best.grab = { id: h.id, y: h.pos.y };
+    }
+
+    // on a screen (and in previews): click a rope, or drag it down
     for (const p of pointers) {
-      // the rope nearest this pointer, between the tail end and well above the sally
-      let best = null, bd = Infinity, at = null;
+      if (p.id !== 'mouse' && !this.demo) continue;
+      let best = null, bd = Infinity;
       for (const b of this.bells) {
         const yOff = b.lower.position.y;
-        let off, y;
-        if (p.tip) { off = Math.hypot(p.tip.x - b.x, p.tip.z - b.z); y = p.tip.y - yOff; off /= 0.06; }
-        else {
-          // closest approach of the ray to the vertical rope line
-          const w = new THREE.Vector3(p.o.x - b.x, 0, p.o.z - b.z), dd = new THREE.Vector3(p.d.x, 0, p.d.z);
-          const tt = dd.lengthSq() > 1e-6 ? Math.max(0, -w.dot(dd) / dd.lengthSq()) : 0;
-          off = w.addScaledVector(dd, tt).length() / 0.055;
-          y = p.o.y + p.d.y * tt - yOff;
-        }
-        if (y < -1.0 || y > 0.4) continue;
-        if (off < 1 && off < bd) { bd = off; best = b; at = y; }
+        const w = new THREE.Vector3(p.o.x - b.x, 0, p.o.z - b.z), dd = new THREE.Vector3(p.d.x, 0, p.d.z);
+        const tt = dd.lengthSq() > 1e-6 ? Math.max(0, -w.dot(dd) / dd.lengthSq()) : 0;
+        const off = w.addScaledVector(dd, tt).length() / 0.055;
+        const y = p.o.y + p.d.y * tt - yOff;
+        if (y < -1.05 || y > 0.25) continue;
+        if (off < 1 && off < bd) { bd = off; best = b; }
       }
-      if (best) over.add(p.id);
-      // grab and pull down; a quick press-and-release rings it too
       const grabbing = this.bells.find((b) => b.grab && b.grab.id === p.id);
       if (grabbing) {
-        const y = p.tip ? p.tip.y : p.o.y + p.d.y * grabbing.grab.t;
+        const y = p.o.y + p.d.y * grabbing.grab.t;
         const drop = grabbing.grab.y - y;
         grabbing.su.uPull.value = Math.min(1, Math.max(0, drop / 0.08));
         if (drop > 0.06 || !p.held) { this._pull(grabbing, Math.min(1, drop / 0.25 + 0.4)); grabbing.grab = null; }
         continue;
       }
       if (best && p.press) {
-        const tt = p.tip ? 0 : Math.hypot(best.x - p.o.x, best.z - p.o.z) / Math.max(1e-3, Math.hypot(p.d.x, p.d.z));
-        best.grab = { id: p.id, y: p.tip ? p.tip.y : p.o.y + p.d.y * tt, t: tt };
+        const tt = Math.hypot(best.x - p.o.x, best.z - p.o.z) / Math.max(1e-3, Math.hypot(p.d.x, p.d.z));
+        best.grab = { id: p.id, y: p.o.y + p.d.y * tt, t: tt };
         if (!p.held) { this._pull(best, 0.6); best.grab = null; }
       }
     }
@@ -572,7 +643,7 @@ export class ChurchBellsScene extends BellScene {
       if (!b.struck && s > 0.82) { b.struck = true; this._strike(b); }
       b.swing.rotation.x = b.theta;
       // the rope rises and falls with the wheel; the sally comes down at handstroke
-      b.lower.position.y = -0.22 * (b.theta / SWING) - 0.05;
+      b.lower.position.y = 0.25 - 0.15 * (b.theta / SWING);   // sally at about eye height, higher at backstroke
       b.pulled = (b.pulled || 0) * Math.exp(-dt * 3);
       if (!b.grab) b.su.uPull.value = b.pulled * 0.6;
       b.su.uNext.value += ((b.k === this.next ? 1 : 0) - b.su.uNext.value) * (1 - Math.exp(-dt * 5));

@@ -390,6 +390,20 @@ export class SingingBowlsScene extends BaseScene {
     return best;
   }
 
+  // is a pointer anywhere around the bowls (a fingertip close by, or a ray passing near one)?
+  _near(p) {
+    const inv = new THREE.Matrix4().copy(this.rig.matrixWorld).invert();
+    const o = p.origin.clone().applyMatrix4(inv), d = p.dir.clone().transformDirection(inv);
+    const tip = p.tip ? p.tip.clone().applyMatrix4(inv) : null;
+    for (const b of this.bowls) {
+      const c = new THREE.Vector3(b.g.position.x, b.g.position.y + b.lift + b.h * 0.6, b.g.position.z);
+      if (tip && tip.distanceTo(c) < b.r + 0.14) return true;
+      const v = c.clone().sub(o), k = Math.max(0, v.dot(d));
+      if (v.addScaledVector(d, -k).length() < b.r + 0.08) return true;
+    }
+    return false;
+  }
+
   update(dt, t) {
     if (this.placeNext) this.placeNext = !this._place();
     this.rig.updateMatrixWorld(true);
@@ -397,6 +411,15 @@ export class SingingBowlsScene extends BaseScene {
     const seen = new Set();
 
     const pointers = this.demo ? this._demoPointers(t) : INPUT.pointers;
+    // while you're playing the bowls, only the small marker at your hand shows;
+    // move right away from them and the full pointer comes back
+    const over = this.hideRays ||= new Set();
+    this.nearT ||= new Map();
+    for (const p of pointers) {
+      const c0 = this._contact(p);
+      if (c0 || this._near(p)) this.nearT.set(p.id, t);
+      if (t - (this.nearT.get(p.id) ?? -9) < 0.5) over.add(p.id); else over.delete(p.id);
+    }
     for (const p of pointers) {
       const c = this._contact(p);
       if (!c) { const pr = this.touch.get(p.id); if (pr && t - (pr.b.rubT ?? -9) > 0.3) this.touch.delete(p.id); continue; }   // a brief slip off the rim doesn't break the stroke
