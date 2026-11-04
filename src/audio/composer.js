@@ -603,9 +603,11 @@ export class StreamPlayer extends Sequenced {
     const ctx = this.e.ctx;
     this.t0 = ctx.currentTime;
     this.running = true;
-    const audio = (this.audio = new Audio());
-    audio.src = this.track.stream;
+    const audio = (this.audio = this.track._primed || new Audio());   // primed during the tap where it could be
+    this.track._primed = null;
+    if (!audio.src) audio.src = this.track.stream;
     audio.preload = 'auto';
+    audio.currentTime = 0;
     const src = ctx.createMediaElementSource(audio);
     let node = src;
     for (const f of Object.values(this.track.meta.carriers || {})) {   // music-only tracks have no light carriers
@@ -625,7 +627,13 @@ export class StreamPlayer extends Sequenced {
     node.connect(send).connect(this.e.musicSend);
     this._startSolfeggio(this.t0);
     audio.addEventListener('ended', () => { this.finished = true; });
-    this.playPromise = audio.play().catch((err) => { this.error = err; });
+    this.playPromise = audio.play().catch((err) => {
+      this.error = err;
+      // still blocked: start on the very next tap anywhere
+      const retry = () => { if (this.running) audio.play().then(() => { this.error = null; }).catch(() => {}); };
+      window.addEventListener('pointerdown', retry, { once: true, capture: true });
+      try { this.e.onBlocked?.(); } catch (_) {}
+    });
   }
 
   // Emit analysed events as the audio reaches them.

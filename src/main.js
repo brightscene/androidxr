@@ -85,6 +85,7 @@ class App {
     this.playing = false;
     this.player = null;
     this.engine = new AudioEngine();
+    this.engine.onBlocked = () => this.ui?.toast('Tap anywhere to start the sound');
     this._applyMix();   // the mixer's levels, ready for when the audio starts
     this.voice = new Voice(this.engine);
     this.mine = new MyAffirmations(this.engine);
@@ -453,6 +454,18 @@ class App {
 
   async start(track) {
     this.voice.unlock();
+    // Safari (iPad, iPhone) only lets audio start inside the tap itself; everything below waits on
+    // loading first (a big light track can take a while), so give the track's audio its first
+    // play() now, while the tap still counts, and hand that element to the player
+    try { this.engine.ctx?.resume?.(); } catch (_) {}
+    if (track.stream) {
+      try {
+        const el = new Audio(); el.preload = 'auto'; el.src = track.stream;
+        const p = el.play(); el.pause();
+        p?.catch?.(() => {});
+        track._primed = el;
+      } catch (_) { track._primed = null; }
+    }
     this._claimAudio();
     if (this.active?.muted) this.active.name = '';   // silenced by another copy: make it afresh
     const token = (this._startToken = {});   // a newer start replaces this one
