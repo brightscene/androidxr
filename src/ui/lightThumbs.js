@@ -6,34 +6,34 @@ import * as THREE from 'three';
 
 export const LIGHT_COLOURS = [
   ['vivid', 'Vivid', ['#ff4ad0', '#2ee0ff']],
-  ['palette', 'Palette', ['#7a5aff', '#ffb84a']],
+  ['palette', 'Track palette', ['#7a5aff', '#ffb84a']],
   ['white', 'White', ['#fff2d8', '#ffffff']],
   ['amber', 'Amber', ['#ff8a1a', '#ffd27a']],
   ['violet', 'Violet', ['#8a4aff', '#4ae08a']],
   ['rainbow', 'Rainbow', ['#ff4a4a', '#ffd24a', '#4ae08a', '#4a9aff', '#c84aff']],
 ];
-// what's behind the symbol
-export const LIGHT_STYLES = [['field', 'Glow'], ['none', 'None'], ['wide', 'Wide']];
-// the symbol itself: the six sacred symbols, then the solid shapes
+// what the lights show: a plain glow, a wide glow, or a symbol (always glowing)
 export const LIGHT_SYMBOLS = [
+  [-1, 'Glow', 'field'], [-2, 'Glow wide', 'wide'],
   [0, 'Flower Life'], [1, 'Sri Yantra'], [2, 'Lotus'], [3, 'Merkaba'], [4, 'Ripples'], [5, 'Seed Life'],
   [6, 'Glowing orb', 'orb'], [8, 'Neon ring', 'ring'], [9, 'Crystal', 'crystal'],
 ];
 export const LIGHT_LOOKS = [
-  ['Gentle glow', ['#ffb84a', '#ff8ad0'], { lightStyle: 'field', lightSymbol: 2, lightColour: 'palette', lightMode: 'soft', lightMax: 1, lightDim: 0.3 }],
-  ['Sacred', ['#a46aff', '#5ed6d0'], { lightStyle: 'field', lightSymbol: 0, lightColour: 'vivid', lightMode: 'exact', lightMax: 1, lightDim: 0.5 }],
-  ['Glowing orb', ['#ff6a9a', '#ffd27a'], { lightStyle: 'none', lightSymbol: 6, lightColour: 'vivid', lightMode: 'exact', lightMax: 1, lightDim: 0.5 }],
-  ['Neon ring', ['#2ee0ff', '#ff4ad0'], { lightStyle: 'field', lightSymbol: 8, lightColour: 'vivid', lightMode: 'exact', lightMax: 1, lightDim: 0.6 }],
-  ['Wide wash', ['#2ec4b6', '#a493ff'], { lightStyle: 'wide', lightSymbol: 4, lightColour: 'violet', lightMode: 'soft', lightMax: 1, lightDim: 0.3 }],
+  ['Gentle glow', ['#ffb84a', '#ff8ad0'], { lightSymbol: -1, lightColour: 'palette', lightMode: 'soft', lightMax: 1, lightDim: 0.8 }],
+  ['Sacred', ['#a46aff', '#5ed6d0'], { lightSymbol: 0, lightColour: 'vivid', lightMode: 'exact', lightMax: 1, lightDim: 0.8 }],
+  ['Glowing orb', ['#ff6a9a', '#ffd27a'], { lightSymbol: 6, lightColour: 'vivid', lightMode: 'exact', lightMax: 1, lightDim: 0.8 }],
+  ['Neon ring', ['#2ee0ff', '#ff4ad0'], { lightSymbol: 8, lightColour: 'vivid', lightMode: 'exact', lightMax: 1, lightDim: 0.8 }],
+  ['Wide wash', ['#2ec4b6', '#a493ff'], { lightSymbol: -2, lightColour: 'violet', lightMode: 'soft', lightMax: 1, lightDim: 0.8 }],
 ];
 
-// old saved settings (from when shapes were styles) to the new ones
-export function migrateLights(style, symbol) {
-  const shape = { orb: 6, chrome: 6, ring: 8, crystal: 9 }[style];
-  if (shape != null) return ['field', shape];
-  const st = { both: 'field', field: 'field', wide: 'wide', symbol: 'none', none: 'none' }[style] || 'field';
-  if (symbol === 7) symbol = 6;   // the chrome ball is gone: the glowing orb instead
-  return [st, Number.isInteger(symbol) && symbol >= 0 && symbol <= 9 ? symbol : 0];
+// saved settings from earlier versions to the current one
+export function migrateLights(p) {
+  if (p.lightsV >= 6) return LIGHT_SYMBOLS.some(([k]) => k === p.lightSymbol) ? p.lightSymbol : -1;
+  const shape = { orb: 6, chrome: 6, ring: 8, crystal: 9 }[p.lightStyle];
+  if (shape != null) return shape;
+  if (p.lightStyle === 'wide') return -2;
+  if (p.lightSymbol === 7) return 6;
+  return Number.isInteger(p.lightSymbol) && p.lightSymbol >= 0 && p.lightSymbol <= 9 ? p.lightSymbol : -1;
 }
 
 export const gradient = (c, x0, y0, x1, y1, cols) => {

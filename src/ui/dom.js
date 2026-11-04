@@ -1,4 +1,4 @@
-import { LIGHT_COLOURS, LIGHT_STYLES, LIGHT_SYMBOLS, LIGHT_LOOKS, drawStyle } from './lightThumbs.js';
+import { LIGHT_COLOURS, LIGHT_SYMBOLS, LIGHT_LOOKS, drawStyle } from './lightThumbs.js';
 import { SYMBOLS } from '../visuals/strobe.js';
 import { SCENES, BACKGROUNDS } from '../visuals/scenes/index.js';
 import SCENE_PALETTES from './scenePalettes.json';
@@ -468,13 +468,13 @@ export class DomUI {
       return b;
     };
     const cols = () => LIGHT_COLOURS.find(([v]) => v === app.lightColour)?.[2] || ['#ff4ad0', '#2ee0ff'];
-    this.styleTiles = LIGHT_STYLES.map(([v, n]) => { const b = tile($('#light-styles'), n, (c) => drawStyle(c, v, 0, 0, 128, ['#ff4ad0', '#2ee0ff']), () => app.setLightOpt('lightStyle', v)); b._v = v; return b; });
     const thumbs = app.symbolThumbs;
     const symDraw = (i) => (c) => {
       const shape = LIGHT_SYMBOLS.find(([k]) => k === i)[2];
-      if (shape) drawStyle(c, shape, 0, 0, 128, ['#ff4ad0', '#2ee0ff']);
+      const cs = cols();
+      if (shape) drawStyle(c, shape, 0, 0, 128, [cs[0], cs[cs.length - 1]]);
       else {
-        if (app.lightStyle !== 'none') { const col = cols()[0], g = c.createRadialGradient(64, 64, 0, 64, 64, 64); g.addColorStop(0, col + 'aa'); g.addColorStop(1, col + '00'); c.fillStyle = g; c.fillRect(0, 0, 128, 128); }
+        { const col = cols()[0], g = c.createRadialGradient(64, 64, 0, 64, 64, 64); g.addColorStop(0, col + 'aa'); g.addColorStop(1, col + '00'); c.fillStyle = g; c.fillRect(0, 0, 128, 128); }
         if (thumbs?.[i]) c.drawImage(thumbs[i], 0, 0, 128, 128);
       }
     };
@@ -492,7 +492,7 @@ export class DomUI {
     $('#lights-generated').addEventListener('click', () => { app.setLightOpt('lightsGenerated', !app.lightsGenerated); this.refresh(); });
     $('#light-import').addEventListener('click', () => $('#file')?.click());
     this._lightsUI = () => {
-      const look = app.lightStyle + app.lightColour;
+      const look = app.lightColour;
       if (this._symLook !== look) { this._symLook = look; for (const b of this.symbolTiles) { const cv = b.querySelector('canvas'), c = cv.getContext('2d'); c.clearRect(0, 0, 128, 128); b._draw(c); } }
       $('#lights-tog').classList.toggle('on', app.lights);
       const tr = app.playing ? app.playingTrack : app.selected;
@@ -500,7 +500,6 @@ export class DomUI {
       $('#lights-status').textContent = !app.lights ? 'Off' : app.lightsWhy();
       $('#lights-panel').classList.toggle('unavail', app.lights && !avail);
       for (const b of looks.children) b.classList.toggle('on', Object.entries(b._o).every(([k, v]) => app[k] === v));
-      for (const b of this.styleTiles) b.classList.toggle('on', b._v === app.lightStyle);
       for (const b of this.symbolTiles) b.classList.toggle('on', b._v === app.lightSymbol);
       for (const b of this.swatches) b.classList.toggle('on', b._v === app.lightColour);
       $('#light-max').value = app.lightMax; $('#light-max-v').textContent = `${Math.round(app.lightMax * 100)}%`;
@@ -509,7 +508,6 @@ export class DomUI {
       $('#lights-generated').classList.toggle('on', app.lightsGenerated);
       // the style pictures take on the chosen colours
       const cs = cols();
-      if (this._styleCols !== cs) { this._styleCols = cs; for (const b of this.styleTiles) { const c = b.querySelector('canvas').getContext('2d'); c.clearRect(0, 0, 128, 128); drawStyle(c, b._v, 0, 0, 128, [cs[0], cs[cs.length - 1]]); } }
     };
   }
 

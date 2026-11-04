@@ -65,13 +65,13 @@ class App {
     this.strobeAccepted = p.strobeAccepted ?? false;
     this.lights = this.strobeAccepted ? p.lights ?? true : false;
     // lights v3: every symbol starts with its glow behind it
-    [this.lightStyle, this.lightSymbol] = migrateLights(p.lightsV >= 3 ? p.lightStyle : 'field', p.lightSymbol);
+    this.lightSymbol = migrateLights(p);   // -1 glow, -2 wide glow, 0.. a symbol (always glowing)
     // v2 defaults: vivid colours, symbols side by side, dimmed background
     const v2 = p.v >= 2;
     this.lightColour = v2 ? p.lightColour || 'vivid' : 'vivid';
     this.lightLayout = p.lightLayout || 'sides';
-    this.lightDim = p.lightDim ?? 0.5;
-    this.lightMax = p.lightsV === 5 ? p.lightMax ?? 1 : 1;   // full brightness by default
+    this.lightDim = p.lightsV >= 7 ? p.lightDim ?? 0.8 : 0.8;   // 80% by default
+    this.lightMax = p.lightsV >= 5 ? p.lightMax ?? 1 : 1;   // full brightness by default
     this.lightMode = p.lightMode || 'exact';
     // v3: lights pulse with the tones by default, so switching lights on always shows them
     this.lightsGenerated = p.v >= 3 ? p.lightsGenerated ?? true : true;
@@ -169,7 +169,7 @@ class App {
         selected: this.selected.id === 'import' ? undefined : this.selected.id, minutes: this.minutes, entrainment: this.entrainment,
         journey: this.journey, solfeggio: this.solfeggio, voiceInSoundscapes: this.whispers, captions: this.captions,
         dives: this.dives, nature: this.nature, voice: this.voiceChoice, volume: this.volume, background: this.background, quality: this.quality, breathGuide: this.breathText, guideVoice: this.guideVoice, mineOn: this.mineOn, mineEvery: this.mineEvery,
-        strobeAccepted: this.strobeAccepted, lights: this.lights, lightsV: 5, lightStyle: this.lightStyle, lightColour: this.lightColour,
+        strobeAccepted: this.strobeAccepted, lights: this.lights, lightsV: 7, lightColour: this.lightColour,
         mixLevels: this.mixLevels, mixOn: this.mixOn, toneType: this.toneType, natureType: this.natureType,
         v: 3, lightLayout: this.lightLayout, lightDim: this.lightDim,
         lightMax: this.lightMax, lightMode: this.lightMode, lightsGenerated: this.lightsGenerated, lightSymbol: this.lightSymbol,
@@ -874,7 +874,7 @@ class App {
     if (!target) { this.lightRates = null; this.strobe.update(dt, t, null, null, {}); return; }
     const k = this.lightMode === 'soft' ? 1 - Math.exp(-dt * 7) : 1;
     for (let s = 0; s < 2; s++) for (let c = 0; c < 3; c++) this.rgb[s][c] += (target[s][c] - this.rgb[s][c]) * k;
-    this.strobe.update(dt, t, this.rgb[0], this.rgb[1], { style: this.lightStyle, symbol: this.lightSymbol, max: this.lightMax, layout: this.lightLayout, dim: this.lightDim });
+    this.strobe.update(dt, t, this.rgb[0], this.rgb[1], { symbol: this.lightSymbol, max: this.lightMax, layout: this.lightLayout, dim: this.lightDim });
   }
 
   // A slow, head-locked dimming of the whole view (used as you fall asleep).

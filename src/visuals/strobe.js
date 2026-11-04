@@ -90,7 +90,7 @@ const FRAG = /* glsl */ `
     }
     // the glow: a soft field, plus a halo hugging the symbol itself
     float halo = exp(-r * r * 5.0) * smoothstep(0.75, 0.4, r);
-    col += uCol * uGlow * (field * (uStyle > 2.5 ? 0.9 : 0.75) + halo * (uStyle > 2.5 ? 0.3 : 0.6));
+    col += uCol * uGlow * (field * (uStyle > 2.5 ? 1.1 : 0.75) + halo * (uStyle > 2.5 ? 0.3 : 0.6));
     gl_FragColor = vec4(col * b, 1.0);
   }`;
 
@@ -308,10 +308,10 @@ export class StrobeLayer {
     const perEye = this.xr && (opts.layout === 'eyes' || opts.layout === 'eyesc');
     const centred = this.xr && opts.layout === 'eyesc';   // each eye's light straight ahead of that eye: they fuse into one
     const eyeX = (side) => (side ? 1 : -1) * (this.ipd || 0.063) / 2;   // each eye's own centre
-    const sym = opts.symbol ?? 0;
-    const glow = opts.style === 'field' ? 1 : 0;
-    const wide = opts.style === 'wide';
-    const shape = sym < SYMBOLS.length ? 0 : { 6: 1, 8: 2 }[sym] ?? 3;
+    const sym = opts.symbol ?? -1;   // -1 glow, -2 wide glow, 0.. a symbol with its glow
+    const wide = sym === -2;
+    const glow = wide ? 0 : 1;
+    const shape = sym >= 0 && sym < SYMBOLS.length ? 0 : { 6: 1, 8: 2 }[sym] ?? 3;
     this.wash.forEach((m, side) => {
       m.visible = show && wide;
       if (!m.visible) return;

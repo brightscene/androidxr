@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { LIGHT_COLOURS, LIGHT_STYLES, LIGHT_SYMBOLS, LIGHT_LOOKS, drawStyle, gradient } from './lightThumbs.js';
+import { LIGHT_COLOURS, LIGHT_SYMBOLS, LIGHT_LOOKS, drawStyle, gradient } from './lightThumbs.js';
 import { SYMBOLS } from '../visuals/strobe.js';
 import { BACKGROUNDS, SCENES } from '../visuals/scenes/index.js';
 import SCENE_PALETTES from './scenePalettes.json';
@@ -806,7 +806,7 @@ export class XRMenu {
     this._slider(ess, XW, X0 + XW / 2, y, ['#ffb84a', '#fff6e0'], () => (app.lightMax - 0.1) / 0.9, (v) => app.setLightOpt('lightMax', 0.1 + v * 0.9), () => app.lights);
     y -= RH;
     card(ess, y, 'Dim the background', 'so the lights stand out', 'moon', ['#4a5ab8', '#a493ff']);
-    this._slider(ess, XW, X0 + XW / 2, y, ['#4a5ab8', '#a493ff'], () => app.lightDim / 0.85, (v) => app.setLightOpt('lightDim', Math.round(v * 0.85 * 20) / 20), () => app.lights);
+    this._slider(ess, XW, X0 + XW / 2, y, ['#4a5ab8', '#a493ff'], () => app.lightDim, (v) => app.setLightOpt('lightDim', Math.round(v * 20) / 20), () => app.lights);
 
     // colours: round swatches with their names
     y -= RH;
@@ -821,13 +821,13 @@ export class XRMenu {
         else c.fillStyle = gradient(c, cx - r, cy - r, cx + r, cy + r, cols);
         c.fill();
         c.strokeStyle = on ? '#fff' : 'rgba(255,255,255,0.3)'; c.lineWidth = on ? 6 : 3; c.stroke();
-        c.fillStyle = '#fff'; c.textAlign = 'left'; c.textBaseline = 'middle'; c.font = `500 ${Math.round(H * 0.26)}px ${FONT}`; c.fillText(n, cx + r + 10, cy + 2);
+        c.fillStyle = '#fff'; c.textAlign = 'left'; c.textBaseline = 'middle'; let fs = Math.round(H * 0.26); c.font = `500 ${fs}px ${FONT}`; while (c.measureText(n).width > W - (cx + r + 16) && fs > 10) { fs -= 1; c.font = `500 ${fs}px ${FONT}`; } c.fillText(n, cx + r + 10, cy + 2);
       }, () => { app.setLightOpt('lightColour', v); this.refresh(); }, 1600), X0 + (w + 0.01) * i + w / 2, y);
     });
 
     // styles and symbols: pictures
     const tiles = (yy, items, draw, isOn, onSel) => {
-      const w = Math.min(XW / items.length, XW / 7) - 0.008;
+      const w = XW / 7 - 0.008;
       items.forEach(([v, n], i) => this._btn(ess, new Button(w, TH - 0.008, (c, W, H, b) => {
         const on = isOn(v);
         roundRect(c, 3, 3, W - 6, H - 6, 18);
@@ -841,18 +841,18 @@ export class XRMenu {
       }, () => { onSel(v); this.refresh(); }, 1600), X0 + (w + 0.008) * i + w / 2, yy));
     };
     const colsNow = () => { const cs = LIGHT_COLOURS.find(([v]) => v === app.lightColour)?.[2] || ['#ff4ad0', '#2ee0ff']; return [cs[0], cs[cs.length - 1]]; };
-    y -= (RH + TH) / 2;
-    card(ess, y, 'Background', 'behind the symbol', 'shapes', ['#7a5aff', '#d08aff']);
-    tiles(y, LIGHT_STYLES, (c, v, x, yy, s) => drawStyle(c, v, x, yy, s, colsNow()), (v) => app.lightStyle === v, (v) => app.setLightOpt('lightStyle', v));
-    y -= TH;
-    card(ess, y, 'Symbol', 'what the light shows', 'flower', ['#3a8a8a', '#5ed6d0']);
-    tiles(y, LIGHT_SYMBOLS, (c, v, x, yy, s) => {
+    const symDraw = (c, v, x, yy, s) => {
       const shape = LIGHT_SYMBOLS.find(([k]) => k === v)[2];
       if (shape) return drawStyle(c, shape, x, yy, s, colsNow());
-      const T = app.symbolThumbs;
-      if (app.lightStyle !== 'none') { const col = colsNow()[0], g = c.createRadialGradient(x + s / 2, yy + s / 2, 0, x + s / 2, yy + s / 2, s * 0.5); g.addColorStop(0, col + 'aa'); g.addColorStop(1, col + '00'); c.fillStyle = g; c.fillRect(x, yy, s, s); }
+      const T = app.symbolThumbs, col = colsNow()[0], g = c.createRadialGradient(x + s / 2, yy + s / 2, 0, x + s / 2, yy + s / 2, s * 0.5);
+      g.addColorStop(0, col + 'aa'); g.addColorStop(1, col + '00'); c.fillStyle = g; c.fillRect(x, yy, s, s);
       if (T?.[v]) c.drawImage(T[v], x, yy, s, s);
-    }, (v) => app.lightSymbol === v, (v) => app.setLightOpt('lightSymbol', v));
+    };
+    y -= (RH + TH) / 2;
+    card(ess, y, 'Symbol', 'what the light shows', 'flower', ['#3a8a8a', '#5ed6d0']);
+    tiles(y, LIGHT_SYMBOLS.slice(0, 6), symDraw, (v) => app.lightSymbol === v, (v) => app.setLightOpt('lightSymbol', v));
+    y -= TH;
+    tiles(y, LIGHT_SYMBOLS.slice(6), symDraw, (v) => app.lightSymbol === v, (v) => app.setLightOpt('lightSymbol', v));
 
     // more options, in the same space
     const r = (i, ...a) => this._row(adv, (ROW0 - (y0 - RH)) / ROWH + i, ...a);
