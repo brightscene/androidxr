@@ -710,6 +710,21 @@
     "audio": null
    },
    {
+    "id": "j-synth",
+    "title": "Space synth",
+    "intent": "An analog synth adrift in space · 100 ambient presets, arpeggiator and chords",
+    "scene": "synth",
+    "palette": [
+     "#08061a",
+     "#5a3ab0",
+     "#7affe0"
+    ],
+    "free": false,
+    "kind": "Soundscape · 396 Hz",
+    "freq": 396,
+    "audio": null
+   },
+   {
     "id": "j-affirmtrace",
     "title": "Trace your affirmations",
     "intent": "Trace short affirmations with your finger, then hear them spoken",

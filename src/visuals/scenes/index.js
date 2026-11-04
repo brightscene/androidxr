@@ -42,6 +42,7 @@ import { FinalFrontierScene } from './frontier.js';
 import { FireworksScene } from './fireworks.js';
 import { SpaceWashScene } from './spacewash.js';
 import { MriScene } from './mri.js';
+import { SynthScene } from './synth.js';
 import { WasherScene } from './washer.js';
 import { DrumJourneyScene, IllusionScene, MindsEyeScene } from './lighttracks.js';
 import { TimePortalScene, KaleidosphereScene, NebulaFlightScene, WarpGateScene, MandalaBloomScene, SilkVortexScene } from './dimensions.js';
@@ -134,6 +135,7 @@ export const SCENES = {
   auroraharp: { type: AuroraResonanceScene, label: 'Aurora resonance', group: 'Mind', premium: true, cruise: 0, nebula: 0, world: 'off' },
   theremin: { type: ThereminScene, label: 'Theremin', group: 'Mind', premium: true, cruise: 0, nebula: 0, world: 'off' },
   thereminmonks: { type: ThereminMonksScene, label: 'Theremin monks', group: 'Mind', premium: true, cruise: 0, nebula: 0, world: 'off' },
+  synth: { type: SynthScene, label: 'Space synth', group: 'Mind', premium: true, cruise: 0, nebula: 0, world: 'off' },
   affirmtrace: { type: AffirmationTraceScene, label: 'Affirmation tracing', group: 'Mind', premium: true, cruise: 0, nebula: 0, world: 'bare' },
   orb: { type: OrbScene, label: 'Breathing orb', group: 'Mind', cruise: 0.5, nebula: 0.8, world: 'full' },
   mandala: { type: MandalaScene, label: 'Lotus mandala', group: 'Mind', cruise: 0.4, nebula: 0.7, world: 'full' },
