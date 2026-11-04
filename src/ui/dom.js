@@ -1,3 +1,4 @@
+import { LIGHT_COLOURS, LIGHT_STYLES, LIGHT_LOOKS, drawStyle } from './lightThumbs.js';
 import { SYMBOLS } from '../visuals/strobe.js';
 import { SCENES, BACKGROUNDS } from '../visuals/scenes/index.js';
 import SCENE_PALETTES from './scenePalettes.json';
@@ -243,6 +244,7 @@ export class DomUI {
     on('#durations', 'click', (e) => { const m = Number(e.target.dataset.min); if (m) app.setMinutes(m); });
     on('#journey', 'change', (e) => app.setJourney(e.target.value));
     this._buildMixer('#mixer', '#mix-presets');
+
     this._buildMixer('#mixer-2', '#mix-presets-2');
     on('#show-mix', 'click', () => this.$('#mix-pop').classList.toggle('hidden'));
     on('#mix-close', 'click', () => this.$('#mix-pop').classList.add('hidden'));
@@ -288,16 +290,7 @@ export class DomUI {
     });
     on('#quality', 'change', (e) => app.setQuality(e.target.value));
     on('#preview-voice', 'click', () => app.previewVoice());
-    this.$('#light-symbol').innerHTML = ['<option value="-1">Cycle through all</option>', ...SYMBOLS.map((n, i) => `<option value="${i}">${n}</option>`)].join('');
-    on('#lights', 'change', (e) => { app.setLights(e.target.checked); this.refresh(); });
-    on('#light-style', 'change', (e) => app.setLightOpt('lightStyle', e.target.value));
-    on('#light-symbol', 'change', (e) => app.setLightOpt('lightSymbol', Number(e.target.value)));
-    on('#light-colour', 'change', (e) => app.setLightOpt('lightColour', e.target.value));
-    on('#light-mode', 'change', (e) => app.setLightOpt('lightMode', e.target.value));
-    on('#light-layout', 'change', (e) => app.setLightOpt('lightLayout', e.target.value));
-    on('#light-dim', 'change', (e) => app.setLightOpt('lightDim', Number(e.target.value)));
-    on('#light-max', 'input', (e) => app.setLightOpt('lightMax', Number(e.target.value)));
-    on('#lights-generated', 'change', (e) => app.setLightOpt('lightsGenerated', e.target.checked));
+    this._buildLightsUI();
     const cycStatus = (n) => { this.$('#cycle-status').textContent = n ? `Using your ${n} image${n > 1 ? 's' : ''}` : 'Using the built-in photos'; };
     refreshImageAtlas().then(cycStatus);
     on('#cycle-files', 'change', async (e) => {
@@ -388,6 +381,8 @@ export class DomUI {
     for (const b of this.$('#durations').children) b.classList.toggle('on', Number(b.dataset.min) === app.minutes);
     this.$('#length-group').classList.toggle('disabled', !!app.selected.guided);
     for (const f of this.mixers || []) f();
+    const ls = this.$('#lights-status');
+    if (ls) { const tr = app.playing ? app.playingTrack : app.selected; ls.textContent = !app.lights ? '' : tr.strobe ? `${tr.title}: the lights follow its encoding` : `${tr.title}: the lights pulse with the brainwave tones`; }
     this.$('#journey').value = app.journey;
     this.$('#dives').value = app.dives;
     this.$('#whispers').checked = app.whispers;
@@ -398,15 +393,7 @@ export class DomUI {
     this.$('#mine-every').value = String(app.mineEvery);
     this.$('#quality').value = app.quality;
     this.$('#volume').value = app.volume;
-    this.$('#lights').checked = app.lights;
-    this.$('#light-style').value = app.lightStyle;
-    this.$('#light-symbol').value = String(app.lightSymbol);
-    this.$('#light-colour').value = app.lightColour;
-    this.$('#light-mode').value = app.lightMode;
-    this.$('#light-layout').value = app.lightLayout;
-    this.$('#light-dim').value = String(app.lightDim);
-    this.$('#light-max').value = app.lightMax;
-    this.$('#lights-generated').checked = app.lightsGenerated;
+    this._lightsUI?.();
     const tr = app.selected;
     this.$('#sel-title').textContent = tr.title;
     this.$('#sel-meta').textContent = tr.stream
@@ -446,6 +433,68 @@ export class DomUI {
     this._wake();
     this.$('#session-title').textContent = track.plain ? track.title : track.strobe ? `${track.title} · ${track.strobe.format === 'spectrastrobe' ? 'SpectraStrobe' : 'AudioStrobe'}` : track.buffer ? track.title : `${track.title} · ${track.freq} Hz`;
     this.refresh();
+  }
+
+  // Lights: a switch; quick looks; pictures of each style and symbol; colour
+  // swatches; brightness and background sliders; the rest under More options
+  _buildLightsUI() {
+    const app = this.app, $ = this.$;
+    $('#lights-tog').addEventListener('click', () => { app.setLights(!app.lights); this.refresh(); });
+    const looks = $('#light-looks');
+    looks.innerHTML = '';
+    LIGHT_LOOKS.forEach(([n, cols, o]) => {
+      const b = document.createElement('button'); b.textContent = n; b.style.background = `linear-gradient(90deg, ${cols.join(', ')})`;
+      b.addEventListener('click', () => { for (const [k, v] of Object.entries(o)) app.setLightOpt(k, v); this.refresh(); });
+      b._o = o; looks.append(b);
+    });
+    const tile = (host, label, draw, onSel) => {
+      const b = document.createElement('button');
+      const cv = document.createElement('canvas'); cv.width = cv.height = 128;
+      draw(cv.getContext('2d'));
+      b.append(cv, document.createTextNode(label));
+      b.addEventListener('click', () => { onSel(); this.refresh(); });
+      host.append(b);
+      return b;
+    };
+    const cols = () => LIGHT_COLOURS.find(([v]) => v === app.lightColour)?.[2] || ['#ff4ad0', '#2ee0ff'];
+    this.styleTiles = LIGHT_STYLES.map(([v, n]) => { const b = tile($('#light-styles'), n, (c) => drawStyle(c, v, 0, 0, 128, ['#ff4ad0', '#2ee0ff']), () => app.setLightOpt('lightStyle', v)); b._v = v; return b; });
+    const thumbs = app.symbolThumbs;
+    const symDraw = (i) => (c) => {
+      if (i < 0) { (thumbs || []).slice(0, 4).forEach((t, k) => c.drawImage(t, (k % 2) * 64, Math.floor(k / 2) * 64, 64, 64)); return; }
+      if (thumbs?.[i]) c.drawImage(thumbs[i], 0, 0, 128, 128);
+    };
+    this.symbolTiles = [[-1, 'Cycle all'], ...SYMBOLS.map((n, i) => [i, n])].map(([v, n]) => { const b = tile($('#light-symbols'), n, symDraw(v), () => app.setLightOpt('lightSymbol', v)); b._v = v; return b; });
+    this.swatches = LIGHT_COLOURS.map(([v, n, cs]) => {
+      const b = document.createElement('button');
+      b.innerHTML = `<span class="dot" style="background:${cs.length > 2 ? `conic-gradient(${cs.join(', ')}, ${cs[0]})` : `linear-gradient(135deg, ${cs.join(', ')})`}"></span>${n}`;
+      b.addEventListener('click', () => { app.setLightOpt('lightColour', v); this.refresh(); });
+      b._v = v; $('#light-colours').append(b);
+      return b;
+    });
+    $('#light-max').addEventListener('input', (e) => { app.setLightOpt('lightMax', Number(e.target.value)); this._lightsUI(); });
+    $('#light-dim').addEventListener('input', (e) => { app.setLightOpt('lightDim', Number(e.target.value)); this._lightsUI(); });
+    for (const [id, key] of [['#light-mode', 'lightMode'], ['#light-layout', 'lightLayout']]) $(id).addEventListener('click', (e) => { const v = e.target.dataset.v; if (v) { app.setLightOpt(key, v); this.refresh(); } });
+    $('#lights-generated').addEventListener('click', () => { app.setLightOpt('lightsGenerated', !app.lightsGenerated); this.refresh(); });
+    $('#light-import').addEventListener('click', () => $('#file')?.click());
+    this._lightsUI = () => {
+      $('#lights-tog').classList.toggle('on', app.lights);
+      const tr = app.playing ? app.playingTrack : app.selected;
+      const avail = app.lightsAvailable();
+      $('#lights-status').textContent = !app.lights ? 'Off' : app.lightsWhy();
+      $('#lights-panel').classList.toggle('unavail', app.lights && !avail);
+      for (const b of looks.children) b.classList.toggle('on', Object.entries(b._o).every(([k, v]) => app[k] === v));
+      for (const b of this.styleTiles) b.classList.toggle('on', b._v === app.lightStyle);
+      for (const b of this.symbolTiles) b.classList.toggle('on', b._v === app.lightSymbol);
+      $('#light-symbols').classList.toggle('dim', !['both', 'symbol'].includes(app.lightStyle));
+      for (const b of this.swatches) b.classList.toggle('on', b._v === app.lightColour);
+      $('#light-max').value = app.lightMax; $('#light-max-v').textContent = `${Math.round(app.lightMax * 100)}%`;
+      $('#light-dim').value = app.lightDim; $('#light-dim-v').textContent = app.lightDim ? `${Math.round(app.lightDim * 100)}%` : 'off';
+      for (const [id, key] of [['#light-mode', 'lightMode'], ['#light-layout', 'lightLayout']]) for (const b of $(id).children) b.classList.toggle('on', b.dataset.v === app[key]);
+      $('#lights-generated').classList.toggle('on', app.lightsGenerated);
+      // the style pictures take on the chosen colours
+      const cs = cols();
+      if (this._styleCols !== cs) { this._styleCols = cs; for (const b of this.styleTiles) { const c = b.querySelector('canvas').getContext('2d'); c.clearRect(0, 0, 128, 128); drawStyle(c, b._v, 0, 0, 128, [cs[0], cs[cs.length - 1]]); } }
+    };
   }
 
   // the sound mixer: quick mixes, then a row per layer (switch, level, and its kind)

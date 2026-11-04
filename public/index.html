@@ -90,24 +90,22 @@
     </section>
 
     <section class="pane" data-pane="Lights">
-      <div class="panel" id="lights-panel">
-      <p class="muted">Light-and-sound tracks hide light signals in the audio. MindLyte decodes them and flashes a symbol for each eye at the encoded rate and colour, like mind-machine glasses. Import an encoded track below.</p>
-      <div class="grid">
-        <label class="toggle"><input type="checkbox" id="lights" /> <span>Lights on</span></label>
-        <label><span class="label">Show</span>
-          <select id="light-style"><option value="orb">Glowing orb (brightest)</option><option value="chrome">Chrome ball</option><option value="ring">Neon ring</option><option value="crystal">Crystal</option><option value="both">Symbol + glow</option><option value="symbol">Symbol only</option><option value="field">Soft full-field glow</option><option value="wide">Wide (left and right lights join in the middle)</option><option value="leds">LED starfield (NeuroVizr-style)</option><option value="pandora">LED panel (Pandora Star-style)</option></select></label>
-        <label><span class="label">Symbol</span><select id="light-symbol"></select></label>
-        <label><span class="label">AudioStrobe colours</span>
-          <select id="light-colour"><option value="vivid">Vivid magenta / cyan</option><option value="palette">Track palette</option><option value="white">Warm white</option><option value="amber">Amber</option><option value="violet">Violet / green</option><option value="rainbow">Slow rainbow</option></select></label>
-        <label><span class="label">Eyes (headset)</span>
-          <select id="light-layout"><option value="sides">Both eyes see both lights</option><option value="eyes">Each eye sees only its own light</option><option value="eyesc">Each eye its own, centred (fuses into one)</option></select></label>
-        <label><span class="label">Dim background</span>
-          <select id="light-dim"><option value="0">Off</option><option value="0.3">30%</option><option value="0.5">50%</option><option value="0.7">70%</option><option value="0.85">85%</option></select></label>
-        <label><span class="label">Flashing</span>
-          <select id="light-mode"><option value="exact">Exact (as encoded)</option><option value="soft">Softened pulses</option></select></label>
-        <label class="group"><span class="label">Brightness</span><input id="light-max" type="range" min="0.1" max="1" step="0.05" /></label>
-        <label class="toggle"><input type="checkbox" id="lights-generated" /> <span>Also pulse lights with MindLyte's brainwave tones</span></label>
+      <div class="panel lights2" id="lights-panel">
+      <div class="lighthead"><button id="lights-tog" class="mtog big"><span class="sw"></span><span>Lights</span></button><span id="lights-status" class="muted"></span></div>
+      <div class="lsec"><span class="label">Quick looks</span><div class="looks" id="light-looks"></div></div>
+      <div class="lsec"><span class="label">Style</span><div class="tiles" id="light-styles"></div></div>
+      <div class="lsec" id="light-symbols-sec"><span class="label">Symbol</span><div class="tiles" id="light-symbols"></div></div>
+      <div class="lsec"><span class="label">Colour</span><div class="swatches" id="light-colours"></div></div>
+      <div class="lsec sliders">
+        <label><span class="label">Brightness <b id="light-max-v"></b></span><input id="light-max" type="range" min="0.1" max="1" step="0.05" /></label>
+        <label><span class="label">Dim the background <b id="light-dim-v"></b></span><input id="light-dim" type="range" min="0" max="0.85" step="0.05" /></label>
       </div>
+      <details class="more"><summary>More options</summary>
+        <div class="lsec"><span class="label">Flashing</span><div class="seg" id="light-mode"><button data-v="exact">Exact, as encoded</button><button data-v="soft">Softened</button></div></div>
+        <div class="lsec"><span class="label">Eyes (headset)</span><div class="seg" id="light-layout"><button data-v="sides">Both eyes see both</button><button data-v="eyes">Each eye its own</button><button data-v="eyesc">Each eye, centred</button></div></div>
+        <div class="lsec"><button id="lights-generated" class="mtog"><span class="sw"></span><span>Pulse with MindLyte's brainwave tones <small class="muted">(tracks without light encoding)</small></span></button></div>
+        <div class="row lightimport"><button id="light-import" class="ghost small">Import a light &amp; sound track…</button><span class="muted">AudioStrobe or SpectraStrobe audio from your device: the lights follow its encoding. (Choose the file here, outside the headset.)</span></div>
+      </details>
     </div>
     </section>
 
@@ -147,8 +145,8 @@
         <span id="cycle-status" class="muted"></span>
       </div>
       <details class="credits"><summary class="muted">Photo credits</summary><ul id="photo-credits" class="muted small"></ul></details></div>
-      <div class="panel"><h3>Bring your own AI track</h3>
-      <p class="muted">Load a track you generated elsewhere (Suno, Udio, MP3/WAV). MindLyte analyses its beats and dynamics to key the visuals, and layers the tones underneath.</p>
+      <div class="panel"><h3>Bring your own track</h3>
+      <p class="muted">Load a track from your device: one you generated elsewhere (Suno, Udio, MP3/WAV), or a light &amp; sound track with AudioStrobe or SpectraStrobe light signals. MindLyte analyses its beats and dynamics to key the visuals, layers the tones underneath, and if it finds light signals, the lights follow them.</p>
       <div class="row">
         <select id="import-scene">
           <option value="galaxy">Galaxy voyage</option>

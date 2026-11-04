@@ -262,3 +262,39 @@ html, body { overscroll-behavior: none; }
 @keyframes sheetUp { from { translate: 0 40px; opacity: 0; } to { translate: 0 0; opacity: 1; } }
 #mix-pop { left: 0; right: 0; margin: 0 auto; transform: none; }
 html, body { overflow-x: hidden; }
+
+.lighthead { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; margin-bottom: 12px; }
+details.more { margin-top: 14px; border-top: 1px solid var(--line); padding-top: 10px; }
+details.more summary { cursor: pointer; color: var(--muted); margin-bottom: 10px; }
+.lightimport { margin-top: 14px; gap: 12px; align-items: center; flex-wrap: wrap; }
+
+#lights-panel .grid select { width: 100%; min-width: 0; max-width: 100%; }
+#lights-panel .grid label { min-width: 0; }
+
+/* Lights, on screens */
+.lights2 .lsec { margin: 14px 0; }
+.lights2 .label { display: block; margin-bottom: 8px; }
+.mtog.big { font-size: 18px; font-weight: 500; }
+.mtog.on .sw, .lighthead .mtog.on .sw { background: linear-gradient(90deg, #ffb84a, #ff6ad0); }
+.mtog.on .sw::after { left: 19px; }
+.looks { display: flex; flex-wrap: wrap; gap: 8px; }
+.looks button { border: 1px solid rgba(255,255,255,0.25); color: #fff; font: inherit; font-size: 14px; font-weight: 600; padding: 9px 16px; border-radius: 999px; cursor: pointer; opacity: 0.7; text-shadow: 0 1px 4px rgba(0,0,0,0.5); }
+.looks button:hover { opacity: 0.9; }
+.looks button.on { opacity: 1; border: 2px solid #fff; box-shadow: 0 0 18px rgba(255,255,255,0.25); }
+.tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 10px; }
+.tiles button { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 10px 6px 8px; border-radius: 16px; border: 1px solid var(--line); background: rgba(255,255,255,0.03); color: #fff; font: inherit; font-size: 13px; cursor: pointer; }
+.tiles button canvas { width: 64px; height: 64px; }
+.tiles button:hover { background: rgba(255,255,255,0.08); }
+.tiles button.on { border: 2px solid #c8b8ff; background: rgba(164,147,255,0.16); box-shadow: 0 0 18px rgba(164,147,255,0.25); }
+.tiles.dim { opacity: 0.4; }
+.swatches { display: flex; flex-wrap: wrap; gap: 14px; }
+.swatches button { display: flex; flex-direction: column; align-items: center; gap: 6px; background: none; border: 0; color: #fff; font: inherit; font-size: 13px; cursor: pointer; padding: 0; }
+.swatches .dot { width: 44px; height: 44px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.25); box-shadow: inset 0 0 8px rgba(0,0,0,0.25); }
+.swatches button.on .dot { border: 3px solid #fff; box-shadow: 0 0 16px rgba(255,255,255,0.45); }
+.sliders { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+.sliders input[type=range] { width: 100%; accent-color: #ffb84a; }
+.sliders b { font-weight: 500; color: #fff; margin-left: 6px; text-transform: none; letter-spacing: 0; }
+@media (max-width: 560px) { .sliders { grid-template-columns: 1fr; } }
+
+.lights2.unavail .lsec:not(:has(#lights-generated)) .tiles, .lights2.unavail .looks, .lights2.unavail .swatches, .lights2.unavail .sliders { opacity: 0.35; pointer-events: none; }
+.lights2.unavail #lights-status { color: #ffcf8a; }

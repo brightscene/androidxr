@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { LIGHT_COLOURS, LIGHT_STYLES, LIGHT_LOOKS, drawStyle, gradient } from './lightThumbs.js';
 import { SYMBOLS } from '../visuals/strobe.js';
 import { BACKGROUNDS, SCENES } from '../visuals/scenes/index.js';
 import SCENE_PALETTES from './scenePalettes.json';
@@ -74,6 +75,33 @@ function drawIcon(c, kind, x, y, r) {
   } else if (kind === 'speaker') {
     c.beginPath(); c.moveTo(-r * 0.9, -r * 0.3); c.lineTo(-r * 0.45, -r * 0.3); c.lineTo(0, -r * 0.75); c.lineTo(0, r * 0.75); c.lineTo(-r * 0.45, r * 0.3); c.lineTo(-r * 0.9, r * 0.3); c.closePath(); c.fill();
     for (const rr of [0.4, 0.75]) { c.beginPath(); c.arc(r * 0.05, 0, r * rr, -0.85, 0.85); c.stroke(); }
+  } else if (kind === 'bulb') {
+    // a light bulb: a round glass, a narrowing neck and a threaded base, with rays
+    c.beginPath(); c.arc(0, -r * 0.25, r * 0.58, Math.PI * 0.78, Math.PI * 2.22);
+    c.quadraticCurveTo(r * 0.3, r * 0.2, r * 0.26, r * 0.5); c.lineTo(-r * 0.26, r * 0.5); c.quadraticCurveTo(-r * 0.3, r * 0.2, -r * 0.58 * Math.cos(Math.PI * 0.22), -r * 0.25 + r * 0.58 * Math.sin(Math.PI * 0.22)); c.closePath(); c.fill();
+    c.fillRect(-r * 0.26, r * 0.58, r * 0.52, r * 0.12); c.fillRect(-r * 0.24, r * 0.75, r * 0.48, r * 0.1); c.beginPath(); c.arc(0, r * 0.92, r * 0.14, 0, Math.PI); c.fill();
+    c.lineWidth = r * 0.12;
+    for (const a of [-2.55, -1.95, -1.57, -1.19, -0.6]) { c.beginPath(); c.moveTo(Math.cos(a) * r * 0.82, -r * 0.25 + Math.sin(a) * r * 0.82); c.lineTo(Math.cos(a) * r * 1.05, -r * 0.25 + Math.sin(a) * r * 1.05); c.stroke(); }
+  } else if (kind === 'sun') {
+    c.beginPath(); c.arc(0, 0, r * 0.42, 0, Math.PI * 2); c.fill();
+    for (let k = 0; k < 8; k++) { const a = (k / 8) * Math.PI * 2; c.beginPath(); c.moveTo(Math.cos(a) * r * 0.62, Math.sin(a) * r * 0.62); c.lineTo(Math.cos(a) * r * 0.95, Math.sin(a) * r * 0.95); c.stroke(); }
+  } else if (kind === 'moon') {
+    c.beginPath(); c.arc(0, 0, r * 0.8, 0, Math.PI * 2); c.fill();
+    c.globalCompositeOperation = 'destination-out'; c.beginPath(); c.arc(r * 0.38, -r * 0.25, r * 0.66, 0, Math.PI * 2); c.fill(); c.globalCompositeOperation = 'source-over';
+  } else if (kind === 'palette') {
+    c.beginPath(); c.ellipse(0, 0, r * 0.95, r * 0.78, 0, 0, Math.PI * 2); c.fill();
+    c.globalCompositeOperation = 'destination-out';
+    for (const [px, py] of [[-0.45, -0.25], [0, -0.45], [0.45, -0.25], [-0.4, 0.25]]) { c.beginPath(); c.arc(px * r, py * r, r * 0.15, 0, Math.PI * 2); c.fill(); }
+    c.beginPath(); c.arc(r * 0.4, r * 0.35, r * 0.2, 0, Math.PI * 2); c.fill();
+    c.globalCompositeOperation = 'source-over';
+  } else if (kind === 'shapes') {
+    c.beginPath(); c.arc(-r * 0.35, -r * 0.3, r * 0.42, 0, Math.PI * 2); c.fill();
+    c.fillRect(r * 0.05, r * 0.0, r * 0.8, r * 0.8);
+    c.beginPath(); c.moveTo(r * 0.45, -r * 0.95); c.lineTo(r * 0.95, -r * 0.1); c.lineTo(-r * 0.05, -r * 0.1); c.closePath(); c.globalAlpha *= 0.85; c.fill();
+  } else if (kind === 'flower') {
+    c.lineWidth = r * 0.12; const rr = r * 0.4;
+    c.beginPath(); c.arc(0, 0, rr, 0, Math.PI * 2); c.stroke();
+    for (let k = 0; k < 6; k++) { const a = (k / 6) * Math.PI * 2; c.beginPath(); c.arc(Math.cos(a) * rr, Math.sin(a) * rr, rr, 0, Math.PI * 2); c.stroke(); }
   } else if (kind === 'centre') {
     c.beginPath(); c.arc(0, 0, r * 0.62, 0, Math.PI * 2); c.stroke();
     c.beginPath(); c.arc(0, 0, r * 0.16, 0, Math.PI * 2); c.fill();
@@ -313,6 +341,10 @@ export class XRMenu {
     this.centreBtn.mesh.visible = false;
     this.group.add(this.centreBtn.mesh);
     this.buttons.push(this.centreBtn);
+    this.lightsBtn = new Button(0.1, 0.1, wristIcon('bulb', ['#ffb84a', '#ff6ad0']), () => { this.show(true); this.setTab('Lights'); }, 2560);
+    this.lightsBtn.mesh.visible = false;
+    this.group.add(this.lightsBtn.mesh);
+    this.buttons.push(this.lightsBtn);
     this.soundBtn.mesh.visible = false;
     this.group.add(this.soundBtn.mesh);
     this.buttons.push(this.soundBtn);
@@ -706,27 +738,130 @@ export class XRMenu {
     this._btn(p, new Button(1.4, 0.05, textDraw('Length and the brainwave journey apply from the next session; deep dives straight away.', { alpha: 0.5, size: 0.48 }), null), 0, ROW0 - 3 * ROWH + 0.02, false);
   }
 
+  // Lights, in the same style as the sound mixer: a card per row with its own
+  // colour and icon; quick looks; brightness and background sliders; colour
+  // swatches; pictures of every style and symbol. More options swaps in the rest.
   _buildLights() {
     const app = this.app, p = this.pages.Lights;
-    this._btn(p, new Button(1.46, 0.06, textDraw(() => {
+    const y0 = ROW0 + 0.01, RH = 0.093, TH = 0.112;
+    const card = (parent, y, name, sub, icon, cols, h = 0.082) => this._btn(parent, new Button(0.5, h, (c, W, H) => {
+      const on = app.lights;
+      roundRect(c, 3, 3, W - 6, H - 6, 22);
+      c.fillStyle = gradient(c, 0, 0, W, 0, [cols[0] + (on ? '55' : '22'), 'rgba(255,255,255,0.02)']); c.fill();
+      const r = Math.min(H, 0.082 * 1600) * 0.34, cx = r * 1.47, cy = H / 2;
+      c.beginPath(); c.arc(cx, cy, r, 0, Math.PI * 2); c.fillStyle = gradient(c, cx - r, cy - r, cx + r, cy + r, cols); c.globalAlpha = on ? 1 : 0.5; c.fill();
+      drawIcon(c, icon, cx, cy, r * 0.6);
+      c.fillStyle = '#fff'; c.textAlign = 'left'; c.textBaseline = 'alphabetic';
+      c.font = `600 ${Math.round(0.082 * 1600 * 0.3)}px ${FONT}`; c.fillText(val(name), r * 2.9, cy + (sub ? -2 : 12));
+      if (sub) { c.font = `400 ${Math.round(0.082 * 1600 * 0.2)}px ${FONT}`; c.globalAlpha = (on ? 1 : 0.5) * 0.6; c.fillText(val(sub), r * 2.9, cy + 26); }
+      c.globalAlpha = 1;
+    }, null, 1600), LX + 0.25, y);
+    const X0 = -0.205, XW = 0.97;   // the space to the right of the cards
+
+    // Lights: the switch, and what the lights will follow
+    card(p, y0, 'Lights', () => (app.lights ? 'on' : 'off'), 'bulb', ['#ffb84a', '#ff6ad0']);
+    this._btn(p, new Button(0.11, 0.062, (c, W, H, b) => {
+      const o = app.lights;
+      roundRect(c, 4, 4, W - 8, H - 8, (H - 8) / 2);
+      c.fillStyle = o ? gradient(c, 0, 0, W, 0, ['#ffb84a', '#ff6ad0']) : 'rgba(255,255,255,0.14)'; c.fill();
+      if (b.hover) { c.strokeStyle = '#fff'; c.lineWidth = 3; c.stroke(); }
+      const kr = (H - 8) / 2 - 5;
+      c.beginPath(); c.arc(o ? W - 4 - kr - 5 : 4 + kr + 5, H / 2, kr, 0, Math.PI * 2); c.fillStyle = '#fff'; c.shadowColor = 'rgba(0,0,0,0.4)'; c.shadowBlur = 6; c.fill(); c.shadowBlur = 0;
+    }, () => { app.setLights(!app.lights); this.refresh(); }, 1600), -0.165, y0);
+    this._btn(p, new Button(0.84, 0.07, (c, W, H) => {
       const tr = app.playing ? app.playingTrack : app.selected;
-      if (!app.strobeAccepted) return 'Turn Lights on to read the flashing-lights safety warning first.';
-      if (tr.strobe) return `${tr.title}: ${tr.strobe.format === 'spectrastrobe' ? 'SpectraStrobe (full colour)' : 'AudioStrobe'} light encoding. Lights will follow the track.`;
-      return app.lightsGenerated ? `${tr.title} has no light encoding. Lights will pulse with the brainwave tones.` : `${tr.title} has no light encoding. Turn on "Pulse with tones", or import an encoded track.`;
-    }, { alpha: 0.75, size: 0.46 })), 0, ROW0 + 0.01);
-    const r = (i, ...a) => this._row(p, i * 0.8 + 0.72, ...a);
-    const style = (v) => app.setLightOpt('lightStyle', v);
-    r(0, 'Lights', [['On', true], ['Off', false]], () => app.lights, (v) => app.setLights(v));
-    r(1, 'Solid lights', [['Glowing orb', 'orb'], ['Chrome ball', 'chrome'], ['Neon ring', 'ring'], ['Crystal', 'crystal']], () => app.lightStyle, style, [0.2, 0.2, 0.18, 0.15]);
-    r(2, 'Symbols & LEDs', [['Symbol + glow', 'both'], ['Symbol', 'symbol'], ['Glow', 'field'], ['Wide', 'wide'], ['LED starfield', 'leds'], ['Pandora panel', 'pandora']], () => app.lightStyle, style, [0.19, 0.12, 0.1, 0.1, 0.19, 0.19]);
-    r(3, 'Symbol', [['Cycle', -1], ...SYMBOLS.map((n, i) => [n.replace(' of ', ' '), i])], () => app.lightSymbol, (v) => app.setLightOpt('lightSymbol', v), [0.12, 0.15, 0.15, 0.12, 0.14, 0.13, 0.14]);
-    r(4, 'Colours', [['Vivid', 'vivid'], ['Palette', 'palette'], ['White', 'white'], ['Amber', 'amber'], ['Violet', 'violet'], ['Rainbow', 'rainbow']], () => app.lightColour, (v) => app.setLightOpt('lightColour', v), [0.14, 0.14, 0.14, 0.14, 0.14, 0.15]);
-    r(5, 'Flashing', [['Exact', 'exact'], ['Softened', 'soft']], () => app.lightMode, (v) => app.setLightOpt('lightMode', v));
-    r(6, 'Brightness', [['−', 'down'], [() => `${Math.round(app.lightMax * 100)}%`, 'x'], ['+', 'up']], () => null,
-      (v) => { if (v !== 'x') app.setLightOpt('lightMax', Math.min(1, Math.max(0.1, Math.round((app.lightMax + (v === 'up' ? 0.1 : -0.1)) * 10) / 10))); }, [0.1, 0.14, 0.1]);
-    r(7, 'Pulse with tones', [['On', true], ['Off', false]], () => app.lightsGenerated, (v) => app.setLightOpt('lightsGenerated', v));
-    r(8, 'Eyes', [['Both eyes see both', 'sides'], ['Each eye its own', 'eyes'], ['Each eye, centred', 'eyesc']], () => app.lightLayout, (v) => app.setLightOpt('lightLayout', v), [0.27, 0.25, 0.25]);
-    r(9, 'Dim background', [['Off', 0], ['30%', 0.3], ['50%', 0.5], ['70%', 0.7], ['85%', 0.85]], () => app.lightDim, (v) => app.setLightOpt('lightDim', v), [0.12, 0.12, 0.12, 0.12, 0.12]);
+      const text = !app.strobeAccepted ? 'Switch on to read the flashing-lights safety note first.' : app.lightsWhy(tr);
+      const ok = !app.lights || app.lightsAvailable(tr);
+      c.fillStyle = ok ? 'rgba(255,255,255,0.65)' : '#ffcf8a'; c.textAlign = 'left'; c.textBaseline = 'middle';
+      let size = Math.round(H * 0.36); c.font = `400 ${size}px ${FONT}`;
+      while (c.measureText(text).width > W - 10 && size > 12) { size -= 1; c.font = `400 ${size}px ${FONT}`; }
+      c.fillText(text, 6, H / 2);
+    }, null, 1600), -0.085 + 0.42, y0);
+
+    const ess = (this.lightsEssentials = new THREE.Group());
+    const adv = (this.lightsAdvanced = new THREE.Group());
+    adv.visible = false;
+    p.add(ess, adv);
+    this.lightsAvail = () => app.lightsAvailable();
+
+    // quick looks
+    let y = y0 - RH;
+    card(ess, y, 'Quick looks', 'one-tap settings', 'sparkle', ['#a46aff', '#5ed6d0']);
+    const isLook = (o) => Object.entries(o).every(([k, v]) => app[k] === v);
+    LIGHT_LOOKS.forEach(([name, cols, o], i) => {
+      const w = XW / LIGHT_LOOKS.length - 0.01;
+      this._btn(ess, new Button(w, 0.064, (c, W, H, b) => {
+        const on = isLook(o);
+        roundRect(c, 3, 3, W - 6, H - 6, (H - 6) / 2);
+        c.globalAlpha = on ? 1 : b.hover ? 0.75 : 0.45; c.fillStyle = gradient(c, 0, 0, W, 0, cols); c.fill(); c.globalAlpha = 1;
+        c.strokeStyle = on ? '#fff' : 'rgba(255,255,255,0.3)'; c.lineWidth = on ? 4 : 3; c.stroke();
+        c.fillStyle = '#fff'; c.font = `600 ${Math.round(H * 0.38)}px ${FONT}`; c.textAlign = 'center'; c.textBaseline = 'middle';
+        c.shadowColor = 'rgba(0,0,0,0.6)'; c.shadowBlur = 6; c.fillText(name, W / 2, H / 2 + 2); c.shadowBlur = 0;
+      }, () => { for (const [k, v] of Object.entries(o)) app.setLightOpt(k, v); this.refresh(); }, 1600), X0 + (w + 0.01) * i + w / 2, y);
+    });
+
+    // brightness, and how much the scene dims behind the lights
+    y -= RH;
+    card(ess, y, 'Brightness', 'how bright the lights glow', 'sun', ['#ffb84a', '#fff2c8']);
+    this._slider(ess, XW, X0 + XW / 2, y, ['#ffb84a', '#fff6e0'], () => (app.lightMax - 0.1) / 0.9, (v) => app.setLightOpt('lightMax', 0.1 + v * 0.9), () => app.lights);
+    y -= RH;
+    card(ess, y, 'Dim the background', 'so the lights stand out', 'moon', ['#4a5ab8', '#a493ff']);
+    this._slider(ess, XW, X0 + XW / 2, y, ['#4a5ab8', '#a493ff'], () => app.lightDim / 0.85, (v) => app.setLightOpt('lightDim', Math.round(v * 0.85 * 20) / 20), () => app.lights);
+
+    // colours: round swatches with their names
+    y -= RH;
+    card(ess, y, 'Colour', 'for tracks that leave it open', 'palette', ['#ff4ad0', '#2ee0ff']);
+    LIGHT_COLOURS.forEach(([v, n, cols], i) => {
+      const w = XW / LIGHT_COLOURS.length - 0.01;
+      this._btn(ess, new Button(w, 0.082, (c, W, H, b) => {
+        const on = app.lightColour === v, r = H * 0.3, cx = r * 1.4, cy = H / 2;
+        if (on || b.hover) { roundRect(c, 3, 3, W - 6, H - 6, 22); c.fillStyle = on ? 'rgba(255,255,255,0.14)' : 'rgba(255,255,255,0.06)'; c.fill(); }
+        c.beginPath(); c.arc(cx, cy, r, 0, Math.PI * 2);
+        if (cols.length > 2) { const g = c.createConicGradient ? c.createConicGradient(0, cx, cy) : null; if (g) { cols.forEach((col, k) => g.addColorStop(k / cols.length, col)); g.addColorStop(1, cols[0]); c.fillStyle = g; } else c.fillStyle = gradient(c, cx - r, cy, cx + r, cy, cols); }
+        else c.fillStyle = gradient(c, cx - r, cy - r, cx + r, cy + r, cols);
+        c.fill();
+        c.strokeStyle = on ? '#fff' : 'rgba(255,255,255,0.3)'; c.lineWidth = on ? 6 : 3; c.stroke();
+        c.fillStyle = '#fff'; c.textAlign = 'left'; c.textBaseline = 'middle'; c.font = `500 ${Math.round(H * 0.26)}px ${FONT}`; c.fillText(n, cx + r + 10, cy + 2);
+      }, () => { app.setLightOpt('lightColour', v); this.refresh(); }, 1600), X0 + (w + 0.01) * i + w / 2, y);
+    });
+
+    // styles and symbols: pictures
+    const tiles = (yy, items, draw, isOn, onSel) => {
+      const w = XW / items.length - 0.008;
+      items.forEach(([v, n], i) => this._btn(ess, new Button(w, TH - 0.008, (c, W, H, b) => {
+        const on = isOn(v);
+        roundRect(c, 3, 3, W - 6, H - 6, 18);
+        c.fillStyle = on ? 'rgba(164,147,255,0.28)' : b.hover ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.04)'; c.fill();
+        c.strokeStyle = on ? '#d8ccff' : 'rgba(255,255,255,0.18)'; c.lineWidth = on ? 5 : 2; c.stroke();
+        const s = Math.min(W * 0.8, H * 0.66);
+        draw(c, v, (W - s) / 2, H * 0.05, s);
+        c.fillStyle = '#fff'; c.font = `500 ${Math.round(H * 0.16)}px ${FONT}`; c.textAlign = 'center'; c.textBaseline = 'middle';
+        let size = Math.round(H * 0.16); while (c.measureText(n).width > W - 8 && size > 9) { size -= 1; c.font = `500 ${size}px ${FONT}`; }
+        c.fillText(n, W / 2, H * 0.86);
+      }, () => { onSel(v); this.refresh(); }, 1600), X0 + (w + 0.008) * i + w / 2, yy));
+    };
+    const colsNow = () => { const cs = LIGHT_COLOURS.find(([v]) => v === app.lightColour)?.[2] || ['#ff4ad0', '#2ee0ff']; return [cs[0], cs[cs.length - 1]]; };
+    y -= (RH + TH) / 2;
+    card(ess, y, 'Style', 'how the lights look', 'shapes', ['#7a5aff', '#d08aff']);
+    tiles(y, LIGHT_STYLES, (c, v, x, yy, s) => drawStyle(c, v, x, yy, s, colsNow()), (v) => app.lightStyle === v, (v) => app.setLightOpt('lightStyle', v));
+    y -= TH;
+    card(ess, y, 'Symbol', 'for the Symbols styles', 'flower', ['#3a8a8a', '#5ed6d0']);
+    tiles(y, [[-1, 'Cycle all'], ...SYMBOLS.map((n, i) => [i, n.replace(' of ', ' ')])], (c, v, x, yy, s) => {
+      const T = app.symbolThumbs;
+      if (!T) return;
+      if (v < 0) T.slice(0, 4).forEach((t, k) => c.drawImage(t, x + (k % 2) * s / 2, yy + Math.floor(k / 2) * s / 2, s / 2, s / 2));
+      else c.drawImage(T[v], x, yy, s, s);
+    }, (v) => app.lightSymbol === v, (v) => app.setLightOpt('lightSymbol', v));
+
+    // more options, in the same space
+    const r = (i, ...a) => this._row(adv, (ROW0 - (y0 - RH)) / ROWH + i, ...a);
+    r(0, 'Flashing', [['Exact, as encoded', 'exact'], ['Softened', 'soft']], () => app.lightMode, (v) => app.setLightOpt('lightMode', v), [0.25, 0.18]);
+    r(1, 'Pulse with tones', [['On', true], ['Off', false]], () => app.lightsGenerated, (v) => app.setLightOpt('lightsGenerated', v));
+    r(2, 'Eyes', [['Both eyes see both', 'sides'], ['Each eye its own', 'eyes'], ['Each eye, centred', 'eyesc']], () => app.lightLayout, (v) => app.setLightOpt('lightLayout', v), [0.27, 0.25, 0.25]);
+    this._btn(adv, new Button(1.2, 0.05, textDraw('To use a light & sound track of your own, import it from the Lights tab on a screen first.', { alpha: 0.5, size: 0.46 }), null), 0.05, ROW0 - ((ROW0 - (y0 - RH)) / ROWH + 3) * ROWH, false);
+
+    // the switch between them
+    this._btn(p, new Button(0.3, 0.06, pill(() => (adv.visible ? '\u2039 Back' : 'More options \u203a'), () => false), () => { adv.visible = !adv.visible; ess.visible = !adv.visible; this.refresh(); }), 0.615, y - TH / 2 - 0.045);
   }
 
   _buildVoice() {
@@ -815,6 +950,10 @@ export class XRMenu {
 
   refresh() {
     for (const b of this.buttons) if (b.dynamic !== false) b.redraw();
+    if (this.lightsEssentials) {   // nothing for the lights to follow: their options dim
+      const a = this.app.lights && !this.lightsAvail() ? 0.35 : 1;
+      this.lightsEssentials.traverse((o) => { if (o.material) o.material.opacity = a; });
+    }
     if (this.endBtn) {
       this.endBtn.mesh.visible = this.app.playing;
       this.closeBtn.mesh.visible = this.app.playing;
@@ -955,7 +1094,7 @@ export class XRMenu {
   // its old place, low in front of you.
   _wristOrb(dt) {
     const o = this.orb.mesh;
-    if (!this.orbWanted || this.visible) { this.soundBtn.mesh.visible = this.centreBtn.mesh.visible = false; return; }
+    if (!this.orbWanted || this.visible) { this.soundBtn.mesh.visible = this.centreBtn.mesh.visible = this.lightsBtn.mesh.visible = false; return; }
     const xr = this.app.renderer.xr;
     let wrist = null;
     for (let i = 0; i < 2; i++) {
@@ -969,9 +1108,9 @@ export class XRMenu {
     if (!wrist) {   // nothing to wear it on: back to its spot in front of you
       if (this.orbHome) { o.position.copy(this.orbHome.pos); o.rotation.copy(this.orbHome.rot); }
       o.scale.setScalar(1); o.visible = true; this.orbOnWrist = false;
-      for (const [m, dx] of [[this.soundBtn.mesh, 0.13], [this.centreBtn.mesh, -0.13]]) {
+      for (const [m, dx, dy] of [[this.soundBtn.mesh, 0.13, 0.02], [this.centreBtn.mesh, -0.13, 0.02], [this.lightsBtn.mesh, 0, 0.15]]) {
         m.visible = true; m.scale.setScalar(1); m.quaternion.copy(o.quaternion);
-        m.position.copy(o.position).add(new THREE.Vector3(dx, 0.02, 0).applyQuaternion(o.quaternion));
+        m.position.copy(o.position).add(new THREE.Vector3(dx, dy, 0).applyQuaternion(o.quaternion));
       }
       return;
     }
@@ -987,10 +1126,10 @@ export class XRMenu {
     o.lookAt(head);
     o.scale.setScalar(0.55 * (0.6 + 0.4 * this._wristA));
     // the sound button just beside it
-    for (const [m, dx] of [[this.soundBtn.mesh, 0.075], [this.centreBtn.mesh, -0.075]]) {
+    for (const [m, dx, dy] of [[this.soundBtn.mesh, 0.075, -0.012], [this.centreBtn.mesh, -0.075, -0.012], [this.lightsBtn.mesh, 0, 0.085]]) {
       m.visible = o.visible;
       m.quaternion.copy(o.quaternion);
-      m.position.copy(o.position).add(new THREE.Vector3(dx, -0.012, 0).applyQuaternion(o.quaternion));
+      m.position.copy(o.position).add(new THREE.Vector3(dx, dy, 0).applyQuaternion(o.quaternion));
       m.scale.copy(o.scale);
     }
   }

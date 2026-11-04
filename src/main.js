@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { renderSymbolThumbs } from './ui/lightThumbs.js';
 import { XRHandModelFactory } from 'three/examples/jsm/webxr/XRHandModelFactory.js';
 import { AudioEngine } from './audio/engine.js';
 import { Composer, ImportedPlayer, StreamPlayer } from './audio/composer.js';
@@ -8,7 +9,7 @@ import { Voice, GuideRunner } from './audio/voice.js';
 import { MyAffirmations } from './audio/myAffirmations.js';
 import { bandName } from './audio/entrainment.js';
 import { decodeStrobe, flashRateAt } from './audio/strobe.js';
-import { StrobeLayer } from './visuals/strobe.js';
+import { StrobeLayer, SYMBOLS } from './visuals/strobe.js';
 import { U, damp, SFX, INPUT } from './visuals/common.js';
 import { World } from './visuals/world.js';
 import { SCENES } from './visuals/scenes/index.js';
@@ -118,6 +119,7 @@ class App {
     this.world = new World(this.scene, this.camera);
     this.world.voyage.comfort = COMFORT[this.dives];
     this.strobe = new StrobeLayer(this.camera);
+    try { this.symbolThumbs = renderSymbolThumbs(this.renderer, this.strobe, SYMBOLS.length); } catch (_) { this.symbolThumbs = null; }   // pictures for the Lights menus
     this.strobe.setSymbol(this.lightSymbol);
     this.menu = new XRMenu(this);
     this.menu.group.visible = false;
@@ -253,6 +255,21 @@ class App {
     if (this.playing && this.renderer.xr.isPresenting) this.menu.show(false);   // straight into the session that asked
   }
   declineStrobe() { this.menu.showWarning(false); this.ui.hideStrobeWarning(); }
+  // lights need something to follow: a light-encoded track, Clear mind's own
+  // pattern, or brainwave tones that are actually playing (with Pulse with tones on)
+  lightsAvailable(tr = this.playing ? this.playingTrack : this.selected) {
+    if (!tr) return false;
+    if (tr.strobe || tr.mindflash) return true;
+    return this.lightsGenerated && this.entrainment !== 'off' && !tr.musicOff && !tr.plain && !tr.stream;
+  }
+  lightsWhy(tr = this.playing ? this.playingTrack : this.selected) {
+    if (tr?.strobe) return `${tr.title}: the lights follow its light encoding`;
+    if (tr?.mindflash) return `${tr.title}: its own light pattern`;
+    if (this.lightsAvailable(tr)) return `${tr.title}: the lights pulse with the brainwave tones`;
+    if (tr?.musicOff || tr?.plain || tr?.stream) return `${tr?.title || 'This journey'} has no light encoding or brainwave tones, so the lights stay off`;
+    if (this.entrainment === 'off') return 'Brainwave tones are off (Sound), so there\u2019s nothing for the lights to follow';
+    return 'Turn on \u201cPulse with tones\u201d (More options) for the lights to follow the brainwave tones';
+  }
   setLightOpt(key, v) { this[key] = v; if (key === 'lightSymbol') this.strobe.setSymbol(v); this._changed(); }
   cycle(key, options) { const i = options.indexOf(this[key]); return options[(i + 1) % options.length]; }
 
@@ -843,15 +860,14 @@ class App {
           const el = this.player.elapsed(now);
           this.lightRates = [flashRateAt(st, 0, el), flashRateAt(st, 1, el)];
         }
-      } else {
-        // no light encoding: pulse with the brainwave tones; with no tones (the
-        // instruments, or tones off), a slow, gentle glow that rises and falls
-        const hz = this.lightsGenerated && this.entrainment !== 'off' && !tr.musicOff ? this.player.beatHz?.(now) || 0 : 0;
-        const b = hz
-          ? Math.pow(0.5 + 0.5 * Math.sin(this.player.elapsed(now) * hz * Math.PI * 2), 2) * Math.min(1, this.sectionEnergy + 0.3)
-          : 0.35 + 0.25 * Math.sin(t * 0.6);
-        target = [0, 1].map((side) => { const c = this._colourSet(side, t); return [c.r * b, c.g * b, c.b * b]; });
-        this.lightRates = hz ? [hz, hz] : null;
+      } else if (this.lightsAvailable(tr)) {
+        // no light encoding: pulse with the brainwave tones
+        const hz = this.player.beatHz?.(now) || 0;
+        if (hz) {
+          const b = Math.pow(0.5 + 0.5 * Math.sin(this.player.elapsed(now) * hz * Math.PI * 2), 2) * Math.min(1, this.sectionEnergy + 0.3);
+          target = [0, 1].map((side) => { const c = this._colourSet(side, t); return [c.r * b, c.g * b, c.b * b]; });
+          this.lightRates = [hz, hz];
+        }
       }
     }
     if (!target) { this.lightRates = null; this.strobe.update(dt, t, null, null, {}); return; }
