@@ -137,6 +137,7 @@ class App {
     this.palTarget = [new THREE.Color(), new THREE.Color(), new THREE.Color()];
     this.applyPalette(this.selected.palette, true);
     this.setScene('nebula');   // the app always opens on Nebula drift
+    this._claimAudio(false);   // listen for another open copy taking over the sound
     this.engine.setNature(this.nature);
 
     this.ui = new DomUI(this);
@@ -321,8 +322,30 @@ class App {
     }
   }
 
+  // Only one MindLyte plays at a time: if the app is open twice (the installed
+  // app and a browser tab, say), whichever one starts a journey or steps into
+  // the headset tells the others to fall silent.
+  _claimAudio(post = true) {
+    try {
+      if (!this._bc) {
+        this._bcId = Math.random().toString(36).slice(2);
+        this._bc = new BroadcastChannel('mindlyte-audio');
+        this._bc.onmessage = (e) => {
+          if (e.data?.type !== 'claim' || e.data.id === this._bcId) return;
+          if (this.playing) this.stop(false, true);
+          this.voice.cancel?.();
+          this.active?.silence?.();
+          if (this.engine.ctx && this.engine.master) this.engine.fadeMaster(0, 0.3);
+        };
+      }
+      if (post) this._bc.postMessage({ type: 'claim', id: this._bcId });
+    } catch (_) {}
+  }
+
   async start(track) {
     this.voice.unlock();
+    this._claimAudio();
+    if (this.active?.muted) this.active.name = '';   // silenced by another copy: make it afresh
     const token = (this._startToken = {});   // a newer start replaces this one
     if (track.stream && !track.meta) await track.loading;
     if (track.stream && !track.meta) { this.ui.toast('Could not load that track. Check your connection.'); return; }
@@ -416,10 +439,10 @@ class App {
     this.caption = '';
   }
 
-  stop(completed = false) {
+  stop(completed = false, quick = false) {
     if (!this.playing) return;
     this.playing = false;
-    const fade = completed ? this.playingTrack.fadeOut || 5 : 4;
+    const fade = quick ? 0.4 : completed ? this.playingTrack.fadeOut || 5 : 4;
     this._stopGuide();
     this.dimTarget = 0;
     this.player.stop(fade);
@@ -495,7 +518,9 @@ class App {
     const ar = this.xrMode === 'immersive-ar';
     // stepping into the headset ends whatever was playing on the screen;
     // nothing plays until you press Begin in there
-    if (this.playing) this.stop();
+    if (this.playing) this.stop(false, true);   // quickly: the screen's sound mustn't carry on in here
+    this.voice.cancel?.();
+    this._claimAudio();
     this.world.setPassthrough(ar);
     this.renderer.setClearColor(0x000000, ar ? 0 : 1);
     this.menu.group.visible = true;

@@ -4,9 +4,9 @@ import { particles } from './kit.js';
 
 // ===================================================================== Space waterfall
 // Deep space. A rocky mountain island floats ahead of you among the stars and a
-// glowing nebula, and from a notch near its peak pours a waterfall made of
-// aurora light, rippling green, teal, magenta and violet, falling past the
-// mountain's roots and dissolving into the void as glowing spray. You stand on
+// glowing nebula, and over the rim of its plateau pours a waterfall of glowing
+// space water: dense streams of luminous orbs in icy blue, violet and rose,
+// falling past the mountain's roots and on forever into the void. You stand on
 // a small floating rock; little rocks drift slowly round you. Its sound, a soft
 // distant rush with a shimmering pad and the odd crystal sparkle, is made live.
 
@@ -81,38 +81,55 @@ export class WaterfallScene extends BaseScene {
     body.position.set(ISLE.x, ISLE.y - 1.5, ISLE.z);
     this.group.add(peak, body);
 
-    // the aurora waterfall: ribbons of light pouring off the lip and down into the void
-    const fall = new THREE.Mesh(new THREE.PlaneGeometry(4.2, 34, 1, 60), new THREE.ShaderMaterial({
-      transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, uniforms: U,
-      vertexShader: /* glsl */ `varying vec2 vUv;
-        void main(){ vUv = uv; vec3 p = position;
-          float f = 1.0 - uv.y;                                  // 0 at the lip
-          p.z += 1.6 * sqrt(f) - f * 0.6;                        // arcs out from the lip, then falls
-          p.x *= 1.0 + f * 0.9;                                  // spreading as it falls
-          gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0); }`,
-      fragmentShader: /* glsl */ `uniform float uTime, uFade; varying vec2 vUv; ${NOISE}
+    // the falls: dense streams of glowing space-water orbs pouring off the lip and
+    // falling forever into the void, each orb on its own arc, the stream widening as it goes
+    const N = 14000;
+    const seed = new Float32Array(N * 4), col = new Float32Array(N * 3);
+    const pal = ['#9fe4ff', '#7ab8ff', '#a690ff', '#d78cff', '#ff9ad8', '#ffffff'].map((c) => new THREE.Color(c));
+    for (let i = 0; i < N; i++) {
+      const g = (Math.random() + Math.random() + Math.random() - 1.5) / 1.5;   // most water in the middle of the stream
+      const big = Math.random() < 0.07;
+      seed.set([g * 1.9, Math.random(), 0.09 + Math.random() * 0.06, big ? 0.22 + Math.random() * 0.3 : 0.04 + Math.random() * 0.09], i * 4);
+      const c = pal[Math.floor(Math.random() * pal.length)];
+      col.set([c.r, c.g, c.b], i * 3);
+    }
+    const fg = new THREE.BufferGeometry();
+    fg.setAttribute('position', new THREE.Float32BufferAttribute(new Float32Array(N * 3), 3));
+    fg.setAttribute('aSeed', new THREE.Float32BufferAttribute(seed, 4));
+    fg.setAttribute('aCol', new THREE.Float32BufferAttribute(col, 3));
+    const fall = new THREE.Points(fg, new THREE.ShaderMaterial({
+      transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, uniforms: U,
+      vertexShader: /* glsl */ `attribute vec4 aSeed; attribute vec3 aCol; uniform float uTime, uViewH; varying vec3 vC; varying float vA, vBig;
         void main(){
-          float x = vUv.x, f = 1.0 - vUv.y;
-          float speed = 0.6 + f * 1.6;
-          float rays = fbm(vec3(x * 22.0, vUv.y * 3.0 + uTime * speed, 1.0));
-          float fine = fbm(vec3(x * 70.0, vUv.y * 7.0 + uTime * speed * 1.5, 3.0));
-          float edge = smoothstep(0.0, 0.35, x) * smoothstep(1.0, 0.65, x);
-          edge *= 0.55 + 0.45 * smoothstep(0.3, 0.7, fbm(vec3(x * 6.0, vUv.y * 0.8 + uTime * 0.3, 8.0)));   // strands, not a sheet
-          // aurora colours flowing down and across the falls
-          float h = fbm(vec3(x * 2.0, vUv.y * 1.2 + uTime * 0.25, 5.0));
-          vec3 col = mix(vec3(0.15, 1.0, 0.5), vec3(0.1, 0.85, 0.95), smoothstep(0.35, 0.6, h));
-          col = mix(col, vec3(1.0, 0.25, 0.7), smoothstep(0.58, 0.75, h));
-          col = mix(col, vec3(0.6, 0.35, 1.0), smoothstep(0.6, 1.0, f) * 0.6);
-          float a = (0.08 + pow(rays, 2.0) * 1.6 + fine * 0.3) * edge;
-          a *= smoothstep(0.0, 0.03, f) * (1.0 - smoothstep(0.55, 1.0, f) * 0.85);   // fading into the void
-          gl_FragColor = vec4(col * a * 0.6 * uFade, 1.0); }`,
+          float lane = aSeed.x, rate = aSeed.z, size = aSeed.w;
+          float f = fract(aSeed.y + uTime * rate * 0.35);         // 0 at the lip, 1 far below
+          float drop = 150.0 * pow(f, 1.7);                         // gathering speed as it falls
+          vec3 p = vec3(${LIP.x.toFixed(2)}, ${LIP.y.toFixed(2)}, ${LIP.z.toFixed(2)});
+          p.x += lane * (1.0 + f * 6.0) + sin(uTime * 0.8 + aSeed.y * 40.0) * 0.12 * (0.2 + f * 4.0);
+          p.z += 2.2 * (1.0 - exp(-f * 9.0)) + cos(uTime * 0.6 + aSeed.y * 30.0) * 0.1 * f * 6.0;
+          p.y -= drop;
+          vec4 mv = modelViewMatrix * vec4(p, 1.0);
+          float wob = 1.0 + 0.15 * sin(uTime * 5.0 + aSeed.y * 90.0);
+          gl_PointSize = size * wob * (1.0 + f * 1.5) * projectionMatrix[1][1] * uViewH / -mv.z;
+          gl_Position = projectionMatrix * mv;
+          // colours drift like aurora as the orbs fall; dimming slowly far below, never cut off
+          vC = mix(aCol, vec3(0.75, 0.6, 1.0), smoothstep(0.2, 1.0, f) * 0.4);
+          vA = smoothstep(0.0, 0.015, f) * (1.0 - 0.75 * smoothstep(0.3, 1.0, f)) * (1.0 - smoothstep(0.96, 1.0, f));
+          vBig = step(0.2, size);
+        }`,
+      fragmentShader: /* glsl */ `uniform float uFade; varying vec3 vC; varying float vA, vBig;
+        void main(){ vec2 q = gl_PointCoord - 0.5; float r = length(q) * 2.0;
+          float core = exp(-r * r * 10.0), halo = exp(-r * r * 2.5) * 0.35;
+          float rim = vBig * smoothstep(0.75, 0.62, r) * smoothstep(0.45, 0.62, r) * 0.5;   // big drops: a glassy edge
+          vec3 c = vC * (halo + rim) + mix(vC, vec3(1.0), 0.6) * core;
+          gl_FragColor = vec4(c * vA * uFade, 1.0); }`,
     }));
-    fall.position.set(LIP.x, LIP.y - 17, LIP.z);
+    fall.frustumCulled = false;
     fall.renderOrder = 5;
     this.group.add(fall);
-    // a softer veil of light around the falls, and glowing spray where they dissolve
-    this.group.add(particles(U, { count: 900, min: [-3.5, -16, LIP.z - 1], max: [3.5, LIP.y - 3, LIP.z + 4], vel: [0, -1.6, 0.1], sway: 0.6, size: [0.05, 0.14], colors: ['#7fffd0', '#5ad8ff', '#ff7ad0', '#b48aff'], alpha: 0.75 }));
-    this.group.add(particles(U, { count: 500, min: [-9, -22, LIP.z - 4], max: [9, -6, LIP.z + 6], vel: [0, 0.15, 0], sway: 1.2, size: [0.08, 0.2], colors: ['#7fffd0', '#ff9ae0', '#9ab4ff'], alpha: 0.45 }));
+    // glowing spray around the lip, and a soft luminous haze down the column, deep into the void
+    this.group.add(particles(U, { count: 600, min: [-3, LIP.y - 6, LIP.z - 0.5], max: [3, LIP.y + 0.6, LIP.z + 3.5], vel: [0, -0.8, 0.15], sway: 0.6, size: [0.04, 0.1], colors: ['#bfeaff', '#a690ff', '#ff9ad8'], alpha: 0.7 }));
+    this.group.add(particles(U, { count: 900, min: [-14, -140, LIP.z - 6], max: [14, LIP.y - 6, LIP.z + 10], vel: [0, -2.5, 0], sway: 1.5, size: [0.2, 0.6], colors: ['#7ab8ff', '#a690ff', '#ff9ad8'], alpha: 0.25 }));
 
     // the rock you stand on, and little rocks drifting round
     const ledge = new THREE.Mesh(new THREE.SphereGeometry(2.4, 32, 16, 0, Math.PI * 2, 0, Math.PI * 0.5), rock(0.4));
