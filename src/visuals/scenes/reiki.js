@@ -316,7 +316,7 @@ export class ReikiScene extends BaseScene {
     this.title = textPlane(U, 0.9, 0.11); this.title.position.set(0, SIZE + 0.1, 0); this.holder.add(this.title);
     this.thanks = textPlane(U, 0.75, 0.13); this.thanks.position.set(0, SIZE + 0.1, 0.01); this.holder.add(this.thanks);
     this.score = textPlane(U, 0.9, 0.08); this.score.position.set(0, -SIZE - 0.08, 0); this.holder.add(this.score);   // the hint, before anything is traced
-    this.badge = badgePlane(0.2, 0.042); this.badge.position.set(0, -SIZE - 0.075, 0.005); this.holder.add(this.badge);   // then a small count
+    this.badge = badgePlane(0.2, 0.042); this.badge.position.set(0, SIZE + 0.035, 0.005); this.holder.add(this.badge);   // then a small count, just under the title / affirmation at the top
     this.sparks = particles(U, { count: 300, min: [-SIZE, -SIZE, -0.05], max: [SIZE, SIZE, 0.05], vel: [0, 0.04, 0], sway: 0.08, size: [0.003, 0.009], colors: ['#ffe2a0', '#fff5d8'], alpha: 1 });
     this.sparks.userData.u.uAlpha.value = 0;
     this.holder.add(this.sparks);

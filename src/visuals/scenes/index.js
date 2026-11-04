@@ -14,6 +14,7 @@ import { LabyrinthScene } from './labyrinth.js';
 import { ReikiScene, AffirmationTraceScene } from './reiki.js';
 import { SingingBowlsScene, CrystalBowlsScene } from './bowls.js';
 import { WindChimesScene, WoodenChimesScene } from './chimes.js';
+import { HandbellsScene, ChurchBellsScene } from './bells.js';
 import { WaterfallScene } from './waterfall.js';
 import { MindFlashScene } from './mindflash.js';
 import { MonksScene } from './monks.js';
@@ -115,6 +116,8 @@ export const SCENES = {
   woodchimes: { type: WoodenChimesScene, label: 'Wooden wind chimes', group: 'Mind', premium: true, cruise: 0, nebula: 0, world: 'off' },
   tibetanbowls: { type: SingingBowlsScene, label: 'Tibetan singing bowls', group: 'Mind', premium: true, cruise: 0, nebula: 0, world: 'off' },
   crystalbowls: { type: CrystalBowlsScene, label: 'Crystal singing bowls', group: 'Mind', premium: true, cruise: 0, nebula: 0, world: 'off' },
+  handbells: { type: HandbellsScene, label: 'Handbells', group: 'Mind', premium: true, cruise: 0, nebula: 0, world: 'off' },
+  churchbells: { type: ChurchBellsScene, label: 'Church bells', group: 'Mind', premium: true, cruise: 0, nebula: 0, world: 'off' },
   affirmtrace: { type: AffirmationTraceScene, label: 'Affirmation tracing', group: 'Mind', premium: true, cruise: 0, nebula: 0, world: 'bare' },
   orb: { type: OrbScene, label: 'Breathing orb', group: 'Mind', cruise: 0.5, nebula: 0.8, world: 'full' },
   mandala: { type: MandalaScene, label: 'Lotus mandala', group: 'Mind', cruise: 0.4, nebula: 0.7, world: 'full' },

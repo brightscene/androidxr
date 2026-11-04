@@ -270,6 +270,19 @@ export class XRMenu {
     if (!MARK.complete) MARK.addEventListener('load', () => this.orb.redraw(), { once: true });
     this.group.add(this.orb.mesh);
     this.buttons.push(this.orb);
+    // the orb lives on your left wrist during a session: a short note says so, where it used to be
+    this.wristNote = new Button(0.62, 0.075, (c, w, h) => {
+      roundRect(c, 3, 3, w - 6, h - 6, (h - 6) / 2);
+      c.fillStyle = 'rgba(12,10,30,0.55)'; c.fill();
+      c.strokeStyle = 'rgba(190,170,255,0.6)'; c.lineWidth = 3; c.stroke();
+      c.fillStyle = '#fff'; c.font = `400 ${Math.round(h * 0.36)}px ${FONT}`; c.textAlign = 'center'; c.textBaseline = 'middle';
+      c.fillText('Menu: raise your left wrist and look at it', w / 2, h / 2 + 2);
+    }, null, 800);
+    this.wristNote.mesh.material.opacity = 0;
+    this.wristNote.mesh.visible = false;
+    this.group.add(this.wristNote.mesh);
+    this.wristNoteT = 99;
+    this.orbWanted = false;
 
     // breathing cue / captions
     this.cue = new Button(0.8, 0.14, (c, w, h) => {
@@ -659,6 +672,9 @@ export class XRMenu {
     this.panel.rotation.set(0, yaw, 0);
     this.orb.mesh.position.set(head.x - Math.sin(yaw) * 0.95, head.y - 0.42, head.z - Math.cos(yaw) * 0.95);
     this.orb.mesh.rotation.set(-0.4, yaw, 0, 'YXZ');
+    this.orbHome = { pos: this.orb.mesh.position.clone(), rot: this.orb.mesh.rotation.clone() };
+    this.wristNote.mesh.position.set(head.x - Math.sin(yaw) * 1.1, head.y - 0.3, head.z - Math.cos(yaw) * 1.1);
+    this.wristNote.mesh.rotation.set(-0.25, yaw, 0, 'YXZ');
     this.cue.mesh.position.set(head.x - Math.sin(yaw) * 1.7, head.y - 0.38, head.z - Math.cos(yaw) * 1.7);
     this.cue.mesh.rotation.set(0, yaw, 0);
   }
@@ -667,7 +683,10 @@ export class XRMenu {
     this.visible = on;
     this.panel.visible = on;
     this._layoutJourneys?.();
-    this.orb.mesh.visible = !on && (this.app.playing || this.app.xrIdle);
+    const wanted = !on && (this.app.playing || this.app.xrIdle);
+    if (wanted && !this.orbWanted && !this.wristNoteShown) { this.wristNoteT = 0; this.wristNoteShown = true; }   // once per session
+    this.orbWanted = wanted;
+    this.orb.mesh.visible = wanted;
     if (!on) this.warn.visible = false;
     this.app.getHead((h, f) => this.placeInFront(h, f));
     if (on) this.refresh();
@@ -764,7 +783,47 @@ export class XRMenu {
     return p ? this.panel.worldToLocal(p).y : null;
   }
 
+  // The Menu orb sits on your left wrist, like a watch: it shows when you raise
+  // your wrist and look at it. With no hand or controller tracked it stays in
+  // its old place, low in front of you.
+  _wristOrb(dt) {
+    const o = this.orb.mesh;
+    if (!this.orbWanted || this.visible) return;
+    const xr = this.app.renderer.xr;
+    let wrist = null;
+    for (let i = 0; i < 2; i++) {
+      const ctl = this.controllers[i];
+      const side = ctl?.userData.source?.handedness;
+      if (!ctl?.userData.connected || (side && side !== 'left') || (!side && i !== 0)) continue;
+      const j = xr.getHand(i)?.joints?.wrist;
+      if (j && j.visible) { wrist = new THREE.Vector3().setFromMatrixPosition(j.matrixWorld); break; }
+      if (ctl.userData.mode === 'tracked-pointer') { wrist = new THREE.Vector3().setFromMatrixPosition(ctl.matrixWorld); break; }
+    }
+    if (!wrist) {   // nothing to wear it on: back to its spot in front of you
+      if (this.orbHome) { o.position.copy(this.orbHome.pos); o.rotation.copy(this.orbHome.rot); }
+      o.scale.setScalar(1); o.visible = true; this.orbOnWrist = false;
+      return;
+    }
+    this.orbOnWrist = true;
+    const { pos: head, fwd } = this.app.getHead();
+    const to = wrist.clone().sub(head);
+    const dist = to.length();
+    const looking = dist < 0.75 && to.normalize().dot(fwd) > Math.cos(0.6);
+    this._wristA = Math.max(0, Math.min(1, (this._wristA || 0) + (looking ? dt * 5 : -dt * 4)));
+    o.visible = this._wristA > 0.02;
+    // just above the wrist, turned to face you
+    o.position.copy(wrist).add(new THREE.Vector3(0, 0.07, 0));
+    o.lookAt(head);
+    o.scale.setScalar(0.55 * (0.6 + 0.4 * this._wristA));
+  }
+
   update(dt = 1 / 72) {
+    if (this.app.renderer.xr.isPresenting) this._wristOrb(dt);
+    // the one-time note saying where the menu went
+    this.wristNoteT += dt;
+    const nA = this.orbWanted && !this.visible && this.orbOnWrist !== false ? Math.max(0, Math.min(1, this.wristNoteT / 0.8, (8 - this.wristNoteT) / 1.5)) : 0;
+    this.wristNote.mesh.material.opacity = nA * 0.95;
+    this.wristNote.mesh.visible = nA > 0.01;
     if (this.jDrag) {
       const y = this._panelY(this.jDrag.ctl);
       if (y != null) {

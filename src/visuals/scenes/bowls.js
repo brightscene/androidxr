@@ -399,7 +399,7 @@ export class SingingBowlsScene extends BaseScene {
     const pointers = this.demo ? this._demoPointers(t) : INPUT.pointers;
     for (const p of pointers) {
       const c = this._contact(p);
-      if (!c) { this.touch.delete(p.id); continue; }
+      if (!c) { const pr = this.touch.get(p.id); if (pr && t - (pr.b.rubT ?? -9) > 0.3) this.touch.delete(p.id); continue; }   // a brief slip off the rim doesn't break the stroke
       const b = c.b;
       // strike: a pinch, trigger or click on a bowl
       if (INPUT.presses.includes(p.id) || p.press) {
@@ -413,8 +413,9 @@ export class SingingBowlsScene extends BaseScene {
         let da = c.angle - prev.angle;
         da = Math.atan2(Math.sin(da), Math.cos(da));
         const speed = Math.abs(da) * b.r / Math.max(dt, 1e-3);   // m/s along the rim
-        b.rub = Math.max(b.rub, damp(prev.speed || 0, speed, 6, dt));
-        prev.speed = damp(prev.speed || 0, speed, 6, dt);
+        prev.speed = damp(prev.speed || 0, Math.min(speed, 1.5), 6, dt);
+        b.rub = Math.max(b.rub, prev.speed);
+        b.rubT = t;
         prev.angle = c.angle;
       } else this.touch.set(p.id, { b, angle: c.angle, speed: 0 });
       seen.add(b);
@@ -427,12 +428,14 @@ export class SingingBowlsScene extends BaseScene {
     }
 
     for (const b of this.bowls) {
-      if (!seen.has(b)) b.rub = 0;
-      const rubbing = b.rub > 0.04;
+      // keep the last stroke speed for a moment, so a brief slip off the rim doesn't stop it
+      if (seen.has(b)) b.keep = b.rub; else b.keep = (b.keep || 0) * Math.exp(-dt * 4);
+      const sp = Math.max(b.rub, t - (b.rubT ?? -9) < 0.3 ? b.keep : 0);
+      const rubbing = sp > 0.04;
       if (rubbing) {
-        // a bowl builds slowly while you keep circling, faster for a steadier, quicker stroke
-        const target = Math.min(1, 0.3 + b.rub * 2.4);
-        b.level += (target - b.level) * (1 - Math.exp(-dt / 1.6));
+        // like a real bowl, every pass round the rim adds energy: the tone keeps swelling
+        // the longer you circle, sooner for a quicker, steadier stroke
+        b.level = Math.min(1, b.level + (0.05 + sp * 0.55) * dt * (1 - b.level * 0.6));
         this.hintA = Math.min(this.hintA, 0.99);
       } else b.level *= Math.exp(-dt / V.ring);
       b.strike *= Math.exp(-dt / 0.7);
@@ -445,9 +448,12 @@ export class SingingBowlsScene extends BaseScene {
       const N = active ? this._sound(b) : b.nodes;
       if (N) {
         const now = N.ctx.currentTime;
-        N.out.gain.setTargetAtTime(0.16 * this.fade, now, 0.05);
+        N.out.gain.setTargetAtTime(0.2 * this.fade, now, 0.05);
+        // as it builds, the higher partials bloom in and the tone gets richer
+        const bloom = Math.pow(b.level, 1.6);
         V.partials.forEach(([, wRub, wStrike], k) => {
-          N.partials[k].g.gain.setTargetAtTime(b.level * wRub + b.strike * wStrike * 0.8, now, 0.06);
+          const w = k === 0 ? wRub : wRub * (0.4 + 2.2 * bloom);
+          N.partials[k].g.gain.setTargetAtTime(b.level * w + b.strike * wStrike * 0.8, now, 0.08);
         });
         if (N.hiss) N.hiss.g.gain.setTargetAtTime(rubbing ? Math.min(0.05, b.rub * 0.12) : 0, now, 0.05);
         N.quiet = active ? 0 : N.quiet + dt;

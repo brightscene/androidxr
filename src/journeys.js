@@ -36,6 +36,8 @@ export function buildJourneys() {
     { ...base('crown'), musicOff: true, id: 'j-crystalbowls', title: 'Crystal singing bowls', intent: 'Play a chakra set of glowing quartz bowls', scene: 'crystalbowls', palette: ['#05061a', '#4a4aa8', '#e8ecff'] },
     { ...base('connect'), musicOff: true, id: 'j-metalchimes', title: 'Metal wind chimes', intent: 'Sweep your hand through tuned silver chimes at dusk', scene: 'metalchimes', palette: ['#0a1030', '#6a7ab0', '#ffd0d0'] },
     { ...base('ground'), musicOff: true, id: 'j-woodchimes', title: 'Wooden wind chimes', intent: 'Bamboo chimes knocking softly in a golden grove', scene: 'woodchimes', palette: ['#1a1006', '#a8742a', '#ffe0a0'] },
+    { ...base('connect'), musicOff: true, id: 'j-handbells', title: 'Handbells', intent: 'Ring a table of brass handbells by candlelight · tap, or lift and flick', scene: 'handbells', palette: ['#140a06', '#2a3a8a', '#ffd27a'] },
+    { ...base('ground'), musicOff: true, id: 'j-churchbells', title: 'Church bells', intent: 'Pull the ropes in a tower ringing room and ring rounds', scene: 'churchbells', palette: ['#120a08', '#8a3a1a', '#ffb070'] },
     { ...base('reiki'), id: 'j-affirmtrace', title: 'Trace your affirmations', intent: 'Trace short affirmations with your finger, then hear them spoken', scene: 'affirmtrace', palette: ['#120a1f', '#b07d2b', '#ffe8a8'] },
     reiki,
   ].map((t) => { t.free = false; t.interactive = true; return t; });

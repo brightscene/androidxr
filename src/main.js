@@ -117,6 +117,10 @@ class App {
     this.menu.attachControllers(r, this.scene);
     // pinches and trigger presses, for scenes you play (strike a singing bowl)
     for (let i = 0; i < 2; i++) r.xr.getController(i).addEventListener('selectstart', () => { if (this.active?.wantsPointer && !this.menu.visible) INPUT.presses.push(i); });
+    for (let i = 0; i < 2; i++) {
+      r.xr.getController(i).addEventListener('selectstart', () => { if (this.active?.wantsPointer && !this.menu.visible) INPUT.held.add(i); });
+      r.xr.getController(i).addEventListener('selectend', () => INPUT.held.delete(i));
+    }
     for (let i = 0; i < 2; i++) this.scene.add(this.renderer.xr.getHand(i));   // fingertips for tracing scenes
     // realistic hand models, shown in scenes that want your hands (the jet ski)
     const handSkin = new THREE.ShaderMaterial({
@@ -247,7 +251,10 @@ class App {
     this.scene.add(s.group);
     this.active = s;
     if (!this.playing) s.onEvent({ type: 'section', index: 2, energy: 0.6, time: 0 });
-    this.recentre(true);   // every new scene starts facing straight ahead
+    // a smooth change: the old scene fades right out, then the view is centred
+    // (every new scene starts facing straight ahead) and the new one fades in
+    s.hold = this.outgoing.some((o) => o.fade > 0.03);
+    if (!s.hold) this.recentre(true);
   }
 
   // ------------------------------------------------------------ playback
@@ -332,6 +339,7 @@ class App {
       this._stopGuide();
       this.voice.cancel?.();
       this.engine.fadeMaster(0, 1.6);
+      this._sceneOut = true;   // the picture fades out with the sound
       await new Promise((r) => setTimeout(r, 1750));
       if (token !== this._startToken) return;
       this.player.stop(0.15);
@@ -367,7 +375,8 @@ class App {
     if (guided) this._startGuide(track);
     this.xrIdle = false;
     this.setScene(this.sceneFor(track));
-    this.recentre(true);   // a journey always starts facing straight ahead, even in the same scene
+    this._sceneOut = false;
+    if (!this.active?.hold) this.recentre(true);   // a journey always starts facing straight ahead, even in the same scene
     this.applyPalette(track.palette);
     // keep the menu up if it's showing the flashing-lights warning, so it can be answered
     if (this.renderer.xr.isPresenting && !(needsWarning && !this.strobeAccepted)) this.menu.show(false);
@@ -482,6 +491,7 @@ class App {
   }
 
   _onXRStart() {
+    this.menu.wristNoteShown = false;   // tell them where the menu lives, once each session
     const ar = this.xrMode === 'immersive-ar';
     // stepping into the headset ends whatever was playing on the screen;
     // nothing plays until you press Begin in there
@@ -519,6 +529,7 @@ class App {
     const t = new XRRigidTransform({ x: px, y: 0, z: pz, w: 1 }, { x: 0, y: Math.sin(yaw / 2), z: 0, w: Math.cos(yaw / 2) });
     xr.setReferenceSpace(ref.getOffsetReferenceSpace(t));
     this._placeMenuIn = 2;
+    this._replaceIn = 3;   // once the new head pose arrives, interactive scenes re-seat in front of you
     if (quiet) return;
     this.engine.sfx?.('whoosh', { pan: 0, dur: 1.2, gain: 0.5 });
     this.caption = 'View centred';
@@ -644,13 +655,24 @@ class App {
 
     this._updatePointers();
     for (const m of this.handModels || []) m.visible = !!this.active?.wantsHands;
+    // after the view is centred, scenes you play re-seat themselves in front of you
+    if (this._replaceIn > 0 && --this._replaceIn === 0 && this.active && 'placeNext' in this.active) this.active.placeNext = true;
     if (this.active) {
-      this.active.setFade(damp(this.active.fade, 1, 0.8, dt));
+      const A = this.active;
+      if (A.hold && !this.outgoing.some((o) => o.fade > 0.03)) {
+        A.hold = false;
+        for (const o of this.outgoing) o.dispose();
+        this.outgoing = [];
+        this.recentre(true);
+      }
+      if (A.hold) A.setFade(0);
+      else if (this._sceneOut) A.setFade(Math.max(0, A.fade - dt / 1.5));
+      else A.setFade(Math.min(1, A.fade + dt * (0.25 + A.fade * 0.6)));   // eases in from dark
       this.active.update(dt, t, s);
       INPUT.presses.length = 0;
     }
     this.outgoing = this.outgoing.filter((o) => {
-      o.setFade(damp(o.fade, 0, 1.2, dt));
+      o.setFade(Math.max(0, o.fade - dt / 0.9));   // fades out steadily
       if (o.fade < 0.01) { o.dispose(); return false; }
       o.update(dt, t, s);
       return true;
@@ -855,7 +877,7 @@ class App {
     const el = this.renderer.domElement;
     let down = null;
     this.yaw = 0; this.pitch = 0.05;
-    el.addEventListener('pointerdown', (e) => { down = { x: e.clientX, y: e.clientY }; el.setPointerCapture(e.pointerId); if (this.active?.wantsPointer && !this.menuVisibleFlat()) INPUT.presses.push('mouse'); });
+    el.addEventListener('pointerdown', (e) => { down = { x: e.clientX, y: e.clientY }; el.setPointerCapture(e.pointerId); if (this.active?.wantsPointer && !this.menuVisibleFlat()) { INPUT.presses.push('mouse'); INPUT.held.add('mouse'); } });
     el.addEventListener('pointermove', (e) => {
       this.mouse = new THREE.Vector2((e.clientX / window.innerWidth) * 2 - 1, -(e.clientY / window.innerHeight) * 2 + 1);
       if (!down || e.shiftKey || this.active?.wantsPointer) return;   // interactive scenes keep the mouse for tracing
@@ -864,7 +886,7 @@ class App {
       down = { x: e.clientX, y: e.clientY };
       this.camera.rotation.set(this.pitch, this.yaw, 0);
     });
-    const up = () => (down = null);
+    const up = () => { down = null; INPUT.held.delete('mouse'); };
     el.addEventListener('pointerup', up);
     el.addEventListener('pointercancel', up);
     this.camera.rotation.set(this.pitch, this.yaw, 0);
