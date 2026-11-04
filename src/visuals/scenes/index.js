@@ -41,6 +41,7 @@ import { StarsScene } from './stars.js';
 import { FinalFrontierScene } from './frontier.js';
 import { FireworksScene } from './fireworks.js';
 import { SpaceWashScene } from './spacewash.js';
+import { OrbitScene } from './orbits.js';
 import { MriScene } from './mri.js';
 import { SynthScene } from './synth.js';
 import { WasherScene } from './washer.js';
@@ -75,6 +76,9 @@ export const SCENES = {
   hope: { type: HopeScene, label: 'Hope', group: 'Mind', cruise: 0, nebula: 0, world: 'off' },
   bliss: { type: BlissScene, label: 'Bliss', group: 'Mind', cruise: 0, nebula: 0, world: 'off' },
   frontier: { type: FinalFrontierScene, label: 'Final frontier', group: 'Space', cruise: 0, nebula: 0, world: 'off' },
+  earthorbit: { type: class extends OrbitScene { constructor() { super({ kind: 'earth' }); } }, label: 'Earth orbit', group: 'Space', cruise: 0, nebula: 0, world: 'off' },
+  moonorbit: { type: class extends OrbitScene { constructor() { super({ kind: 'moon' }); } }, label: 'Over the Moon', group: 'Space', cruise: 0, nebula: 0, world: 'off' },
+  jupiterorbit: { type: class extends OrbitScene { constructor() { super({ kind: 'jupiter' }); } }, label: 'Over Jupiter', group: 'Space', cruise: 0, nebula: 0, world: 'off' },
   rainbow: { type: RainbowRoadScene, label: 'Rainbow road', group: 'Space', cruise: 0, nebula: 0, world: 'off' },
   puffroad: { type: class extends RainbowRoadScene { constructor() { super({ puff: true }); } }, label: 'Sweetie road', group: 'Space', cruise: 0, nebula: 0, world: 'off' },
   neoncity: { type: NeonCityScene, label: 'Neon Tokyo flight', group: 'Dimensions', cruise: 0, nebula: 0, world: 'off' },

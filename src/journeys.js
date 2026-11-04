@@ -27,6 +27,9 @@ export function buildJourneys() {
     { ...base('crown'), musicOff: true, mindflash: true, id: 'j-mindflash', title: 'Clear mind', intent: 'Rotating, ever-changing light to settle a busy mind · eyes closed', scene: 'mindflash', palette: ['#02100c', '#1a8a5a', '#5aa8ff'] },
     { ...base('heal'), id: 'j-mri', title: 'Recovery capsule', intent: 'Glide into a healing capsule in orbit · a deep-healing track', scene: 'mri', palette: ['#03111a', '#3ac0c8', '#ffe2a8'] },
     { ...base('mend'), musicOff: true, id: 'j-waterfall', title: 'Space waterfall', intent: 'An aurora waterfall pouring from a mountain floating in space', scene: 'waterfall', palette: ['#04061a', '#1a8a7a', '#ff9ae0'] },
+    { ...base('connect'), id: 'j-earthorbit', title: 'Earth orbit', intent: 'Glide over the Earth\u2019s glowing edge of air · sunset, city lights, sunrise', scene: 'earthorbit', palette: ['#020614', '#1a5ab0', '#ffa860'] },
+    { ...base('intuition'), id: 'j-moonorbit', title: 'Over the Moon', intent: 'Skim low over silent craters, the Earth hanging in the black', scene: 'moonorbit', palette: ['#050507', '#6a6a72', '#7ab0ff'] },
+    { ...base('crown'), id: 'j-jupiterorbit', title: 'Over Jupiter', intent: 'Drift above Jupiter\u2019s swirling bands and the Great Red Spot', scene: 'jupiterorbit', palette: ['#0a0604', '#a8643a', '#f0dcb0'] },
     { ...base('release'), id: 'j-northernlights', title: 'Northern lights', intent: 'Beneath the aurora on a still Icelandic lake', scene: 'northernlights', palette: ['#020a10', '#1e8a6a', '#ff8ad0'] },
   ];
   // Premium Interactive: journeys you play with your hands
