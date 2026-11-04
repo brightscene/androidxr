@@ -22,6 +22,7 @@ export class WindChimesScene extends BaseScene {
   constructor(kind = 'metal') {
     super();
     this.wantsPointer = true;
+    this.wantsHands = true;   // your own hands brush the chimes; no pointer beams
     this.kind = kind;
     const wood = kind === 'wood';
     this.wood = wood;
@@ -214,7 +215,16 @@ export class WindChimesScene extends BaseScene {
     dt = Math.min(dt, 0.05);
 
     // hands and pointers sweeping through
-    const pointers = this.demo ? this._demoPointers(t) : INPUT.pointers;
+    let pointers = this.demo ? this._demoPointers(t) : INPUT.pointers;
+    // in the headset: hide the beams; controllers brush with their own position,
+    // tracked hands with every fingertip
+    if (INPUT.xr && !this.demo) {
+      const over = (this.hideRays ||= new Set());
+      over.clear();
+      for (const p of INPUT.pointers) over.add(p.id);
+      pointers = INPUT.pointers.map((p) => (p.tip ? p : { ...p, tip: p.origin }));
+      for (const h of INPUT.hands) for (const j of [14, 19, 24]) if (h.joints[j]) pointers.push({ id: `${h.side}-${j}`, tip: h.joints[j], origin: h.joints[j], dir: new THREE.Vector3(0, 0, -1) });
+    }
     const live = new Set();
     for (const p of pointers) {
       const q = this._probe(p);
