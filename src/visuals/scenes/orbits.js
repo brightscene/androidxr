@@ -16,6 +16,7 @@ const WORLDS = {
   earth: { R: 6371, h: 420, speed: 0.011 },
   moon: { R: 1737, h: 40, speed: 0.011 },
   jupiter: { R: 69911, h: 2600, speed: 0.0055 },
+  saturn: { R: 58232, h: 2600, speed: 0.0055 },
 };
 
 const COMMON = /* glsl */ `
@@ -103,6 +104,7 @@ const MOON = /* glsl */ `
   float h31(vec3 p){ p = fract(p * vec3(0.1031, 0.1030, 0.0973)); p += dot(p, p.yxz + 33.33); return fract((p.x + p.y) * p.z); }
   // crater field at one scale: height and its slope, from the nearest cells
   void craters(vec3 p, float amp, inout float hgt, inout vec3 grad){
+    if (amp < 0.02) return;   // too small to see from here: skip the work
     vec3 b = floor(p - 0.5);
     for (int i = 0; i < 2; i++) for (int j = 0; j < 2; j++) for (int k = 0; k < 2; k++) {
       vec3 cell = b + vec3(float(i), float(j), float(k));
@@ -135,13 +137,11 @@ const MOON = /* glsl */ `
     craters(s * 18.0, 1.0, hgt, grad);
     craters(s * 55.0 + 3.0, 0.9 * L(55.0 / R_), hgt, grad);
     craters(s * 170.0 + 7.0, 0.85 * L(170.0 / R_), hgt, grad);
-    craters(s * 520.0 + 11.0, 0.8 * L(520.0 / R_), hgt, grad);
-    craters(s * 1600.0 + 13.0, 0.75 * L(1600.0 / R_), hgt, grad);
+    craters(s * 520.0 + 11.0, 0.55 * L(520.0 / R_), hgt, grad);
     // rolling ground and rubble between them
     grad += nGrad(s * 60.0) * 0.9 * L(60.0 / R_);
     grad += nGrad(s * 300.0 + 5.0) * 0.7 * L(300.0 / R_);
-    grad += nGrad(s * 1500.0 + 9.0) * 0.6 * L(1500.0 / R_);
-    grad += nGrad(s * 6000.0 + 2.0) * 0.5 * L(6000.0 / R_);
+    { float k = L(1500.0 / R_); if (k > 0.02) grad += nGrad(s * 1500.0 + 9.0) * 0.45 * k; }
     // turn the slopes into the lighting, rotated back into the world
     vec3 g = rotX(grad, uFly);
     g -= n * dot(g, n);
@@ -149,7 +149,7 @@ const MOON = /* glsl */ `
     float mare = smoothstep(0.5, 0.62, fbm(s * 3.0 + 2.0) * 0.8 + fbm(s * 11.0) * 0.25);
     vec3 alb = mix(vec3(0.6, 0.58, 0.55), vec3(0.3, 0.3, 0.31), mare);
     alb *= 0.8 + 0.4 * fbmL(s * 160.0, 160.0 / R_);
-    alb *= 0.85 + 0.3 * fbmL(s * 1500.0 + 4.0, 1500.0 / R_);
+    alb *= 0.9 + 0.2 * fbmL(s * 1500.0 + 4.0, 1500.0 / R_);
     float lit = max(dot(nn, uSun), 0.0);
     // shadows: anything facing away from the low sun goes properly dark
     vec3 col = alb * (0.012 + 1.7 * pow(lit, 1.15));
@@ -158,60 +158,101 @@ const MOON = /* glsl */ `
   }
 `;
 
-const JUPITER = /* glsl */ `
+// gas giants: bands that cross your path (so you see them stream toward you), storms, and for
+// Saturn, the rings arching over the sky
+const giant = (saturn) => /* glsl */ `
   vec3 band(float f){
-    // cream zones, tan and rust belts, with blue-grey between
-    vec3 a = vec3(0.93, 0.87, 0.74), b = vec3(0.78, 0.58, 0.4), cc = vec3(0.56, 0.34, 0.2), dd = vec3(0.6, 0.62, 0.66);
+    ${saturn
+      ? `vec3 a = vec3(0.93, 0.85, 0.66), b = vec3(0.84, 0.7, 0.47), cc = vec3(0.72, 0.56, 0.36), dd = vec3(0.88, 0.82, 0.7);`
+      : `vec3 a = vec3(0.93, 0.87, 0.74), b = vec3(0.78, 0.58, 0.4), cc = vec3(0.56, 0.34, 0.2), dd = vec3(0.6, 0.62, 0.66);`}
     float x = fract(f);
     vec3 col = mix(a, b, smoothstep(0.15, 0.35, x));
     col = mix(col, cc, smoothstep(0.42, 0.55, x) * (1.0 - smoothstep(0.62, 0.75, x)));
     col = mix(col, dd, smoothstep(0.8, 0.88, x) * (1.0 - smoothstep(0.9, 0.98, x)) * 0.6);
     return col;
   }
+  ${saturn ? `
+  // Saturn's rings: C, B (the bright one), the Cassini gap, A with the Encke gap; r in planet radii
+  float ringDensity(float r, float fw){
+    float dd = 0.0;
+    dd += 0.22 * smoothstep(1.24, 1.26, r) * (1.0 - smoothstep(1.51, 1.53, r));
+    dd += 0.85 * smoothstep(1.52, 1.55, r) * (1.0 - smoothstep(1.93, 1.95, r));
+    dd += 0.06 * smoothstep(1.95, 1.96, r) * (1.0 - smoothstep(2.02, 2.03, r));
+    dd += 0.62 * smoothstep(2.03, 2.04, r) * (1.0 - smoothstep(2.26, 2.27, r)) * (1.0 - 0.9 * exp(-pow((r - 2.214) / 0.004, 2.0)));
+    dd += 0.08 * smoothstep(2.3, 2.32, r) * (1.0 - smoothstep(2.33, 2.34, r));   // the thin F ring
+    // ringlets, fading out where they'd be finer than a pixel
+    float k1 = 1.0 - smoothstep(0.3, 1.0, fw * 120.0), k2 = 1.0 - smoothstep(0.3, 1.0, fw * 900.0);
+    dd *= 1.0 + k1 * 0.35 * (vnoise(vec3(r * 120.0, 0.5, 0.5)) - 0.5) * 2.0 + k2 * 0.25 * (vnoise(vec3(r * 900.0, 3.5, 0.5)) - 0.5) * 2.0;
+    return clamp(dd, 0.0, 1.0);
+  }` : ''}
   vec3 world(vec3 o, vec3 d, float h, vec3 c, float el, float horizonEl){
     float tg = hitSphere(o, d, R_, h);
     float tc = max(-dot(o, d), 0.0);
     vec3 pc = o + d * tc;
     float lit0 = dot(normalize(pc), uSun);
-    vec3 airCol = vec3(0.85, 0.72, 0.55) * smoothstep(-0.15, 0.15, lit0);
+    vec3 airCol = ${saturn ? 'vec3(0.9, 0.8, 0.6)' : 'vec3(0.85, 0.72, 0.55)'} * smoothstep(-0.15, 0.15, lit0);
+    vec3 col = c;
+    vec3 n = vec3(0.0, 1.0, 0.0);
     if (tg < 0.0) {
       float hc = length(pc) - R_;
-      c += airCol * (exp(-hc / 260.0) * 0.9 + exp(-hc / 60.0) * 0.4);
-      return c;
+      col += airCol * (exp(-hc / 260.0) * 0.9 + exp(-hc / 60.0) * 0.4);
+    } else {
+      vec3 p = o + d * tg;
+      n = normalize(p);
+      vec3 s = rotX(n, -uFly);
+      FP = tg * 0.0016 / max(dot(n, -d), 0.1);
+      float t = uTime * 0.01;
+      // the bands run across your path, so they stream toward you; turbulence shears along them
+      float turb = fbm(s * vec3(5.0, 5.0, 14.0) + vec3(t, -t, 0.0)) - 0.47;
+      float turb2 = fbmL(s * vec3(12.0, 12.0, 40.0) + vec3(t * 2.0), 40.0 / R_) - 0.47;
+      float lat = s.z + turb * ${saturn ? '0.02' : '0.05'} + turb2 * ${saturn ? '0.008' : '0.02'};
+      ${saturn ? `
+      vec3 col0 = band(lat * 11.0 + 0.3);` : `
+      // the Great Red Spot, and a few white ovals
+      vec3 grs = normalize(vec3(-0.1, 0.62, -0.78));
+      vec3 dv = s - grs;
+      float e = length(dv * vec3(9.0, 18.0, 18.0));
+      lat += exp(-e * e * 0.5) * 0.02 * sin(atan(dv.z, dv.x) * 2.0 + e * 3.0 - uTime * 0.2);
+      vec3 col0 = band(lat * 16.0 + 0.3);
+      col0 = mix(col0, vec3(0.78, 0.33, 0.18) * (0.85 + 0.3 * fbmL(s * 90.0, 90.0 / R_)), smoothstep(1.4, 0.6, e));
+      float ov = 0.0;
+      for (int i = 0; i < 6; i++) {
+        float fi = float(i);
+        vec3 oc = normalize(vec3(-0.2 + fi * 0.08, cos(fi * 1.1 + 0.4), sin(fi * 1.1 + 0.4)));
+        ov = max(ov, smoothstep(1.0, 0.6, length((s - oc) * vec3(30.0, 55.0, 55.0))));
+      }
+      col0 = mix(col0, vec3(0.97, 0.95, 0.9), ov * 0.85);`}
+      col0 *= 0.85 + 0.25 * fbmL(s * 140.0 + vec3(t * 3.0), 140.0 / R_);
+      float lit = dot(n, uSun);
+      col0 *= 0.02 + 1.1 * max(lit, 0.0);
+      ${saturn ? `
+      // the rings' shadow across the cloud tops
+      { float dn = dot(uSun, RAX); if (abs(dn) > 1e-4) { float tr = -dot(p, RAX) / dn; if (tr > 0.0) { float rr = length(p + uSun * tr) / R_; col0 *= 1.0 - 0.75 * ringDensity(rr, 0.01); } } }` : ''}
+      float graze = pow(1.0 - max(dot(n, -d), 0.0), 3.0);
+      col = mix(col0, airCol * 0.75, graze * 0.7);
     }
-    vec3 p = o + d * tg;
-    vec3 n = normalize(p);
-    vec3 s = rotX(n, -uFly);
-    FP = tg * 0.0016 / max(dot(n, -d), 0.1);
-    float t = uTime * 0.01;
-    // the bands curl and festoon: latitude bent by turbulence that shears along them
-    vec3 w = s * vec3(14.0, 5.0, 5.0);
-    float turb = fbm(w + vec3(0.0, t, -t)) - 0.47;
-    float turb2 = fbmL(s * vec3(40.0, 12.0, 12.0) + vec3(t * 2.0), 40.0 / R_) - 0.47;
-    float lat = s.x + turb * 0.05 + turb2 * 0.02;
-    // the Great Red Spot, and a few white ovals
-    vec3 grs = normalize(vec3(-0.12, 0.6, -0.8));
-    vec3 dv = s - grs;
-    float e = length(dv * vec3(1.0, 1.7, 1.7) * vec3(20.0, 8.0, 8.0));
-    float swirl = exp(-e * e * 0.5);
-    lat += swirl * 0.02 * sin(atan(dv.y, dv.z) * 2.0 + e * 3.0 - uTime * 0.2);
-    vec3 col = band(lat * 16.0 + 0.3);
-    col = mix(col, vec3(0.78, 0.33, 0.18) * (0.85 + 0.3 * fbmL(s * 90.0, 90.0 / R_)), smoothstep(1.4, 0.6, e));
-    float ov = 0.0;
-    for (int i = 0; i < 5; i++) {
-      float fi = float(i);
-      vec3 oc = normalize(vec3(-0.25 + fi * 0.12, cos(fi * 1.7 + 0.4), sin(fi * 1.7 + 0.4)));
-      ov = max(ov, smoothstep(1.0, 0.6, length((s - oc) * vec3(55.0, 32.0, 32.0))));
-    }
-    col = mix(col, vec3(0.97, 0.95, 0.9), ov * 0.85);
-    col *= 0.85 + 0.25 * fbmL(s * 140.0 + vec3(t * 3.0), 140.0 / R_);
-    float lit = dot(n, uSun);
-    col *= 0.02 + 1.1 * max(lit, 0.0);
-    float graze = pow(1.0 - max(dot(n, -d), 0.0), 3.0);
-    col = mix(col, airCol * 0.75, graze * 0.7);
+    ${saturn ? `
+    // the rings, where the view crosses their plane in front of the planet
+    { float dn = dot(d, RAX);
+      if (abs(dn) > 1e-5) {
+        float tr = -dot(o, RAX) / dn;
+        if (tr > 0.0 && (tg < 0.0 || tr < tg)) {
+          vec3 q = o + d * tr;
+          float r = length(q) / R_;
+          float fw = fwidth(r);
+          float a = ringDensity(r, fw);
+          // lit from the sun's side; the planet's shadow falls across them
+          float shade = hitSphere(q, uSun, R_, length(q) - R_) > 0.0 ? 0.04 : 1.0;
+          float face = sign(dot(uSun, RAX)) == sign(-dn) ? 1.0 : 0.35;
+          vec3 rc = mix(vec3(0.86, 0.8, 0.68), vec3(0.7, 0.6, 0.48), smoothstep(1.5, 1.3, r) + 0.4 * (vnoise(vec3(r * 40.0, 2.0, 1.0)) - 0.5));
+          col = mix(col, rc * (0.04 + 1.35 * face * shade), a * 0.95);
+        }
+      } }` : ''}
     return col;
   }
 `;
+const JUPITER = giant(false);
+const SATURN = giant(true);
 
 export class OrbitScene extends BaseScene {
   constructor({ kind = 'earth' } = {}) {
@@ -220,7 +261,7 @@ export class OrbitScene extends BaseScene {
     const W = WORLDS[kind];
     const U = this.uniforms;
     Object.assign(U, { uFly: { value: 0 }, uSun: { value: new THREE.Vector3(0.3, 0.1, -0.9).normalize() }, uAlt: { value: W.h } });
-    const body = { earth: EARTH, moon: MOON, jupiter: JUPITER }[kind];
+    const body = { earth: EARTH, moon: MOON, jupiter: JUPITER, saturn: SATURN }[kind];
     const sky = new THREE.Mesh(new THREE.SphereGeometry(150, 96, 64), new THREE.ShaderMaterial({
       side: THREE.BackSide, depthWrite: false, transparent: true, uniforms: U,
       vertexShader: 'varying vec3 vDir; void main(){ vDir = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
@@ -232,8 +273,8 @@ export class OrbitScene extends BaseScene {
           float el = asin(clamp(d.y, -1.0, 1.0));
           // black space, stars, the sun
           vec3 c = vec3(0.0);
-          vec2 st = starDot(d, 260.0, 0.982);
-          c += vec3(0.9, 0.95, 1.0) * st.x * STARS_ * (0.75 + 0.25 * sin(uTime * (1.0 + st.y * 3.0) + st.y * 40.0));
+          vec2 st = starDot(d, 200.0, 0.98);
+          c += vec3(0.9, 0.95, 1.0) * st.x * STARS_ * (0.8 + 0.2 * sin(uTime * (0.3 + st.y * 0.6) + st.y * 40.0));
           float mu = max(dot(d, uSun), 0.0);
           c += vec3(1.0, 0.96, 0.88) * (smoothstep(SUNSIZE, SUNSIZE + 0.00003, mu) * 6.0 + pow(mu, 3000.0) * 1.5 + pow(mu, 200.0) * 0.25 + pow(mu, 12.0) * 0.03);
           ${kind === 'moon' ? `
@@ -253,9 +294,13 @@ export class OrbitScene extends BaseScene {
             if (b.w > 0.0) { float l = max(dot(b.xyz, uSun), 0.0); vec3 ic = mix(vec3(0.92, 0.78, 0.35), vec3(0.75, 0.45, 0.2), smoothstep(0.45, 0.6, fbm(b.xyz * 6.0))); c = mix(c, ic * (0.02 + 1.1 * l), b.w); } }
           { vec3 md = normalize(vec3(-0.62, 0.17, -0.76)); vec4 b = skyBody(d, md, 0.012);
             if (b.w > 0.0) { float l = max(dot(b.xyz, uSun), 0.0); vec3 ic = mix(vec3(0.92, 0.9, 0.85), vec3(0.65, 0.5, 0.4), smoothstep(0.5, 0.62, fbm(b.xyz * 9.0))); c = mix(c, ic * (0.02 + 1.1 * l), b.w); } }` : ''}
+          ${kind === 'saturn' ? `
+          // Titan, a hazy orange moon
+          { vec3 md = normalize(vec3(0.45, 0.2, -0.87)); vec4 b = skyBody(d, md, 0.014);
+            if (b.w > 0.0) { float l = max(dot(b.xyz, uSun), 0.0); c = mix(c, vec3(0.85, 0.6, 0.3) * (0.03 + 1.1 * l), b.w); } }` : ''}
           c = world(o, d, h, c, el, horizonEl);
           gl_FragColor = vec4(grade(c), uFade); }`
-        .replace(/R_/g, W.R.toFixed(1)).replace(/SPEED_/g, W.speed.toFixed(5)).replace(/SUNSIZE/g, kind === 'jupiter' ? '0.999985' : '0.99995').replace(/STARS_/g, kind === 'earth' ? '0.55' : '1.0'),
+        .replace(/RAX/g, 'normalize(vec3(0.0, 0.47, 0.88))').replace(/R_/g, W.R.toFixed(1)).replace(/SPEED_/g, W.speed.toFixed(5)).replace(/SUNSIZE/g, kind === 'jupiter' || kind === 'saturn' ? '0.999985' : '0.99995').replace(/STARS_/g, kind === 'earth' ? '0.55' : '1.0'),
     }));
     sky.renderOrder = -10;
     sky.frustumCulled = false;
@@ -274,6 +319,9 @@ export class OrbitScene extends BaseScene {
       S.set(0.22, Math.sin(e), -Math.cos(e)).normalize();
     } else if (this.kind === 'moon') {
       S.set(0.82, 0.16, -0.55).normalize();   // a low sun: long shadows across the craters
+    } else if (this.kind === 'saturn') {
+      // high and to one side, so the rings are lit and throw their shadow across the clouds
+      S.set(0.5, 0.6, 0.35).normalize();
     } else {
       const e = 0.35 + 0.15 * Math.sin((this.t / 400) * Math.PI * 2);
       S.set(0.6, Math.sin(e), -Math.cos(e) * 0.8).normalize();

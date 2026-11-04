@@ -30,6 +30,7 @@ export function buildJourneys() {
     { ...base('connect'), id: 'j-earthorbit', title: 'Earth orbit', intent: 'Glide over the Earth\u2019s glowing edge of air · sunset, city lights, sunrise', scene: 'earthorbit', palette: ['#020614', '#1a5ab0', '#ffa860'] },
     { ...base('intuition'), id: 'j-moonorbit', title: 'Over the Moon', intent: 'Skim low over silent craters, the Earth hanging in the black', scene: 'moonorbit', palette: ['#050507', '#6a6a72', '#7ab0ff'] },
     { ...base('crown'), id: 'j-jupiterorbit', title: 'Over Jupiter', intent: 'Drift above Jupiter\u2019s swirling bands and the Great Red Spot', scene: 'jupiterorbit', palette: ['#0a0604', '#a8643a', '#f0dcb0'] },
+    { ...base('crown'), id: 'j-saturnorbit', title: 'Over Saturn', intent: 'Glide over Saturn\u2019s golden clouds beneath the great arch of its rings', scene: 'saturnorbit', palette: ['#0a0804', '#c8a060', '#fff0c8'] },
     { ...base('release'), id: 'j-northernlights', title: 'Northern lights', intent: 'Beneath the aurora on a still Icelandic lake', scene: 'northernlights', palette: ['#020a10', '#1e8a6a', '#ff8ad0'] },
   ];
   // Premium Interactive: journeys you play with your hands
