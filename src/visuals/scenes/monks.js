@@ -29,6 +29,7 @@ const NOTE_NAMES = ['G', 'B♭', 'C', 'E♭', 'F', 'G', 'B♭'];
 export class MonksScene extends BaseScene {
   constructor() {
     super();
+    this.wantsHands = true;   // your own hands show here
     this.wantsPointer = true;
     const U = this.uniforms;
 

@@ -38,6 +38,7 @@ export class SingingBowlsScene extends BaseScene {
   constructor(kind = 'tibetan') {
     super();
     this.wantsPointer = true;
+    this.wantsHands = true;   // your own hands show here
     this.viewPitch = -0.3;   // on a screen, look down at the stand
     this.kind = kind;
     const crystal = kind === 'crystal';

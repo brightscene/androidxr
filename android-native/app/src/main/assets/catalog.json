@@ -607,7 +607,7 @@
    {
     "id": "j-handpan",
     "title": "Handpan",
-    "intent": "A handpan tuned to the monks’ chant, on a mountain terrace at dusk",
+    "intent": "A handpan in the aurora-lit dark · eight tunings, including the monks’ harmonics",
     "scene": "handpan",
     "palette": [
      "#1a0e08",
@@ -647,6 +647,21 @@
     "free": false,
     "kind": "Soundscape · 963 Hz",
     "freq": 963,
+    "audio": null
+   },
+   {
+    "id": "j-auroraharp",
+    "title": "Aurora resonance",
+    "intent": "Sweep your hands through singing curtains of aurora, every harmony in tune",
+    "scene": "auroraharp",
+    "palette": [
+     "#020818",
+     "#1aa87a",
+     "#c08aff"
+    ],
+    "free": false,
+    "kind": "Soundscape · 396 Hz",
+    "freq": 396,
     "audio": null
    },
    {

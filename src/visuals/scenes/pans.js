@@ -7,8 +7,8 @@ import { strikeVoice, bellOut } from './bells.js';
 // ===================================================================== Handpan & Space steel drums
 // Instruments you play with your fingertips (or point and tap).
 //
-// Handpan: a hand-hammered handpan floating at your waist on a mountain
-// terrace at dusk, prayer flags stirring. It's tuned to the monks' chant: its
+// Handpan: a hand-hammered handpan floating in front of you in the dark of
+// space, the aurora rippling around you. Eight tunings to choose from; the first, the monks' harmonics:
 // centre "ding" and the eight tone fields round it are the 2nd to 10th
 // harmonics of the low C the monks chant on (65.41 Hz), so anything you play
 // rings in tune with the chant.
@@ -21,17 +21,33 @@ import { strikeVoice, bellOut } from './bells.js';
 
 const F0 = 65.41;   // the monks' chant note, C2
 
+// handpan tunings: the ding, then eight tone fields from low to high
+const NOTE = { C: 0, 'C#': 1, Db: 1, D: 2, 'D#': 3, Eb: 3, E: 4, F: 5, 'F#': 6, Gb: 6, G: 7, 'G#': 8, Ab: 8, A: 9, 'A#': 10, Bb: 10, B: 11 };
+const hz = (n) => { const m = n.match(/^([A-G][#b]?)(\d)$/); return 440 * 2 ** ((NOTE[m[1]] + (+m[2] + 1) * 12 - 69) / 12); };
+const pretty = (n) => n.replace('#', '\u266f').replace(/([A-G])b/, '$1\u266d');
+export const TUNINGS = [
+  { id: 'monk', name: 'Monks\u2019 harmonics · C', notes: ['C3', 'G3', 'C4', 'E4', 'G4', 'x7', 'C5', 'D5', 'E5'], harm: true },
+  { id: 'kurd', name: 'Kurd · D', notes: ['D3', 'A3', 'Bb3', 'C4', 'D4', 'E4', 'F4', 'G4', 'A4'] },
+  { id: 'celtic', name: 'Celtic minor · D', notes: ['D3', 'A3', 'C4', 'D4', 'E4', 'F4', 'G4', 'A4', 'C5'] },
+  { id: 'hijaz', name: 'Hijaz · D', notes: ['D3', 'A3', 'Bb3', 'C#4', 'D4', 'E4', 'F4', 'G4', 'A4'] },
+  { id: 'integral', name: 'Integral · D', notes: ['D3', 'A3', 'Bb3', 'C4', 'D4', 'E4', 'F4', 'A4', 'C5'] },
+  { id: 'pygmy', name: 'Pygmy · F\u266f', notes: ['F#3', 'G#3', 'A3', 'C#4', 'E4', 'F#4', 'G#4', 'A4', 'C#5'] },
+  { id: 'aegean', name: 'Aegean · C', notes: ['C3', 'E3', 'G3', 'B3', 'C4', 'E4', 'F#4', 'G4', 'B4'] },
+  { id: 'equinox', name: 'Equinox · F', notes: ['F3', 'G#3', 'C4', 'C#4', 'D#4', 'F4', 'G4', 'G#4', 'C5'] },
+];
+const HARM = [2, 3, 4, 5, 6, 7, 8, 9, 10];
+
 const KINDS = {
   handpan: {
     R: 0.26, dome: 0.085,
     // the ding, then the tone fields zigzagging round from the side nearest you
     notes: [{ h: 2, r: 0, s: 0.07 }, ...[3, 4, 5, 6, 7, 8, 9, 10].map((h, i) => ({ h, r: 0.172, s: 0.052 - i * 0.002, a: Math.PI / 2 + (i % 2 ? 1 : -1) * (0.39 + Math.floor(i / 2) * 0.785) }))],
-    freq: (n) => F0 * n.h,
+    freq: (n, T) => (T.harm ? F0 * HARM[n.k] : hz(T.notes[n.k])),
     // a handpan note: fundamental, its octave and compound fifth, gently beating
     partials: [[1, 1, 5, 0.5], [2, 0.42, 3.2, 0.35], [3, 0.26, 2.2, 0], [4.02, 0.06, 1.0, 0]],
     attack: 0.012, click: 3, clickGain: 0.25,
-    label: (n) => (n.r === 0 ? 'ding' : `×${n.h}`),
-    hint: 'Tap the pads with your fingertips · tuned to the monks’ chant',
+    label: (n, T) => (T.harm ? (n.k === 5 ? '\u00d77' : `${pretty(T.notes[n.k]).replace(/\d/, '')} \u00d7${HARM[n.k]}`) : pretty(T.notes[n.k])),
+    hint: 'Tap the pads with your fingertips · choose a tuning beyond the handpan',
   },
   steeldrums: {
     R: 0.3, dome: -0.055,
@@ -41,6 +57,7 @@ const KINDS = {
     ],
     // a pentatonic scale on C, low round the outside, high in the middle
     freq: (n) => [130.81, 146.83, 164.81, 196.0, 220.0, 261.63, 293.66, 329.63, 392.0][n.i],
+    fixed: true,
     // the singing-bowl voice: inharmonic partials, slow beating, a long, long ring
     partials: [[1, 1, 10, 0.9], [2.76, 0.42, 6, 1.3], [5.4, 0.16, 3.4, 2.1], [8.93, 0.06, 1.8, 3.1], [2.0, 0.08, 6, 0.5], [3.0, 0.05, 4, 0]],
     attack: 0.006, click: 7, clickGain: 0.1,
@@ -57,7 +74,7 @@ class PanScene extends BaseScene {
     const K = (this.K = KINDS[kind]);
     this.wantsPointer = true;
     this.wantsHands = true;
-    this.viewPitch = -0.7;
+    this.viewPitch = -0.55;
     const U = this.uniforms;
     this._backdrop(U);
 
@@ -65,7 +82,7 @@ class PanScene extends BaseScene {
     this.group.add(this.rig);
     this.placeNext = true;
     this.pan = new THREE.Group();
-    this.pan.position.set(0, -0.48, -0.46);
+    this.pan.position.set(0, kind === 'handpan' ? -0.35 : -0.3, -0.42);
     this.pan.rotation.x = 0.22;   // tipped towards you
     this.rig.add(this.pan);
 
@@ -73,7 +90,7 @@ class PanScene extends BaseScene {
     this.notes = K.notes.map((n, k) => {
       const a = n.a ?? 0;
       const c = new THREE.Vector2(Math.cos(a) * n.r, Math.sin(a) * n.r);
-      return { ...n, k, c, f: K.freq(n), glow: 0 };
+      return { ...n, k, c, f: 0, glow: 0 };
     });
     const padU = this.notes.map((n) => new THREE.Vector4(n.c.x, n.c.y, n.s, n.r === 0 ? 1 : 0.78));
     while (padU.length < 10) padU.push(new THREE.Vector4(9, 9, 0.001, 1));
@@ -129,10 +146,11 @@ class PanScene extends BaseScene {
     }));
     this.pan.add(shell);
 
-    // pad labels, lying on the instrument
+    // pad labels, lying on the instrument: each note's name
+    this.labels = [];
     for (const n of this.notes) {
       const l = textPlane(U, 0.07, 0.022);
-      l.userData.set(K.label(n));
+      this.labels.push(l);
       l.material.uniforms.uA.value = 0.28;
       const rr = n.r === 0 ? 0 : n.r + n.s + 0.012;
       const a = n.a ?? 0;
@@ -140,6 +158,38 @@ class PanScene extends BaseScene {
       l.rotation.x = -Math.PI / 2;
       this.pan.add(l);
     }
+
+    // the handpan's tunings: a row of chips just beyond it, and the tuning's name on its near rim
+    if (!K.fixed) {
+      let id = 'monk';
+      try { id = localStorage.getItem('mindlyte-handpan-tuning') || id; } catch (_) {}
+      this.tuneName = textPlane(U, 0.28, 0.026);
+      this.tuneName.material.uniforms.uA.value = 0.45;
+      this.tuneName.position.set(0, this._surf(K.R) + 0.01, K.R + 0.03);
+      this.tuneName.rotation.x = -Math.PI / 2 + 0.3;
+      this.pan.add(this.tuneName);
+      this.chips = TUNINGS.map((T, i) => {
+        const cv = document.createElement('canvas'); cv.width = 360; cv.height = 72;
+        const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace;
+        const m = new THREE.Mesh(new THREE.PlaneGeometry(0.15, 0.03), new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, opacity: 0.9 }));
+        const col = i % 4, row = Math.floor(i / 4);
+        m.position.set((col - 1.5) * 0.16, -0.12 + (1 - row) * 0.038, -0.78);
+        this.rig.add(m);
+        const chip = { T, m, cv, tex, sel: false, hover: false };
+        chip.draw = () => {
+          const c = cv.getContext('2d');
+          c.clearRect(0, 0, 360, 72);
+          c.beginPath(); c.roundRect(4, 4, 352, 64, 30);
+          c.fillStyle = chip.sel ? 'rgba(255,214,140,0.9)' : chip.hover ? 'rgba(80,70,130,0.85)' : 'rgba(20,18,40,0.7)'; c.fill();
+          c.strokeStyle = chip.sel ? '#fff3d8' : 'rgba(200,190,255,0.5)'; c.lineWidth = 3; c.stroke();
+          c.fillStyle = chip.sel ? '#1a1206' : '#f2eeff'; c.font = '500 30px Jost, Inter, system-ui, sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle';
+          c.fillText(T.name.replace(' · ', ' '), 180, 38);
+          tex.needsUpdate = true;
+        };
+        return chip;
+      });
+      this._tune(TUNINGS.find((T) => T.id === id) || TUNINGS[0]);
+    } else this._tune(null);
 
     // ripples: each strike sends out a ring of light per partial, spreading at its own pace
     this.ripples = [];
@@ -176,6 +226,16 @@ class PanScene extends BaseScene {
     this.tips = new Map();
     this.nearT = new Map();
     this.N = null;
+  }
+
+  _tune(T) {
+    this.tuning = T;
+    for (const n of this.notes) n.f = this.K.freq(n, T);
+    this.notes.forEach((n, i) => this.labels[i]?.userData.set(this.K.label(n, T)));
+    if (!T) return;
+    this.tuneName?.userData.set(T.name);
+    for (const c of this.chips || []) { c.sel = c.T === T; c.draw(); }
+    try { localStorage.setItem('mindlyte-handpan-tuning', T.id); } catch (_) {}
   }
 
   // the height of the playing surface at a distance r from the centre (pan space)
@@ -261,6 +321,30 @@ class PanScene extends BaseScene {
       if (n) this._strike(n, 0.6, new THREE.Vector2(x, z));
     }
 
+    if (this.chips) {
+      const rinv = new THREE.Matrix4().copy(this.rig.matrixWorld).invert();
+      for (const c of this.chips) c.hoverNow = false;
+      for (const p of pointers) {
+        if (p.id === 'demo') continue;
+        let hit = null;
+        if (p.tip) {
+          const q = p.tip.clone().applyMatrix4(rinv);
+          hit = this.chips.find((c) => Math.abs(q.x - c.m.position.x) < 0.075 && Math.abs(q.y - c.m.position.y) < 0.017 && Math.abs(q.z - c.m.position.z) < 0.03);
+          const was = this.chipTouch?.get(p.id);
+          (this.chipTouch ||= new Map()).set(p.id, hit);
+          if (hit && hit !== was) this._tune(hit.T);
+        } else {
+          const o = p.origin.clone().applyMatrix4(rinv), d = p.dir.clone().transformDirection(rinv);
+          if (Math.abs(d.z) > 1e-3) {
+            const k = (-0.78 - o.z) / d.z;
+            if (k > 0) { const q = o.addScaledVector(d, k); hit = this.chips.find((c) => Math.abs(q.x - c.m.position.x) < 0.075 && Math.abs(q.y - c.m.position.y) < 0.016); }
+          }
+          if (hit && (INPUT.presses.includes(p.id) || p.press)) this._tune(hit.T);
+        }
+        if (hit) { hit.hoverNow = true; over.add(p.id); }
+      }
+      for (const c of this.chips) if (c.hoverNow !== c.hover) { c.hover = c.hoverNow; c.draw(); }
+    }
     for (const n of this.notes) { n.glow *= Math.exp(-dt / 0.9); this.glowU.value[n.k] = n.glow; }
     for (const r of this.ripples) {
       r.age += dt;
@@ -295,30 +379,30 @@ class PanScene extends BaseScene {
       fragmentShader: /* glsl */ `uniform float uTime, uFade; varying vec3 vDir; ${NOISE} ${GRADE}
         void main(){ vec3 d = normalize(vDir); float az = atan(d.x, -d.z);
           ${handpan
-    ? `// a Himalayan terrace at dusk: layered peaks, prayer flags, a warm stone floor
-          vec3 c = mix(vec3(1.0, 0.6, 0.35), vec3(0.2, 0.22, 0.45), smoothstep(-0.02, 0.45, d.y));
-          c = mix(c, vec3(0.06, 0.07, 0.18), smoothstep(0.4, 0.95, d.y));
-          c += vec3(1.0, 0.7, 0.4) * pow(max(dot(d, normalize(vec3(0.5, 0.05, -0.85))), 0.0), 60.0) * 1.5;
-          for (int i = 0; i < 3; i++) {
-            float fi = float(i);
-            float ridge = 0.03 + 0.14 * (1.0 - fi * 0.3) * fbm(vec3(az * (2.0 + fi * 1.5), fi * 3.0, 1.0)) - fi * 0.035;
-            if (d.y < ridge) {
-              vec3 rock = mix(vec3(0.32, 0.26, 0.35), vec3(0.1, 0.07, 0.1), fi / 2.0) * (0.9 + 0.2 * fbm(d * 40.0));
-              rock = mix(rock, vec3(0.95, 0.8, 0.85), smoothstep(ridge - 0.02, ridge, d.y) * step(fi, 0.5) * 0.8);   // snow on the far peaks
-              c = rock;
+    ? `// dark space, the aurora rippling through it in slow curtains
+          float n = fbm(d * 2.0 + vec3(0.0, uTime * 0.004, 0.0));
+          vec3 c = mix(vec3(0.004, 0.006, 0.02), vec3(0.03, 0.02, 0.06), n);
+          for (int L = 0; L < 3; L++) {
+            float fl = float(L);
+            vec3 p = d * (150.0 + fl * 170.0), cell = floor(p);
+            float h = fract(sin(dot(cell, vec3(12.9898, 78.233, 37.719))) * 43758.5453);
+            if (h > 0.986 - fl * 0.005) {
+              vec3 o = 0.3 + 0.4 * fract(sin(cell * vec3(91.7, 47.3, 23.1)) * 4375.85);
+              c += mix(vec3(0.75, 0.82, 1.0), vec3(1.0, 0.9, 0.75), fract(h * 37.0)) * smoothstep(0.32, 0.0, length(fract(p) - o)) * (0.55 + 0.45 * sin(uTime * (0.8 + h * 4.0) + h * 70.0)) * (1.3 - fl * 0.3);
             }
           }
-          if (d.y < -0.06) c = vec3(0.24, 0.18, 0.14) * (0.7 + 0.4 * fbm(d * 30.0));
-          // prayer flags strung across in front of you, stirring in the breeze
-          for (int s = 0; s < 2; s++) {
-            float fs = float(s);
-            float line = 0.32 + fs * 0.12 - 0.08 * az * az + 0.004 * sin(az * 30.0 + uTime * 2.0);
-            float seg = az * (26.0 + fs * 8.0) + fs * 0.5, id = floor(seg), f = fract(seg);
-            float flag = step(0.12, f) * step(f, 0.88) * step(line - 0.055, d.y) * step(d.y, line) * step(abs(az), 1.3);
-            vec3 fc = mod(id, 5.0) < 1.0 ? vec3(0.15, 0.3, 0.85) : mod(id, 5.0) < 2.0 ? vec3(0.95, 0.95, 0.9) : mod(id, 5.0) < 3.0 ? vec3(0.85, 0.15, 0.12) : mod(id, 5.0) < 4.0 ? vec3(0.15, 0.6, 0.25) : vec3(0.95, 0.8, 0.15);
-            c = mix(c, fc * (0.7 + 0.3 * sin(uTime * 3.0 + id)), flag * 0.85);
-            c = mix(c, vec3(0.1), smoothstep(0.003, 0.0, abs(d.y - line)) * step(abs(az), 1.3));
-          }`
+          float az = atan(d.x, -d.z);
+          for (int i = 0; i < 2; i++) {
+            float fi = float(i);
+            float wave = -0.02 + fi * 0.2 + 0.12 * sin(az * (1.3 + fi) + uTime * 0.05 + fi * 2.0) + 0.05 * fbm(vec3(az * 3.0, uTime * 0.04, fi));
+            float dist = d.y - wave;
+            float curtain = smoothstep(0.0, 0.03, dist) * exp(-max(dist, 0.0) * (5.0 - fi)) * smoothstep(-0.02, 0.0, dist);
+            float rays = 0.45 + 0.55 * pow(fbm(vec3(az * 26.0, uTime * 0.15, fi * 5.0)), 1.5);
+            float fade = 0.5 + 0.5 * fbm(vec3(az * 1.4 + uTime * 0.02, fi, 3.0));
+            vec3 ac = mix(vec3(0.1, 0.95, 0.55), vec3(0.55, 0.3, 1.0), smoothstep(0.0, 0.25, dist)) + vec3(1.0, 0.35, 0.65) * smoothstep(0.65, 0.9, fade) * 0.35;
+            c += ac * curtain * rays * fade * (0.55 - fi * 0.15);
+          }
+          c += vec3(0.05, 0.25, 0.18) * exp(-pow((d.y + 0.05) * 5.0, 2.0)) * 0.25;   // its glow low around you`
     : `// deep space: nebula, twinkling stars, a distant ringed world
           float n = fbm(d * 2.0 + vec3(0.0, uTime * 0.005, 0.0));
           vec3 c = mix(vec3(0.01, 0.01, 0.03), vec3(0.08, 0.04, 0.14), n);
@@ -338,7 +422,7 @@ class PanScene extends BaseScene {
           gl_FragColor = vec4(grade(c), uFade); }`,
     })));
     this.group.add(particles(U, handpan
-      ? { count: 300, min: [-6, -1, -8], max: [6, 3, 2], vel: [0.05, 0.02, 0], sway: 0.4, size: [0.006, 0.014], colors: ['#ffd9a0', '#ffe8c8'], alpha: 0.4 }
+      ? { count: 400, min: [-6, -2, -8], max: [6, 4, 3], vel: [0, 0.02, 0], sway: 0.3, size: [0.006, 0.014], colors: ['#c8ffe8', '#d8c8ff', '#ffd9a0'], alpha: 0.45 }
       : { count: 500, min: [-6, -2, -8], max: [6, 4, 3], vel: [0, 0.02, 0], sway: 0.3, size: [0.006, 0.016], colors: ['#dfe6ff', '#c8b8ff', '#9affd8'], alpha: 0.5 }));
   }
 
