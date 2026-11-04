@@ -637,7 +637,7 @@
    {
     "id": "j-cymatics",
     "title": "Cymatics",
-    "intent": "See sound: touch a frequency ring, or watch the plate follow the music",
+    "intent": "The Clarity plate, playable: touch a frequency ring, or watch the sand follow the music",
     "scene": "cymaticplate",
     "palette": [
      "#06041a",
@@ -645,8 +645,8 @@
      "#ffe8c0"
     ],
     "free": false,
-    "kind": "Soundscape · 963 Hz",
-    "freq": 963,
+    "kind": "Soundscape · 741 Hz",
+    "freq": 741,
     "audio": null
    },
    {
@@ -662,6 +662,21 @@
     "free": false,
     "kind": "Soundscape · 396 Hz",
     "freq": 396,
+    "audio": null
+   },
+   {
+    "id": "j-theremin",
+    "title": "Theremin",
+    "intent": "Play the air: one hand for pitch, the other for volume",
+    "scene": "theremin",
+    "palette": [
+     "#0a0614",
+     "#6a3a8a",
+     "#ffb070"
+    ],
+    "free": false,
+    "kind": "Soundscape · 639 Hz",
+    "freq": 639,
     "audio": null
    },
    {

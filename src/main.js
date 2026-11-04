@@ -846,6 +846,7 @@ class App {
       list.push({ origin: rc.ray.origin.clone(), dir: rc.ray.direction.clone(), tip: null, id: 'mouse' });
     }
     INPUT.pointers = list;
+    INPUT.xr = xr.isPresenting;
     INPUT.head = this.getHead();
     // tracked hands: every joint's position, for scenes that show or use your hands
     const hands = [];
@@ -902,9 +903,10 @@ class App {
     const el = this.renderer.domElement;
     let down = null;
     this.yaw = 0; this.pitch = 0.05;
-    el.addEventListener('pointerdown', (e) => { down = { x: e.clientX, y: e.clientY }; el.setPointerCapture(e.pointerId); if (this.active?.wantsPointer && !this.menuVisibleFlat()) { INPUT.presses.push('mouse'); INPUT.held.add('mouse'); } });
+    const aim = (e) => { const r = el.getBoundingClientRect(); this.mouse = new THREE.Vector2(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1); };
+    el.addEventListener('pointerdown', (e) => { aim(e); this._updatePointers(); down = { x: e.clientX, y: e.clientY }; el.setPointerCapture(e.pointerId); if (this.active?.wantsPointer && !this.menuVisibleFlat()) { INPUT.presses.push('mouse'); INPUT.held.add('mouse'); } });
     el.addEventListener('pointermove', (e) => {
-      this.mouse = new THREE.Vector2((e.clientX / window.innerWidth) * 2 - 1, -(e.clientY / window.innerHeight) * 2 + 1);
+      aim(e);   // a tap on a touch screen aims where it lands, not where the last move was
       if (!down || e.shiftKey || this.active?.wantsPointer) return;   // interactive scenes keep the mouse for tracing
       this.yaw += (e.clientX - down.x) * 0.0045;
       this.pitch = Math.max(-1.3, Math.min(1.3, this.pitch + (e.clientY - down.y) * 0.0045));

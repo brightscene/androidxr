@@ -40,8 +40,9 @@ export function buildJourneys() {
     { ...base('ground'), musicOff: true, id: 'j-churchbells', title: 'Church bells', intent: 'Pull the ropes in a tower ringing room and ring rounds', scene: 'churchbells', palette: ['#120a08', '#8a3a1a', '#ffb070'] },
     { ...base('crown'), musicOff: true, id: 'j-handpan', title: 'Handpan', intent: 'A handpan in the aurora-lit dark · eight tunings, including the monks\u2019 harmonics', scene: 'handpan', palette: ['#1a0e08', '#a8542a', '#ffd27a'] },
     { ...base('release'), musicOff: true, id: 'j-steeldrums', title: 'Space steel drums', intent: 'A chrome steel pan adrift in the stars, singing like Tibetan bowls', scene: 'steeldrums', palette: ['#05061a', '#5a4ab0', '#bfe0ff'] },
-    { ...base('crown'), id: 'j-cymatics', title: 'Cymatics', intent: 'See sound: touch a frequency ring, or watch the plate follow the music', scene: 'cymaticplate', palette: ['#06041a', '#5a3ab0', '#ffe8c0'] },
+    { ...base('clarity'), id: 'j-cymatics', title: 'Cymatics', intent: 'The Clarity plate, playable: touch a frequency ring, or watch the sand follow the music', scene: 'cymaticplate', palette: ['#06041a', '#5a3ab0', '#ffe8c0'] },
     { ...base('release'), musicOff: true, id: 'j-auroraharp', title: 'Aurora resonance', intent: 'Sweep your hands through singing curtains of aurora, every harmony in tune', scene: 'auroraharp', palette: ['#020818', '#1aa87a', '#c08aff'] },
+    { ...base('connect'), musicOff: true, id: 'j-theremin', title: 'Theremin', intent: 'Play the air: one hand for pitch, the other for volume', scene: 'theremin', palette: ['#0a0614', '#6a3a8a', '#ffb070'] },
     { ...base('reiki'), id: 'j-affirmtrace', title: 'Trace your affirmations', intent: 'Trace short affirmations with your finger, then hear them spoken', scene: 'affirmtrace', palette: ['#120a1f', '#b07d2b', '#ffe8a8'] },
     reiki,
   ].map((t) => { t.free = false; t.interactive = true; return t; });

@@ -187,6 +187,7 @@ export class MonksScene extends BaseScene {
     if (f.lengthSq() < 1e-4) f.set(0, 0, -1);
     f.normalize();
     this.rig.position.copy(h.pos);
+    if (!INPUT.xr) this.rig.position.y += 0.26;   // on a screen, hang the rings above the monks rather than over them
     this.rig.rotation.set(0, Math.atan2(-f.x, -f.z), 0);
     return true;
   }

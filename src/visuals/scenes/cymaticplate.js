@@ -1,114 +1,43 @@
 import * as THREE from 'three';
-import { BaseScene, NOISE, GRADE, SFX, INPUT } from '../common.js';
-import { particles } from './kit.js';
+import { SFX, INPUT } from '../common.js';
 import { textPlane } from './imagecycle.js';
+import { CymaticsScene } from './cymatics.js';
 
-// ===================================================================== Cymatics
-// A round plate of dark glass floats in front of you, dusted with glowing sand.
-// Sound makes it vibrate, and the sand gathers along the still lines of the
-// vibration, as in a real cymatics experiment.
+// ===================================================================== Cymatics instrument
+// The Clarity journey's floating sand plate, made playable. Thousands of grains
+// settle onto the standing-wave figure of a square plate; a chain of rings in
+// front of you holds the solfeggio frequencies. Touch a ring to sound its tone
+// and hold its figure; touch it again to let go. With no ring held, the plate
+// follows the strongest pitch in the music playing around you.
 //
-// The patterns are the true resonant modes of a circular plate: a frequency
-// excites the mode whose natural frequency is closest (plate vibrations go as
-// the square of the wavenumber, and each mode's shape is a Bessel function
-// round the plate, times a cosine around it). Low notes make simple rings and
-// crosses; higher notes, intricate rosettes.
-//
-// Below it hangs a chain of rings, one for each solfeggio frequency. Touch a
-// ring to sound its tone and hold its pattern on the plate; touch it again to
-// let it go. When no ring is held, the plate follows the strongest pitch in the
-// music playing around you.
+// Each frequency shows the plate mode whose natural frequency is closest: for
+// a square plate the (n, m) figure cos(nπx)cos(mπy) − cos(mπx)cos(nπy)
+// resonates at a frequency that rises with n² + m².
 
 const FREQS = [174, 285, 396, 417, 432, 528, 639, 741, 852, 963];
-const PLATE_K = 4.6;   // f = PLATE_K * k^2: maps the audible range onto the plate's modes
-
-// Bessel function of the first kind, by its integral
-function besselJ(m, x) {
-  let s = 0;
-  const N = 64;
-  for (let i = 0; i < N; i++) { const t = ((i + 0.5) / N) * Math.PI; s += Math.cos(m * t - x * Math.sin(t)); }
-  return s / N;
-}
-// zeros of J_m: the plate's modes (m nodal diameters, n nodal circles)
-const MODES = (() => {
-  const out = [];
-  for (let m = 0; m <= 10; m++) {
-    let prev = besselJ(m, 0.5), n = 0;
-    for (let x = 0.55; x < 26 && n < 6; x += 0.05) {
-      const v = besselJ(m, x);
-      if ((v > 0) !== (prev > 0)) { n++; out.push({ m, n, k: x - 0.025 }); }
-      prev = v;
-    }
-  }
-  return out.sort((a, b) => a.k - b.k);
-})();
-// a frequency between two of the plate's resonances excites both: the nearest
-// mode, plus the next nearest in proportion to how close the frequency is to it
+const PLATE_K = 8.4;   // f = PLATE_K * (n^2 + m^2)
+const MODES = (() => { const out = []; for (let n = 1; n <= 10; n++) for (let m = n + 1; m <= 11; m++) out.push([n, m, n * n + m * m]); return out; })();
 const modeFor = (f) => {
-  const k = Math.sqrt(Math.max(20, f) / PLATE_K);
-  const s = [...MODES].sort((a, b) => Math.abs(a.k - k) - Math.abs(b.k - k));
-  const a = s[0], b = s.find((m) => m.m !== a.m) || s[1];
-  const w = Math.max(0, Math.min(0.7, 0.9 * (1 - Math.abs(b.k - k) / (Math.abs(a.k - k) + Math.abs(b.k - k) + 1e-6)) * 0.9));
-  return { ...a, b, w };
+  const q = f / PLATE_K;
+  let best = MODES[0];
+  for (const md of MODES) { const d = Math.abs(md[2] - q) - (md[1] - md[0] <= 3 ? 0.5 : 0); if (d < Math.abs(best[2] - q) - (best[1] - best[0] <= 3 ? 0.5 : 0)) best = md; }
+  return best;
 };
+const RING_D = 0.5, RING_Y = -0.34, RING_STEP = 0.075, RING_R = 0.03;
 
-const RING_D = 0.5, RING_Y = -0.2, RING_STEP = 0.075, RING_R = 0.03;
-
-export class CymaticPlateScene extends BaseScene {
+export class CymaticPlateScene extends CymaticsScene {
   constructor() {
     super();
     this.wantsPointer = true;
     this.viewPitch = -0.12;
     const U = this.uniforms;
 
-    // a dark, quiet space, faintly violet
-    this.group.add(new THREE.Mesh(new THREE.SphereGeometry(40, 48, 32), new THREE.ShaderMaterial({
-      side: THREE.BackSide, depthWrite: false, uniforms: U,
-      vertexShader: 'varying vec3 vDir; void main(){ vDir = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
-      fragmentShader: /* glsl */ `uniform float uTime, uFade; varying vec3 vDir; ${NOISE} ${GRADE}
-        void main(){ vec3 d = normalize(vDir);
-          vec3 c = mix(vec3(0.01, 0.01, 0.025), vec3(0.06, 0.035, 0.1), fbm(d * 2.0 + vec3(0.0, uTime * 0.01, 0.0)));
-          c += vec3(0.15, 0.1, 0.3) * exp(-pow(d.y * 3.0, 2.0)) * 0.25;
-          gl_FragColor = vec4(grade(c), uFade); }`,
-    })));
-    this.group.add(particles(U, { count: 400, min: [-5, -1, -6], max: [5, 3, 3], vel: [0, 0.03, 0], sway: 0.3, size: [0.005, 0.012], colors: ['#d8c8ff', '#a8e8ff'], alpha: 0.4 }));
-
     this.rig = new THREE.Group();
     this.group.add(this.rig);
     this.placeNext = true;
 
-    // the plate
-    this.pu = { ...U, uM: { value: 0 }, uK: { value: 2.4 }, uM2: { value: 0 }, uK2: { value: 2.4 }, uB: { value: new THREE.Vector3(0, 2.4, 0) }, uB2: { value: new THREE.Vector3(0, 2.4, 0) }, uMix: { value: 1 }, uAmp: { value: 0.3 }, uRot: { value: 0 }, uHue: { value: 0.6 } };
-    const plate = new THREE.Mesh(new THREE.CircleGeometry(0.3, 128), new THREE.ShaderMaterial({
-      transparent: true, depthWrite: false, uniforms: this.pu,
-      vertexShader: 'varying vec2 vP; void main(){ vP = position.xy / 0.3; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
-      fragmentShader: /* glsl */ `uniform float uFade, uTime, uM, uK, uM2, uK2, uMix, uAmp, uRot, uHue; uniform vec3 uB, uB2; varying vec2 vP; ${NOISE}
-        float J(float m, float x){ float s = 0.0; for (int i = 0; i < 40; i++){ float t = (float(i) + 0.5) / 40.0 * 3.14159265; s += cos(m * t - x * sin(t)); } return s / 40.0; }
-        float field(float m, float k, float r, float a){ return J(m, k * r) * cos(m * (a + uRot)); }
-        vec3 hue(float h){ return clamp(abs(mod(h * 6.0 + vec3(0.0, 4.0, 2.0), 6.0) - 3.0) - 1.0, 0.0, 1.0); }
-        void main(){ float r = length(vP), a = atan(vP.y, vP.x);
-          if (r > 1.0) discard;
-          // sand gathers where the plate is still: the nodal lines of the mode
-          float f1 = field(uM, uK, r, a) + uB.z * field(uB.x, uB.y, r, a + 0.5), f2 = field(uM2, uK2, r, a) + uB2.z * field(uB2.x, uB2.y, r, a + 0.5);
-          // distance to the nodal line, in pixels, so every line is the same fine width
-          float d1 = abs(f1) / max(1e-5, length(vec2(dFdx(f1), dFdy(f1))));
-          float d2 = abs(f2) / max(1e-5, length(vec2(dFdx(f2), dFdy(f2))));
-          float s1 = exp(-d1 * d1 * 0.07) + exp(-d1 * 0.4) * 0.25, s2 = exp(-d2 * d2 * 0.07) + exp(-d2 * 0.4) * 0.25;
-          float sand = mix(s2, s1, uMix);
-          float grain = 0.65 + 0.35 * fbm(vec3(vP * 90.0, uTime * 6.0 * uAmp));
-          // the vibrating antinodes shimmer faintly
-          float vib = abs(mix(f2, f1, uMix)) * (0.5 + 0.5 * sin(uTime * 40.0)) * uAmp;
-          vec3 col = mix(vec3(1.0, 0.95, 0.85), hue(uHue) * 0.6 + 0.5, 0.55);
-          vec3 c = vec3(0.015, 0.012, 0.03) + col * sand * grain * (0.35 + uAmp * 1.6) + hue(uHue + 0.15) * vib * 0.25;
-          c += vec3(0.5, 0.45, 0.8) * smoothstep(0.96, 1.0, r) * 0.5;   // the plate's rim
-          gl_FragColor = vec4(c * uFade, 0.97 * uFade); }`,
-    }));
-    plate.position.set(0, -0.0, -0.9);
-    plate.rotation.x = -0.85;   // tilted towards you
-    this.rig.add(plate);
-    this.plate = plate;
     this.readout = textPlane(U, 0.5, 0.045);
-    this.readout.position.set(0, 0.25, -0.98);
+    this.readout.position.set(0, RING_Y + 0.07, -RING_D - 0.02);
     this.rig.add(this.readout);
 
     // the chain of tones
@@ -141,7 +70,7 @@ export class CymaticPlateScene extends BaseScene {
     this.hintA = 1;
 
     this.held = -1;      // the ring sounding, if any
-    this.cur = { f: 0, m: 0, k: 2.4 };
+    this.cur = { f: 0 };
     this.amp = 0;
     this.spec = null;
   }
@@ -157,17 +86,19 @@ export class CymaticPlateScene extends BaseScene {
     return true;
   }
 
-  // show the plate's pattern for a frequency, blending from the last one
+  // show the plate's figure for a frequency (the sand glides into it)
   _show(f) {
-    const md = modeFor(f);
     this.cur.f = f;
-    if (md.m === this.cur.m && Math.abs(md.k - this.cur.k) < 1e-3 && Math.abs(md.w - (this.cur.w || 0)) < 0.03) return;
-    const P = this.pu;
-    P.uM2.value = P.uM.value; P.uK2.value = P.uK.value; P.uB2.value.copy(P.uB.value); P.uMix.value = 0;
-    P.uM.value = md.m; P.uK.value = md.k; P.uB.value.set(md.b.m, md.b.k, md.w);
-    this.cur.w = md.w;
-    this.cur.m = md.m; this.cur.k = md.k; this.cur.n = md.n;
-    P.uHue.value = (Math.log2(f / 100) / 3.5) % 1;
+    const md = modeFor(f);
+    if (this.mode && this.mode[0] === md[0] && this.mode[1] === md[1]) return;
+    this.mode = [md[0], md[1]];
+    this.shake = Math.max(this.shake, 0.9);
+  }
+
+  // the music's chords no longer pick the figure; notes and beats still shake the sand
+  onEvent(ev) {
+    if (ev.type === 'chord') return;
+    super.onEvent(ev);
   }
 
   // the tone for a ring: a pure sine with a whisper of its octave
@@ -207,7 +138,8 @@ export class CymaticPlateScene extends BaseScene {
     return (bi + off) * hz;
   }
 
-  update(dt, t) {
+  update(dt, t, st) {
+    super.update(dt, t, st);
     if (this.placeNext) this.placeNext = !this._place();
     this.rig.updateMatrixWorld(true);
     const inv = new THREE.Matrix4().copy(this.rig.matrixWorld).invert();
@@ -253,12 +185,8 @@ export class CymaticPlateScene extends BaseScene {
         this.smoothF = this.smoothF ? this.smoothF + (f - this.smoothF) * Math.min(1, dt * 2.5) : f;
         this._show(this.smoothF);
       }
-      this.amp += ((this.musicLevel || 0.2) * 0.55 - this.amp) * Math.min(1, dt * 2);
-    } else this.amp += (0.75 - this.amp) * Math.min(1, dt * 2);
-    const P = this.pu;
-    P.uMix.value = Math.min(1, P.uMix.value + dt * 1.4);
-    P.uAmp.value = this.amp;
-    P.uRot.value += dt * 0.03;
+    }
+    if (this.held >= 0) this.shake = Math.max(this.shake, 0.55);   // a sounding tone keeps the sand alive
     this.readout.userData.set(this.cur.f ? `${Math.round(this.cur.f)} Hz${this.held < 0 ? ' · following the music' : ''}` : '');
     this.readout.material.uniforms.uA.value = 0.45;
 
