@@ -64,13 +64,14 @@ class App {
     this.lights = this.strobeAccepted ? p.lights ?? true : false;
     this.lightStyle = p.lightStyle || 'both';
     // v2 defaults: vivid colours, symbols side by side, dimmed background
-    const v2 = p.v === 2;
+    const v2 = p.v >= 2;
     this.lightColour = v2 ? p.lightColour || 'vivid' : 'vivid';
     this.lightLayout = p.lightLayout || 'sides';
     this.lightDim = p.lightDim ?? 0.5;
     this.lightMax = p.lightMax ?? 0.6;
     this.lightMode = p.lightMode || 'exact';
-    this.lightsGenerated = p.lightsGenerated ?? false;
+    // v3: lights pulse with the tones by default, so switching lights on always shows them
+    this.lightsGenerated = p.v >= 3 ? p.lightsGenerated ?? true : true;
     this.lightSymbol = p.lightSymbol ?? -1;
     this.rgb = [[0, 0, 0], [0, 0, 0]];
     this.playing = false;
@@ -116,9 +117,9 @@ class App {
     this.scene.add(this.menu.group);
     this.menu.attachControllers(r, this.scene);
     // pinches and trigger presses, for scenes you play (strike a singing bowl)
-    for (let i = 0; i < 2; i++) r.xr.getController(i).addEventListener('selectstart', () => { if (this.active?.wantsPointer && !this.menu.visible) INPUT.presses.push(i); });
+    for (let i = 0; i < 2; i++) r.xr.getController(i).addEventListener('selectstart', () => { if (this._wants(i) && !this.menu.visible) INPUT.presses.push(i); });
     for (let i = 0; i < 2; i++) {
-      r.xr.getController(i).addEventListener('selectstart', () => { if (this.active?.wantsPointer && !this.menu.visible) INPUT.held.add(i); });
+      r.xr.getController(i).addEventListener('selectstart', () => { if (this._wants(i) && !this.menu.visible) INPUT.held.add(i); });
       r.xr.getController(i).addEventListener('selectend', () => INPUT.held.delete(i));
     }
     for (let i = 0; i < 2; i++) this.scene.add(this.renderer.xr.getHand(i));   // fingertips for tracing scenes
@@ -159,7 +160,7 @@ class App {
         journey: this.journey, solfeggio: this.solfeggio, voiceInSoundscapes: this.whispers, captions: this.captions,
         dives: this.dives, nature: this.nature, voice: this.voiceChoice, volume: this.volume, background: this.background, quality: this.quality, breathGuide: this.breathText, guideVoice: this.guideVoice, mineOn: this.mineOn, mineEvery: this.mineEvery,
         strobeAccepted: this.strobeAccepted, lights: this.lights, lightStyle: this.lightStyle, lightColour: this.lightColour,
-        v: 2, lightLayout: this.lightLayout, lightDim: this.lightDim,
+        v: 3, lightLayout: this.lightLayout, lightDim: this.lightDim,
         lightMax: this.lightMax, lightMode: this.lightMode, lightsGenerated: this.lightsGenerated, lightSymbol: this.lightSymbol,
       }));
     } catch (_) {}
@@ -596,6 +597,8 @@ class App {
       const bl = xr.getBaseLayer();
       const h = (bl && (bl.framebufferHeight || bl.textureHeight)) || 1800;
       U.uViewH.value = h / 2;
+      const cams = xr.getCamera().cameras;
+      if (cams?.length === 2) this.strobe.ipd = new THREE.Vector3().setFromMatrixPosition(cams[0].matrixWorld).distanceTo(new THREE.Vector3().setFromMatrixPosition(cams[1].matrixWorld)) || 0.063;
       if (this._placeMenuIn > 0 && --this._placeMenuIn === 0) this.getHead((p, f) => this.menu.placeInFront(p, f));
       this._governor(dt);
       this.menu.update(dt);
@@ -761,12 +764,15 @@ class App {
           const el = this.player.elapsed(now);
           this.lightRates = [flashRateAt(st, 0, el), flashRateAt(st, 1, el)];
         }
-      } else if (this.lightsGenerated && this.entrainment !== 'off') {
-        const hz = this.player.beatHz(now);
-        const ph = this.player.elapsed(now) * hz * Math.PI * 2;
-        const b = Math.pow(0.5 + 0.5 * Math.sin(ph), 2) * Math.min(1, this.sectionEnergy + 0.3);
+      } else {
+        // no light encoding: pulse with the brainwave tones; with no tones (the
+        // instruments, or tones off), a slow, gentle glow that rises and falls
+        const hz = this.lightsGenerated && this.entrainment !== 'off' && !tr.musicOff ? this.player.beatHz?.(now) || 0 : 0;
+        const b = hz
+          ? Math.pow(0.5 + 0.5 * Math.sin(this.player.elapsed(now) * hz * Math.PI * 2), 2) * Math.min(1, this.sectionEnergy + 0.3)
+          : 0.35 + 0.25 * Math.sin(t * 0.6);
         target = [0, 1].map((side) => { const c = this._colourSet(side, t); return [c.r * b, c.g * b, c.b * b]; });
-        this.lightRates = [hz, hz];
+        this.lightRates = hz ? [hz, hz] : null;
       }
     }
     if (!target) { this.lightRates = null; this.strobe.update(dt, t, null, null, {}); return; }
@@ -822,6 +828,15 @@ class App {
     U.uOct.value = [4, 3, 2, 2][p.level];
     const base = { smooth: 0.45, balanced: 0.25, sharp: 0.1 }[this.quality] ?? 0.25;
     this.renderer.xr.setFoveation(Math.min(1, base + (p.level >= 3 ? 0.25 : 0)));
+  }
+
+  // does the scene want this pointer (all of them, or just this one, e.g. over its own controls)?
+  _wants(id) {
+    const A = this.active;
+    if (!A) return false;
+    if (A.wantsPointer) return true;
+    const p = INPUT.pointers.find((q) => q.id === id);
+    return !!(p && A.wantsPointerAt?.(p));
   }
 
   // Collect pointing rays and fingertips for interactive scenes (INPUT).
@@ -904,10 +919,10 @@ class App {
     let down = null;
     this.yaw = 0; this.pitch = 0.05;
     const aim = (e) => { const r = el.getBoundingClientRect(); this.mouse = new THREE.Vector2(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1); };
-    el.addEventListener('pointerdown', (e) => { aim(e); this._updatePointers(); down = { x: e.clientX, y: e.clientY }; el.setPointerCapture(e.pointerId); if (this.active?.wantsPointer && !this.menuVisibleFlat()) { INPUT.presses.push('mouse'); INPUT.held.add('mouse'); } });
+    el.addEventListener('pointerdown', (e) => { aim(e); this._updatePointers(); down = { x: e.clientX, y: e.clientY }; el.setPointerCapture(e.pointerId); if (this._wants('mouse') && !this.menuVisibleFlat()) { down = null; INPUT.presses.push('mouse'); INPUT.held.add('mouse'); } });
     el.addEventListener('pointermove', (e) => {
       aim(e);   // a tap on a touch screen aims where it lands, not where the last move was
-      if (!down || e.shiftKey || this.active?.wantsPointer) return;   // interactive scenes keep the mouse for tracing
+      if (!down || e.shiftKey || this.active?.wantsPointer || INPUT.held.has('mouse')) return;   // interactive scenes keep the mouse for tracing
       this.yaw += (e.clientX - down.x) * 0.0045;
       this.pitch = Math.max(-1.3, Math.min(1.3, this.pitch + (e.clientY - down.y) * 0.0045));
       down = { x: e.clientX, y: e.clientY };

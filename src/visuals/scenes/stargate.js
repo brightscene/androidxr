@@ -1,6 +1,7 @@
 import * as THREE from 'three';
-import { BaseScene, NOISE, GRADE, STARS, SFX, damp } from '../common.js';
+import { BaseScene, NOISE, GRADE, STARS, SFX, INPUT, damp } from '../common.js';
 import { particles } from './kit.js';
+import { textPlane } from './imagecycle.js';
 
 // Star gate: an ancient ring of stone stands on an alien world. Its inner ring
 // of glyphs turns and stops, and one by one seven amber locks light with a
@@ -303,12 +304,16 @@ const WORMS = {
   emerald: { deep: [0.0, 0.08, 0.07], bright: [0.2, 0.75, 0.55], light: [0.9, 1.0, 0.95], speeds: [0.35, 0.7, 1.1], bend: 0.7, twist: 0.12 },
   crimson: { deep: [0.25, 0.01, 0.06], bright: [1.0, 0.35, 0.45], light: [1.0, 0.85, 0.85], speeds: [0.6, 1.2, 2.2, 3.5], bend: 0, twist: 0, classic: true },
 };
+for (const W of Object.values(WORMS)) { W.speeds = W.speeds.map((v, i, a) => (i === a.length - 1 ? v * 1.4 : v)); W.twist *= 1.3; }
+const WORM_ORDER = [['violet', 'Violet drift'], ['emerald', 'Emerald curves'], ['gold', 'Golden twister'], ['crimson', 'Crimson']];
 
 export class WormholeScene extends BaseScene {
-  constructor(kind = 'violet') {
+  constructor(kind = 'violet', switchable = false) {
     super();
+    if (switchable) { try { kind = localStorage.getItem('mindlyte-wormhole') || kind; } catch (_) {} if (!WORMS[kind]) kind = 'violet'; }
     const W = WORMS[kind];
-    this.W = W;
+    this.W = { ...W };
+    this.kind = kind;
     const U = this.uniforms;
     Object.assign(U, {
       uDeep: { value: new THREE.Color(...W.deep) }, uBright: { value: new THREE.Color(...W.bright) }, uLight: { value: new THREE.Color(...W.light) },
@@ -334,28 +339,174 @@ export class WormholeScene extends BaseScene {
           gl_FragColor = vec4(grade(c * (0.9 + uBreath * 0.05)), uFade); }`,
     }));
     m.renderOrder = -5;
-    m.position.y = 1.6;   // centred on your eyes
-    this.group.add(m);
+    // everything hangs from a pivot at your eyes, so the whole tunnel can dive and loop around you
+    this.pivot = new THREE.Group();
+    this.pivot.position.y = 1.6;
+    this.group.add(this.pivot);
+    this.pivot.add(m);
     const col = (c) => '#' + new THREE.Color(...c).getHexString();
     this.streaks = particles(U, { count: 900, min: [-3, -2, -60], max: [3, 2, 4], vel: [0, 0, 22], sway: 0.05, size: [0.015, 0.035], colors: ['#ffffff', col(W.light), col(W.bright)], alpha: 0.85 });
     // the stars fly out of the tunnel's centre, wherever the bend has taken it
     this.aim = new THREE.Group();
-    this.aim.position.y = 1.6;
     this.aim.add(this.streaks);
-    this.group.add(this.aim);
+    this.pivot.add(this.aim);
+    this.move = null; this.moveNext = 25 + Math.random() * 10;   // the first dive or loop
     this.speed = W.speeds[1]; this.target = W.speeds[1]; this.next = 6;
     this.bendT = new THREE.Vector2(); this.bendNext = 4;
+    this.classicMix = W.classic ? 1 : 0;
+    if (switchable) this._palette();
+  }
+
+  // ---- one wormhole, four ways: a small palette of orbs to flow between them.
+  // In the headset it rises above your left hand (touch an orb with a fingertip,
+  // or point and pinch); on a screen it sits low on the left of the view.
+  _palette() {
+    this.pal = new THREE.Group();
+    this.pal.visible = false;
+    this.group.add(this.pal);
+    this.orbs = WORM_ORDER.map(([k, name], i) => {
+      const W = WORMS[k];
+      const col = new THREE.Color(...W.bright), deep = new THREE.Color(...W.deep);
+      const m = new THREE.Mesh(new THREE.SphereGeometry(0.016, 20, 14), new THREE.ShaderMaterial({
+        transparent: true, depthTest: false, depthWrite: false, uniforms: { uCol: { value: col }, uDeep: { value: deep }, uSel: { value: 0 }, uHov: { value: 0 }, uA: { value: 1 } },
+        vertexShader: 'varying vec3 vN; varying vec3 vV; void main(){ vN = normalize(normalMatrix * normal); vec4 mv = modelViewMatrix * vec4(position,1.0); vV = normalize(-mv.xyz); gl_Position = projectionMatrix * mv; }',
+        fragmentShader: 'uniform vec3 uCol, uDeep; uniform float uSel, uHov, uA; varying vec3 vN; varying vec3 vV; void main(){ float f = pow(1.0 - abs(dot(normalize(vN), normalize(vV))), 2.0); vec3 c = mix(uCol, uDeep * 2.0, f * 0.6) * (0.8 + uHov * 0.5) + vec3(1.0) * f * (0.3 + uSel * 0.9); gl_FragColor = vec4(c, uA); }',
+      }));
+      m.renderOrder = 999;
+      m.position.x = (i - 1.5) * 0.042;
+      const ring = new THREE.Mesh(new THREE.TorusGeometry(0.024, 0.0022, 8, 32), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, depthTest: false, opacity: 0 }));
+      ring.renderOrder = 1000;
+      ring.position.copy(m.position);
+      this.pal.add(m, ring);
+      return { k, name, m, ring };
+    });
+    this.palLabel = textPlane(this.uniforms, 0.16, 0.02);
+    this.palLabel.position.set(0, 0.032, 0);
+    this.palLabel.material.depthTest = false;
+    this.palLabel.renderOrder = 1000;
+    this.pal.add(this.palLabel);
+    this._markSel();
+  }
+
+  _markSel() {
+    for (const o of this.orbs || []) { o.m.material.uniforms.uSel.value = o.k === this.kind ? 1 : 0; o.ring.material.opacity = o.k === this.kind ? 0.8 : 0; }
+    this.palLabel?.userData.set(WORM_ORDER.find(([k]) => k === this.kind)?.[1] || '');
+  }
+
+  // flow into another style: colours, speeds, bends and twist all glide across
+  setKind(kind) {
+    if (!WORMS[kind] || kind === this.kind) return;
+    this.kind = kind;
+    this.to = WORMS[kind];
+    this.W.speeds = this.to.speeds;
+    this.target = this.to.speeds[1]; this.next = 6;
+    this._markSel();
+    try { localStorage.setItem('mindlyte-wormhole', kind); } catch (_) {}
+    if (this.fade > 0.5) SFX.play('whoosh', { pan: 0, dur: 2.5, gain: 0.35 });
+  }
+
+  // where the palette's orbs are, for this pointer: the one it points at or touches
+  _orbAt(p) {
+    if (!this.pal?.visible) return null;
+    this.pal.updateMatrixWorld(true);
+    let best = null, bd = Infinity;
+    for (const o of this.orbs) {
+      const c = new THREE.Vector3().setFromMatrixPosition(o.m.matrixWorld);
+      let d;
+      if (p.tip && INPUT.xr) d = p.tip.distanceTo(c);
+      else { const v = c.clone().sub(p.origin); const k = Math.max(0, v.dot(p.dir)); d = v.addScaledVector(p.dir, -k).length(); }
+      if (d < 0.026 && d < bd) { bd = d; best = o; }
+    }
+    return best;
+  }
+  wantsPointerAt(p) { return !!this._orbAt(p); }
+
+  _updatePalette(dt) {
+    if (!this.orbs) return;
+    const P = this.pal;
+    if (INPUT.xr) {
+      // above the left hand, facing you, while the hand is up in view
+      const h = INPUT.hands.find((x) => x.side === 'left');
+      const ctl = !h && INPUT.pointers.find((p) => p.id === 0 || p.id === 1);
+      const at = h?.joints[0] || (ctl ? ctl.origin : null);
+      const head = INPUT.head;
+      let show = false;
+      if (at && head) {
+        const to = at.clone().sub(head.pos);
+        show = to.length() < 0.8 && to.normalize().dot(head.fwd) > Math.cos(0.75);
+        P.position.copy(at).add(new THREE.Vector3(0, 0.15, 0));
+        P.lookAt(head.pos);
+      }
+      this.palA = Math.max(0, Math.min(1, (this.palA || 0) + (show ? dt * 5 : -dt * 4)));
+    } else if (INPUT.head) {
+      // on a screen: low on the left of the view
+      const head = INPUT.head, f = head.fwd.clone(), up = head.up || new THREE.Vector3(0, 1, 0);
+      const right = f.clone().cross(up).normalize(), u2 = right.clone().cross(f).normalize();
+      P.position.copy(head.pos).addScaledVector(f, 0.5).addScaledVector(right, -0.22).addScaledVector(u2, -0.09);
+      P.lookAt(head.pos);
+      this.palA = 1;
+    }
+    P.visible = this.palA > 0.02;
+    P.scale.setScalar(0.7 + 0.3 * (this.palA || 0));
+    for (const o of this.orbs) o.m.material.uniforms.uA.value = this.palA || 0;
+    this.palLabel.material.uniforms.uA.value = 0.6 * (this.palA || 0);
+    // choosing
+    const pointers = INPUT.pointers;
+    for (const o of this.orbs) o.hov = false;
+    for (const p of pointers) {
+      const o = this._orbAt(p);
+      if (!o) { this.touching?.delete(p.id); continue; }
+      o.hov = true;
+      const poke = p.tip && INPUT.xr && !this.touching?.has(p.id);
+      (this.touching ||= new Set()).add(p.id);
+      if (poke || INPUT.presses.includes(p.id)) this.setKind(o.k);
+    }
+    for (const o of this.orbs) o.m.material.uniforms.uHov.value += ((o.hov ? 1 : 0) - o.m.material.uniforms.uHov.value) * Math.min(1, dt * 10);
   }
   onEvent(e) { if (e.type === 'beat' && e.accent) this.uniforms.uSurge.value = Math.min(1, this.uniforms.uSurge.value + 0.4); }
   update(dt) {
     const U = this.uniforms, W = this.W;
+    this._updatePalette?.(dt);
+    if (this.to) {
+      const k = 1 - Math.exp(-dt * 1.3), T = this.to;
+      U.uDeep.value.lerp(new THREE.Color(...T.deep), k); U.uBright.value.lerp(new THREE.Color(...T.bright), k); U.uLight.value.lerp(new THREE.Color(...T.light), k);
+      W.bend += (T.bend - W.bend) * k; W.twist += (T.twist - W.twist) * k;
+      U.uTwK.value += (T.twist - U.uTwK.value) * k;
+      this.classicMix += ((T.classic ? 1 : 0) - this.classicMix) * k;
+      W.classic = this.classicMix > 0.5;
+    }
     this.next -= dt;
     if (this.next <= 0) {
       const t = W.speeds[Math.floor(Math.random() * W.speeds.length)];
       if (t > this.target && t === W.speeds[W.speeds.length - 1] && this.fade > 0.5) SFX.play('whoosh', { pan: 0, dur: 3, gain: 0.55 });
       this.target = t; this.next = 8 + Math.random() * 8;
     }
-    this.speed = damp(this.speed, this.target, 0.5, dt);
+    // now and then: a dive down a deep vertical shaft and back up, or a loop-the-loop
+    this.moveNext -= dt;
+    if (!this.move && this.moveNext <= 0) {
+      this.move = { kind: Math.random() < 0.5 ? 'dive' : 'loop', t: 0 };
+      this.move.len = this.move.kind === 'dive' ? 15 : 13;
+      if (this.fade > 0.5) SFX.play('whoosh', { pan: 0, dur: 4, gain: 0.45 });
+    }
+    let pitch = 0, boost = 1;
+    if (this.move) {
+      const M = this.move, u = Math.min(1, (M.t += dt) / M.len);
+      const ease = (x) => x * x * (3 - 2 * x);
+      if (M.kind === 'dive') {
+        // tip over into the shaft (4 s), fall (4 s), ease back up and level out (7 s)
+        const a = ease(Math.min(1, u / 0.27)), b = ease(Math.max(0, (u - 0.53) / 0.47));
+        pitch = -1.45 * (a - b);
+        boost = 1 + 1.6 * a * (1 - b) + 0.4 * Math.sin(Math.PI * Math.min(1, u / 0.53));
+      } else {
+        // a full loop: quick on the way down, slower up and over the top
+        const g = u < 0.4 ? ease(u / 0.4) * 0.5 : 0.5 + ease((u - 0.4) / 0.6) * 0.5;
+        pitch = -Math.PI * 2 * g;
+        boost = u < 0.4 ? 1 + 1.4 * Math.sin(Math.PI * u / 0.4) : 1 - 0.35 * Math.sin(Math.PI * (u - 0.4) / 0.6);
+      }
+      if (u >= 1) { this.move = null; this.moveNext = 35 + Math.random() * 30; pitch = 0; }
+    }
+    this.pivot.rotation.x = pitch;
+    this.speed = damp(this.speed, this.target * boost, 0.8, dt);
     U.uWT.value += dt * this.speed;
     // a new bend every few seconds: the tunnel curves gently left, right, up or down
     this.bendNext -= dt;

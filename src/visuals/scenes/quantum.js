@@ -196,6 +196,38 @@ export class QuantumScene extends BaseScene {
     if (e.type === 'section' && e.index > 0 && !this.bursting) this.bursting = { t: 0 };
   }
 
+  // as the field expands: a harmonic drone blooms and slowly settles, the
+  // harmonic series of a low A stacking in one by one, with a soft shimmer
+  _bloom() {
+    if (this.muted) return;
+    const A = SFX.audio();
+    if (!A) return;
+    const { ctx } = A, now = ctx.currentTime;
+    const out = ctx.createGain(); out.gain.value = 0.9 * this.fade;
+    out.connect(A.out);
+    const send = ctx.createGain(); send.gain.value = 0.9; out.connect(send).connect(A.reverb);
+    const f0 = 55, oscs = [];
+    [[1, 0.5], [2, 0.35], [3, 0.22], [4, 0.14], [5, 0.1], [6, 0.08], [8, 0.05], [10, 0.03]].forEach(([h, w], i) => {
+      for (const det of [-0.4, 0.4]) {
+        const o = ctx.createOscillator(); o.type = 'sine';
+        o.frequency.value = f0 * h + det * (0.3 + i * 0.15);
+        const g = ctx.createGain();
+        const at = now + i * 0.35;                       // each harmonic joins a little later
+        g.gain.setValueAtTime(0, now);
+        g.gain.linearRampToValueAtTime(0, at);
+        g.gain.linearRampToValueAtTime(w * 0.05, at + 1.6);
+        g.gain.setTargetAtTime(0, at + 3.5, 2.6);
+        o.connect(g).connect(out);
+        o.start(now); o.stop(now + 16);
+        oscs.push(o);
+      }
+    });
+    this.bloomNodes = { out, send, oscs, ctx };
+    setTimeout(() => { try { out.disconnect(); send.disconnect(); } catch (_) {} }, 16500);
+  }
+
+  silence() { const B = this.bloomNodes; if (B) { B.out.gain.setTargetAtTime(0, B.ctx.currentTime, 0.1); } this.muted = true; }
+
   update(dt, t, s) {
     const U = this.uniforms;
     U.uPulse.value *= Math.exp(-dt * 2.4);
@@ -205,7 +237,8 @@ export class QuantumScene extends BaseScene {
     let flash = 0, hide = 0;
     const BT = this.bursting ? (this.bursting.t += dt) : 99;
     if (this.bursting && BT > 12) { this.bursting = null; this.nextBurst = 45 + Math.random() * 25; }
-    if (this.bursting && BT < 0.02 && this.fade > 0.5) { SFX.play('thud', { pan: 0, gain: 1.3, decay: 1.4 }); SFX.play('whoosh', { pan: 0, dur: 5, gain: 0.5 }); }
+    if (this.bursting && BT < 0.02 && this.fade > 0.5 && !this.bloomed) { this.bloomed = true; this._bloom(); SFX.play('whoosh', { pan: 0, dur: 6, gain: 0.25 }); }
+    if (!this.bursting) this.bloomed = false;
     if (BT < 12) {
       flash = Math.exp(-BT * 5) * smoothstep01(BT / 0.06);
       hide = smoothstep01(BT / 0.15) * (1 - smoothstep01((BT - 7) / 4));

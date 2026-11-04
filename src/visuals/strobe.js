@@ -79,7 +79,11 @@ const FRAG = /* glsl */ `
     float core = mix(exp(-da * 260.0), exp(-db * 260.0), uMix);
     float k = uStyle < 0.5 ? line * 1.5 : (uStyle < 1.5 ? field * 1.2 : line * 1.5 + field * 0.55);
     vec3 col = uCol * k + mix(uCol, vec3(1.0), 0.45) * core * (uStyle < 1.5 && uStyle > 0.5 ? 0.0 : 0.9);
-    if (uStyle > 2.5 && uStyle < 3.5) { // glowing orb: solid filled disc, white-hot core, corona
+    if (uStyle > 4.5) { // WIDE: a broad, soft band of light filling this side, joining its partner in the middle
+      vec2 q = vUv - 0.5;
+      float band = exp(-pow(q.y * 3.2, 2.0)) * smoothstep(0.5, 0.3, abs(q.y)) * smoothstep(0.5, 0.36, abs(q.x));
+      col = uCol * band * 1.3 + mix(uCol, vec3(1.0), 0.4) * exp(-pow(q.y * 7.0, 2.0)) * smoothstep(0.5, 0.3, abs(q.x)) * 0.5;
+    } else if (uStyle > 2.5 && uStyle < 3.5) { // glowing orb: solid filled disc, white-hot core, corona
       float disc = smoothstep(0.37, 0.34, r);
       col = uCol * (disc * 1.25 + exp(-r * 3.2) * 0.7) + vec3(1.0) * exp(-r * r * 28.0) * 0.75 * disc;
     } else if (uStyle > 3.5) { // neon ring: thick solid ring with a hot centre line
@@ -320,6 +324,7 @@ export class StrobeLayer {
     this.frames.forEach((m, mode) => {
       m.visible = show && (mode < 2 ? !!this.xr : !this.xr);
       if (!m.visible) return;
+      if (mode < 2) m.position.x = (mode ? 1 : -1) * (this.ipd || 0.063) / 2;   // centred on each eye
       const u = m.material.uniforms;
       u.uQ.value.set(q[0], q[1], q[2], q[3]);
       u.uColL.value.copy(colL); u.uColR.value.copy(colR);
@@ -350,6 +355,8 @@ export class StrobeLayer {
     const show = !!(rgbL && rgbR);
     // "eyes" (one symbol per eye, fused into one in the centre) only means something in a headset
     const perEye = this.xr && opts.layout === 'eyes';
+    const eyeX = (side) => (side ? 1 : -1) * (this.ipd || 0.063) / 2;   // each eye's own centre
+    const wide = opts.style === 'wide';
     const ledMode = opts.style === 'leds' || opts.style === 'pandora';
     for (const [kind, set] of Object.entries(this.leds)) set.forEach((p, side) => {
       p.visible = show && opts.style === kind;
@@ -362,6 +369,7 @@ export class StrobeLayer {
           d.material.uniforms.uB.value = pk * opts.max;
           d.material.uniforms.uCol.value.setRGB(rgb[0] / pk, rgb[1] / pk, rgb[2] / pk);
           d.layers.set(perEye ? side + 1 : 0);
+          d.position.x = perEye ? eyeX(side) : 0;
         }
       }
       if (!p.visible) return;
@@ -372,6 +380,7 @@ export class StrobeLayer {
       u.uCol.value.setRGB(rgb[0] / peak, rgb[1] / peak, rgb[2] / peak);
       u.uMax.value = opts.max;
       p.layers.set(perEye ? side + 1 : 0);
+      p.position.x = perEye ? eyeX(side) : 0;
     });
     const solidKind = this.solids[opts.style] ? opts.style : null;
     for (const [kind, pair] of Object.entries(this.solids)) pair.forEach((m, side) => {
@@ -384,7 +393,7 @@ export class StrobeLayer {
       u.uCol.value.setRGB(rgb[0] / peak, rgb[1] / peak, rgb[2] / peak);
       u.uMax.value = opts.max;
       m.layers.set(perEye ? side + 1 : 0);
-      m.position.set(side ? SEP : -SEP, 0, -DIST);
+      m.position.set(perEye ? eyeX(side) : side ? SEP : -SEP, 0, -DIST);
       m.scale.setScalar(1.3);
       if (kind === 'crystal') m.rotation.y = t * 0.25 + side * 1.3;
     });
@@ -397,7 +406,7 @@ export class StrobeLayer {
       u.uBright.value = peak;
       u.uCol.value.setRGB(rgb[0] / peak, rgb[1] / peak, rgb[2] / peak);
       // chrome ball / crystal get a soft coloured halo behind them
-      u.uStyle.value = solidKind ? 1 : ({ symbol: 0, field: 1, both: 2, orb: 3, ring: 4 }[opts.style] ?? 2);
+      u.uStyle.value = solidKind ? 1 : ({ symbol: 0, field: 1, both: 2, orb: 3, ring: 4, wide: 5 }[opts.style] ?? 2);
       u.uMax.value = opts.max;
       u.uTime.value = t;
       if (u.uMix.value > 0) {
@@ -406,8 +415,15 @@ export class StrobeLayer {
       }
       // per-eye: each eye sees only its own symbol, off to its own side (like LEDs in light glasses)
       m.layers.set(perEye ? side + 1 : 0);
-      m.position.set(side ? SEP : -SEP, 0, -DIST);
-      m.scale.setScalar(solidKind ? 0.65 : 0.92);
+      if (wide) {
+        // WIDE: each side's light stretched across its half of the view, meeting in the middle
+        const W = SEP * 2 + 0.6;
+        m.position.set((side ? 1 : -1) * W / 2 * 0.92 + (perEye ? eyeX(side) : 0), 0, -DIST);
+        m.scale.set(W / 3.4 * 1.15, 0.92, 1);
+      } else {
+        m.position.set(perEye ? eyeX(side) : side ? SEP : -SEP, 0, -DIST);
+        m.scale.setScalar(solidKind ? 0.65 : 0.92);
+      }
     });
     this.dimLevel += ((show ? opts.dim ?? 0.5 : 0) - this.dimLevel) * (1 - Math.exp(-dt * 2));
     this.dim.visible = this.dimLevel > 0.005;

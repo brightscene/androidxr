@@ -562,7 +562,7 @@ export class XRMenu {
     const style = (v) => app.setLightOpt('lightStyle', v);
     r(0, 'Lights', [['On', true], ['Off', false]], () => app.lights, (v) => app.setLights(v));
     r(1, 'Solid lights', [['Glowing orb', 'orb'], ['Chrome ball', 'chrome'], ['Neon ring', 'ring'], ['Crystal', 'crystal']], () => app.lightStyle, style, [0.2, 0.2, 0.18, 0.15]);
-    r(2, 'Symbols & LEDs', [['Symbol + glow', 'both'], ['Symbol', 'symbol'], ['Glow', 'field'], ['LED starfield', 'leds'], ['Pandora panel', 'pandora']], () => app.lightStyle, style, [0.21, 0.13, 0.11, 0.21, 0.21]);
+    r(2, 'Symbols & LEDs', [['Symbol + glow', 'both'], ['Symbol', 'symbol'], ['Glow', 'field'], ['Wide', 'wide'], ['LED starfield', 'leds'], ['Pandora panel', 'pandora']], () => app.lightStyle, style, [0.19, 0.12, 0.1, 0.1, 0.19, 0.19]);
     r(3, 'Symbol', [['Cycle', -1], ...SYMBOLS.map((n, i) => [n.replace(' of ', ' '), i])], () => app.lightSymbol, (v) => app.setLightOpt('lightSymbol', v), [0.12, 0.15, 0.15, 0.12, 0.14, 0.13, 0.14]);
     r(4, 'Colours', [['Vivid', 'vivid'], ['Palette', 'palette'], ['White', 'white'], ['Amber', 'amber'], ['Violet', 'violet'], ['Rainbow', 'rainbow']], () => app.lightColour, (v) => app.setLightOpt('lightColour', v), [0.14, 0.14, 0.14, 0.14, 0.14, 0.15]);
     r(5, 'Flashing', [['Exact', 'exact'], ['Softened', 'soft']], () => app.lightMode, (v) => app.setLightOpt('lightMode', v));
@@ -736,7 +736,7 @@ export class XRMenu {
         if (hit && hit.onSelect) hit.onSelect();
         // pinch on empty space during a session opens the menu
         // (not while tracing in an interactive scene: there the Menu orb opens it)
-        else if (!hit && !this.visible && this.app.playing && !this.app.active?.wantsPointer) this.show(true);
+        else if (!hit && !this.visible && this.app.playing && !this.app._wants(this.controllers.indexOf(ctl))) this.show(true);
         // in the hall of doors, a press opens the door you're pointing at
         else if (!hit && !this.visible && this.app.active?.onSelect) this.app.active.onSelect();
       });
@@ -849,7 +849,7 @@ export class XRMenu {
       const u = ctl.userData;
       if (!u.connected) continue;
       const quiet = !this.visible && !this.orb.mesh.visible && !!hide?.has(ci);   // over something you play: just a small marker at the hand
-      const showRay = this.visible || this.orb.mesh.visible || !!this.app.active?.wantsPointer;
+      const showRay = this.visible || this.orb.mesh.visible || this.app._wants(ci);
       this.raycaster.setFromXRController(ctl);
       const hits = this._hits();
       u.ray.visible = showRay && u.mode !== 'gaze' && u.mode !== 'transient-pointer';
