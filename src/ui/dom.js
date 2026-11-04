@@ -335,7 +335,7 @@ export class DomUI {
     on('#enter-vr', 'click', () => this._enter('immersive-vr'));
     on('#enter-ar', 'click', () => this._enter('immersive-ar'));
     on('#end', 'click', () => app.stop());
-    on('#show-menu', 'click', () => this.menu.classList.remove('hidden'));
+    on('#show-menu', 'click', () => { this.menu.classList.remove('hidden'); this.menu.scrollLeft = 0; try { window.scrollTo(0, window.scrollY); } catch {} });
     on('#close-menu', 'click', () => this.menu.classList.add('hidden'));
     on('#file', 'change', async (e) => {
       const f = e.target.files[0];

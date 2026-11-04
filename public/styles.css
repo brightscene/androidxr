@@ -254,3 +254,11 @@ html, body { overscroll-behavior: none; }
 #mix-pop .mrow { grid-template-columns: 160px 1fr auto; padding: 8px 12px; }
 .mixhead { display: flex; justify-content: space-between; align-items: center; font-size: 18px; margin-bottom: 8px; }
 @media (max-width: 560px) { .mrow, #mix-pop .mrow { grid-template-columns: 1fr; gap: 8px; } }
+
+/* centre the menu sheet and the mixer without transforms: Safari on iPad could
+   leave a transform-centred sheet shifted to one side (after its slide-up, or
+   with page zoom) */
+#menu { left: 0 !important; right: 0 !important; margin-left: auto !important; margin-right: auto !important; transform: none !important; }
+@keyframes sheetUp { from { translate: 0 40px; opacity: 0; } to { translate: 0 0; opacity: 1; } }
+#mix-pop { left: 0; right: 0; margin: 0 auto; transform: none; }
+html, body { overflow-x: hidden; }
