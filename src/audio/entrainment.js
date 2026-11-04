@@ -34,7 +34,7 @@ export class Entrainment {
     this.duration = duration;
     this.carrier = carrier;
     this.out = ctx.createGain();
-    this.out.connect(engine.headBus);
+    this.out.connect(engine.toneBus);
 
     // binaural pair
     this.bL = ctx.createOscillator();

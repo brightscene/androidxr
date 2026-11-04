@@ -45,6 +45,11 @@ export class AudioEngine {
     this.reverbSend = ctx.createGain();
     this.reverbSend.gain.value = 0.9;
     this.reverbSend.connect(this.reverb).connect(this.master);
+    // the mixer's layers: each its own channel (and its own share of the reverb)
+    const layer = (to, v = 1) => { const g = ctx.createGain(); g.gain.value = v; g.connect(to); return g; };
+    this.musicSend = layer(this.reverbSend);
+    this.sceneSend = layer(this.reverbSend);
+    this.voiceSend = layer(this.reverbSend);
 
     this.dry = ctx.createGain();
     this.dry.gain.value = 0.7;
@@ -53,12 +58,18 @@ export class AudioEngine {
     // head-locked bus for binaural tones (must not be spatialised)
     this.headBus = ctx.createGain();
     this.headBus.connect(this.master);
+    this.toneBus = layer(this.headBus);     // brainwave tones
+    this.solBus = layer(this.headBus);      // the solfeggio tone
+    this.sfxBus = layer(this.master, 0.9);  // scenes' own sounds and instruments
+    this.trackMusic = true;
+    if (this.mix) this.applyMix(this.mix);
 
     this.noise = makeNoise(ctx, 6);
     this.whiteNoise = makeWhite(ctx, 6);
     this.natureBus = ctx.createGain();
     this.natureBus.connect(this.duckGain);
     if (this._pendingNature) this.setNature(this._pendingNature);
+    this.applyMix(this.mix);
     return ctx.resume();
   }
 
@@ -85,7 +96,6 @@ export class AudioEngine {
   //   'whoosh' a breathy swell of air that drifts across
   // the bus scenes play their own instruments into (singing bowls and so on)
   sfxOut() {
-    if (!this.sfxBus) { this.sfxBus = this.ctx.createGain(); this.sfxBus.gain.value = 0.9; this.sfxBus.connect(this.master); }
     return this.sfxBus;
   }
 
@@ -93,7 +103,6 @@ export class AudioEngine {
     const opts_note = note, opts_freq = freq;
     if (!this.ctx || !this.master) return;
     const ctx = this.ctx, t = ctx.currentTime + 0.01;
-    if (!this.sfxBus) { this.sfxBus = ctx.createGain(); this.sfxBus.gain.value = 0.9; this.sfxBus.connect(this.master); }
     const p = ctx.createStereoPanner();
     p.pan.value = Math.max(-1, Math.min(1, pan));
     p.connect(this.sfxBus);
@@ -141,7 +150,7 @@ export class AudioEngine {
         o.start(t); o.stop(t + dur + 0.1);
         nodes.push(o, g);
       });
-      const send = ctx.createGain(); send.gain.value = 0.5; p.connect(send).connect(this.reverbSend); nodes.push(send);
+      const send = ctx.createGain(); send.gain.value = 0.5; p.connect(send).connect(this.sceneSend); nodes.push(send);
       end(dur + 0.2);
     } else if (kind === 'crackle') {
       // a log fire's crackle: a cluster of tiny bright clicks and a soft pop
@@ -201,7 +210,7 @@ export class AudioEngine {
       n.connect(bp).connect(g).connect(p);
       // a little reverb tail so it floats away
       const send = ctx.createGain(); send.gain.value = 0.35;
-      g.connect(send).connect(this.reverbSend);
+      g.connect(send).connect(this.sceneSend);
       n.start(t, Math.random() * 3); n.stop(t + dur + 0.05);
       nodes.push(n, bp, g, send);
       end(dur + 0.1);
@@ -210,9 +219,22 @@ export class AudioEngine {
 
   // switch the generated music (and its reverb) off for tracks that are only the scene's own sounds
   setMusic(on) {
+    this.trackMusic = on;
     if (!this.dry) return;
-    const t = this.ctx.currentTime;
-    this.dry.gain.setTargetAtTime(on ? 0.7 : 0, t, 0.5);
+    this.applyMix(this.mix);
+  }
+
+  // The mixer: a level (0..1, 0 when switched off) for each layer
+  applyMix(mix) {
+    this.mix = mix || this.mix || {};
+    if (!this.ctx || !this.dry) return;
+    const m = this.mix, t = this.ctx.currentTime, set = (g, v) => g && g.gain.setTargetAtTime(v, t, 0.25);
+    const music = (m.music ?? 1) * (this.trackMusic === false ? 0 : 1);
+    set(this.dry, 0.7 * music); set(this.musicSend, music);
+    set(this.toneBus, m.tones ?? 1); set(this.solBus, m.sol ?? 1);
+    set(this.natureBus, m.nature ?? 1);
+    set(this.voiceBus, 1.1 * (m.voice ?? 1)); set(this.voiceSend, m.voice ?? 1);
+    set(this.sfxBus, 0.9 * (m.scene ?? 1)); set(this.sceneSend, m.scene ?? 1);
   }
 
   duck(on) {
@@ -298,7 +320,7 @@ export class AudioEngine {
     const send = ctx.createGain();
     send.gain.value = wet;
     p.connect(dry).connect(this.dry);
-    p.connect(send).connect(this.reverbSend);
+    p.connect(send).connect(this.musicSend);
     return p;
   }
 

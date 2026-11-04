@@ -241,10 +241,11 @@ export class DomUI {
     const app = this.app;
     const on = (id, ev, fn) => this.$(id).addEventListener(ev, fn);
     on('#durations', 'click', (e) => { const m = Number(e.target.dataset.min); if (m) app.setMinutes(m); });
-    on('#tone', 'change', (e) => app.setSolfeggio(e.target.checked));
-    on('#entrainment', 'change', (e) => app.setEntrainment(e.target.value));
     on('#journey', 'change', (e) => app.setJourney(e.target.value));
-    on('#nature', 'change', (e) => { app.engine.init().then(() => app.setNature(e.target.value)); });
+    this._buildMixer('#mixer', '#mix-presets');
+    this._buildMixer('#mixer-2', '#mix-presets-2');
+    on('#show-mix', 'click', () => this.$('#mix-pop').classList.toggle('hidden'));
+    on('#mix-close', 'click', () => this.$('#mix-pop').classList.add('hidden'));
     on('#dives', 'change', (e) => app.setDives(e.target.value));
     for (const b of document.querySelectorAll('#unlock .buy')) b.addEventListener('click', () => { this.$('#ul-msg').textContent = 'Payments are coming soon. Thank you for your interest!'; });
     on('#ul-close', 'click', () => this.$('#unlock').classList.add('hidden'));
@@ -386,10 +387,8 @@ export class DomUI {
     if (this.sceneCards) this._layoutScenes();
     for (const b of this.$('#durations').children) b.classList.toggle('on', Number(b.dataset.min) === app.minutes);
     this.$('#length-group').classList.toggle('disabled', !!app.selected.guided);
-    this.$('#tone').checked = app.solfeggio;
-    this.$('#entrainment').value = app.entrainment;
+    for (const f of this.mixers || []) f();
     this.$('#journey').value = app.journey;
-    this.$('#nature').value = app.nature;
     this.$('#dives').value = app.dives;
     this.$('#whispers').checked = app.whispers;
     this.$('#captions').checked = app.captions;
@@ -449,6 +448,34 @@ export class DomUI {
     this.refresh();
   }
 
+  // the sound mixer: quick mixes, then a row per layer (switch, level, and its kind)
+  _buildMixer(sel, presetSel) {
+    const app = this.app, host = this.$(sel), pre = this.$(presetSel);
+    if (!host) return;
+    const PRESETS = [['all', 'Everything'], ['music', 'Music only'], ['tones', 'Tones only'], ['scene', 'Scene only'], ['silent', 'Silent']];
+    pre.innerHTML = PRESETS.map(([v, t]) => `<button data-preset="${v}">${t}</button>`).join('');
+    pre.addEventListener('click', (e) => { const v = e.target.dataset.preset; if (v) { app.mixPreset(v); this.refresh(); } });
+    const LAYERS = [
+      ['music', 'Music', 'The journey\u2019s soundscape'],
+      ['tones', 'Brainwave tones', null, [['binaural', 'Binaural'], ['isochronic', 'Isochronic'], ['both', 'Both']], () => app.toneType, (v) => app.setToneType(v)],
+      ['sol', 'Solfeggio tone'],
+      ['nature', 'Nature', null, [['rain', 'Soft rain'], ['ocean', 'Ocean']], () => app.natureType, (v) => app.setNatureType(v)],
+      ['voice', 'Voice', 'Guide and whispers'],
+      ['scene', 'Scene & instrument', 'Chanting, bowls, synth\u2026'],
+    ];
+    const rows = LAYERS.map(([k, label, sub, opts, get, set]) => {
+      const r = document.createElement('div'); r.className = 'mrow';
+      r.innerHTML = `<button class="mtog"><span class="sw"></span><span>${label}${sub ? `<br><small class="muted">${sub}</small>` : ''}</span></button><input type="range" min="0" max="1" step="0.05" />${opts ? `<select>${opts.map(([v, t]) => `<option value="${v}">${t}</option>`).join('')}</select>` : '<span></span>'}`;
+      r.querySelector('.mtog').addEventListener('click', () => { app.setLayerOn(k, !app.layerOn(k)); this.refresh(); });
+      r.querySelector('input').addEventListener('input', (e) => app.setLayerLevel(k, Number(e.target.value)));
+      const s = r.querySelector('select');
+      if (s) s.addEventListener('change', (e) => { set(e.target.value); this.refresh(); });
+      host.append(r);
+      return () => { r.classList.toggle('off', !app.layerOn(k)); r.querySelector('input').value = app.mixLevels[k]; if (s) s.value = get(); };
+    });
+    (this.mixers ||= []).push(() => rows.forEach((f) => f()));
+  }
+
   // put the page straight: no leftover zoom or scroll, the menu at its top
   _resetView() {
     try { window.scrollTo(0, 0); document.scrollingElement && (document.scrollingElement.scrollTop = 0); } catch {}
@@ -462,6 +489,7 @@ export class DomUI {
   onStop(completed) {
     toNative({ type: 'session', state: 'end', completed: !!completed, remote: !!this.app._remoteStop });
     this._resetView();
+    this.$('#mix-pop')?.classList.add('hidden');
     if (!this.app.renderer.xr.isPresenting) this.app.recentre(true);   // the view behind the menu, level again
     if (!this.app._remoteStop) this._tvSend({ type: 'stop' });
     this.app._remoteStop = false;

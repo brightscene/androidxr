@@ -73,17 +73,24 @@ class App {
     // v3: lights pulse with the tones by default, so switching lights on always shows them
     this.lightsGenerated = p.v >= 3 ? p.lightsGenerated ?? true : true;
     this.lightSymbol = p.lightSymbol ?? -1;
+    // the sound mixer: a level for each layer, and on/off for music, voice and scene sounds
+    // (tones, solfeggio and nature switch with their own settings; their kind is remembered)
+    this.mixLevels = { music: 1, tones: 1, sol: 1, nature: 1, voice: 1, scene: 1, ...(p.mixLevels || {}) };
+    this.mixOn = { music: true, voice: true, scene: true, ...(p.mixOn || {}) };
+    this.toneType = p.toneType || (p.entrainment && p.entrainment !== 'off' ? p.entrainment : 'binaural');
+    this.natureType = p.natureType || (p.nature && p.nature !== 'off' ? p.nature : 'rain');
     this.rgb = [[0, 0, 0], [0, 0, 0]];
     this.playing = false;
     this.player = null;
     this.engine = new AudioEngine();
+    this._applyMix();   // the mixer's levels, ready for when the audio starts
     this.voice = new Voice(this.engine);
     this.mine = new MyAffirmations(this.engine);
     SFX.play = (kind, opts) => { if (this.playing) this.engine.sfx(kind, opts); };
     SFX.say = (id, pan, text) => (this.playing ? this.voice.sayPanned(id, pan, text) : Promise.resolve(false));
     SFX.preload = (id) => this.voice.preload(id);
     SFX.audio = () => (this.playing && this.engine.ctx && this.engine.master
-      ? { ctx: this.engine.ctx, out: this.engine.sfxOut(), reverb: this.engine.reverbSend, noise: this.engine.noise || this.engine.whiteNoise, analyser: this.engine.analyser } : null);
+      ? { ctx: this.engine.ctx, out: this.engine.sfxOut(), reverb: this.engine.sceneSend, noise: this.engine.noise || this.engine.whiteNoise, analyser: this.engine.analyser } : null);
     this.voice.setChoice(this.voiceChoice);
     this.voice.onVoices = () => this.ui?.refreshVoices();
     this.state = { energy: 0.35, breath: 0, low: 0, mid: 0, high: 0, level: 0 };
@@ -160,6 +167,7 @@ class App {
         journey: this.journey, solfeggio: this.solfeggio, voiceInSoundscapes: this.whispers, captions: this.captions,
         dives: this.dives, nature: this.nature, voice: this.voiceChoice, volume: this.volume, background: this.background, quality: this.quality, breathGuide: this.breathText, guideVoice: this.guideVoice, mineOn: this.mineOn, mineEvery: this.mineEvery,
         strobeAccepted: this.strobeAccepted, lights: this.lights, lightStyle: this.lightStyle, lightColour: this.lightColour,
+        mixLevels: this.mixLevels, mixOn: this.mixOn, toneType: this.toneType, natureType: this.natureType,
         v: 3, lightLayout: this.lightLayout, lightDim: this.lightDim,
         lightMax: this.lightMax, lightMode: this.lightMode, lightsGenerated: this.lightsGenerated, lightSymbol: this.lightSymbol,
       }));
@@ -178,13 +186,48 @@ class App {
     this._changed();
   }
   setMinutes(m) { this.minutes = m; this._changed(); }
-  setEntrainment(m) { this.entrainment = m; this.player?.setEntrainment?.(m); this._changed(); }
+
+  // ---- the sound mixer
+  layerOn(k) {
+    if (k === 'tones') return this.entrainment !== 'off';
+    if (k === 'sol') return !!this.solfeggio;
+    if (k === 'nature') return this.nature !== 'off';
+    return this.mixOn[k] !== false;
+  }
+  setLayerOn(k, on) {
+    if (k === 'tones') return this.setEntrainment(on ? this.toneType : 'off');
+    if (k === 'sol') return this.setSolfeggio(on);
+    if (k === 'nature') return this.engine.init().then(() => this.setNature(on ? this.natureType : 'off'));
+    this.mixOn[k] = on;
+    this._applyMix(); this._changed();
+  }
+  setLayerLevel(k, v) { this.mixLevels[k] = Math.max(0, Math.min(1, v)); this._applyMix(); this._changed(); }
+  setToneType(t) { this.toneType = t; if (this.entrainment !== 'off') this.setEntrainment(t); else this._changed(); }
+  setNatureType(t) { this.natureType = t; if (this.nature !== 'off') this.engine.init().then(() => this.setNature(t)); else this._changed(); }
+  _applyMix() {
+    const L = this.mixLevels, on = (k) => (this.mixOn[k] !== false ? L[k] : 0);
+    this.engine.applyMix({ music: on('music'), tones: L.tones, sol: L.sol, nature: L.nature, voice: on('voice'), scene: on('scene') });
+  }
+  // quick mixes: which layers play
+  mixPreset(name) {
+    const sets = {
+      all: ['music', 'tones', 'sol', 'nature', 'voice', 'scene'],
+      music: ['music'], tones: ['tones', 'sol'], scene: ['scene'], silent: [],
+    }[name] || [];
+    for (const k of ['music', 'tones', 'sol', 'nature', 'voice', 'scene']) {
+      const want = sets.includes(k);
+      if (k === 'nature' && name === 'all' && this.nature === 'off') continue;   // nature only if you've chosen one
+      if (this.layerOn(k) !== want) this.setLayerOn(k, want);
+    }
+    this._applyMix(); this._changed();
+  }
+  setEntrainment(m) { this.entrainment = m; if (m !== 'off') this.toneType = m; this.player?.setEntrainment?.(m); this._changed(); }
   setJourney(j) { this.journey = j; this._changed(); }
   setSolfeggio(on) { this.solfeggio = on; this.player?.setSolfeggio(on); this._changed(); }
   setWhispers(on) { this.whispers = on; if (!on && !this.guide) this.voice.cancel(); this._changed(); }
   setCaptions(on) { this.captions = on; this._changed(); }
   setDives(d) { this.dives = d; this.world.voyage.comfort = COMFORT[d]; this._changed(); }
-  setNature(n) { this.nature = n; this.engine.setNature(n); this._changed(); }
+  setNature(n) { this.nature = n; if (n !== 'off') this.natureType = n; this.engine.setNature(n); this._changed(); }
   setVoice(v) { this.voiceChoice = v; this.voice.setChoice(v); this._changed(); }
   setQuality(q) { this.quality = q; this._applyQuality(); this._changed(); }
   setGuideVoice(on) { this.guideVoice = on; if (!on && this.guide) this.voice.cancel(); this._changed(); }

@@ -30,7 +30,7 @@
     </header>
 
     <nav class="tabs" role="tablist">
-      <button data-tab="Journeys">Journeys</button><button data-tab="Scene">Scene</button><button data-tab="Sound">Sound</button><button data-tab="Lights">Lights</button><button data-tab="Voice">Voice</button><button data-tab="More">More</button>
+      <button data-tab="Journeys">Journeys</button><button data-tab="Scene">Scene</button><button data-tab="Sound">Sound</button><button data-tab="Session">Session</button><button data-tab="Lights">Lights</button><button data-tab="Voice">Voice</button><button data-tab="More">More</button>
     </nav>
 
     <section class="pane" data-pane="Journeys">
@@ -45,6 +45,38 @@
       <div id="scene-chips" class="chips"></div>
       <div id="scene-cards" class="scards"></div>
       <div class="panel"><div class="grid">
+        <label><span class="label">Visual quality (headset)</span>
+          <select id="quality"><option value="smooth">Smooth (best frame rate)</option><option value="balanced">Balanced</option><option value="sharp">Sharp (most detail)</option></select></label>
+      </div>
+      <p id="scene-note" class="muted note"></p></div>
+    </section>
+
+    <section class="pane" data-pane="Sound">
+      <div class="mixpre seg" id="mix-presets"></div>
+      <div class="mixer" id="mixer"></div>
+      <label class="group vol"><span class="label">Volume</span><input id="volume" type="range" min="0" max="1" step="0.01" value="0.8" /></label>
+      <p class="muted note">Each layer has its own switch and level, and changes apply straight away. Binaural tones need headphones; isochronic tones work on speakers.</p>
+    </section>
+
+    <section class="pane" data-pane="Session">
+      <section class="opts">
+      <div class="group" id="length-group">
+        <span class="label">Length</span>
+        <div id="durations" class="seg">
+          <button data-min="5">5 min</button><button data-min="10">10 min</button><button data-min="20">20 min</button><button data-min="30">30 min</button>
+        </div>
+      </div>
+      </section>
+      <div class="panel"><div class="grid">
+        <label><span class="label">Brainwave journey</span>
+          <select id="journey">
+            <option value="auto">Auto (per track)</option>
+            <option value="relax">Relax · alpha → theta</option>
+            <option value="meditate">Meditate · deep theta</option>
+            <option value="sleep">Sleep · theta → delta</option>
+            <option value="focus">Focus · alpha / low beta</option>
+            <option value="restore">Restore · deep delta, for healing</option>
+          </select></label>
         <label><span class="label">Deep dives</span>
           <select id="dives">
             <option value="gentle">Gentle</option>
@@ -53,50 +85,8 @@
             <option value="insane">Insanely fast</option>
             <option value="off">Off (no motion)</option>
           </select></label>
-        <label><span class="label">Visual quality (headset)</span>
-          <select id="quality"><option value="smooth">Smooth (best frame rate)</option><option value="balanced">Balanced</option><option value="sharp">Sharp (most detail)</option></select></label>
       </div>
-      <p id="scene-note" class="muted note"></p></div>
-    </section>
-
-    <section class="pane" data-pane="Sound">
-      <section class="opts">
-      <div class="group" id="length-group">
-        <span class="label">Length</span>
-        <div id="durations" class="seg">
-          <button data-min="5">5 min</button><button data-min="10">10 min</button><button data-min="20">20 min</button><button data-min="30">30 min</button>
-        </div>
-      </div>
-      <label class="group vol"><span class="label">Volume</span><input id="volume" type="range" min="0" max="1" step="0.01" value="0.8" /></label>
-    </section>
-      <div class="panel"><div class="grid">
-        <label><span class="label">Brainwave tones</span>
-          <select id="entrainment">
-            <option value="binaural">Binaural (headphones)</option>
-            <option value="isochronic">Isochronic (speakers ok)</option>
-            <option value="both">Binaural + isochronic</option>
-            <option value="off">Off</option>
-          </select></label>
-        <label><span class="label">Brainwave journey</span>
-          <select id="journey">
-            <option value="auto">Auto (per track)</option>
-            <option value="relax">Relax · alpha → theta</option>
-            <option value="meditate">Meditate · deep theta</option>
-            <option value="sleep">Sleep · theta → delta</option>
-            <option value="focus">Focus · alpha / low beta</option>
-          </select></label>
-        <label><span class="label">Nature bed</span>
-          <select id="nature">
-            <option value="off">Off</option>
-            <option value="rain">Soft rain</option>
-            <option value="ocean">Ocean waves</option>
-          </select></label>
-        
-        
-        
-        <label class="toggle"><input type="checkbox" id="tone" /> <span>Solfeggio tone</span></label>
-      </div>
-    </div>
+      <p class="muted note">Length and the brainwave journey apply from the next session; deep dives straight away.</p></div>
     </section>
 
     <section class="pane" data-pane="Lights">
@@ -184,6 +174,8 @@
     <p id="xr-note" class="muted note">In the headset: point and pinch to choose. Binaural tones need headphones; isochronic tones work on speakers.</p>
   </main>
 
+  <div id="mix-pop" class="hidden"><div class="mixhead"><span>Sound</span><button id="mix-close" class="ghost small">Done</button></div><div class="mixpre seg" id="mix-presets-2"></div><div class="mixer" id="mixer-2"></div></div>
+
   <div id="session" class="hidden">
     <div id="cue" class="cue"></div>
     <div class="bar">
@@ -196,6 +188,7 @@
       <div class="track"><div id="progress"></div></div>
       <div class="bar-btns">
         <button id="show-menu" class="ghost small">Library</button>
+        <button id="show-mix" class="ghost small">Sound</button>
         <button id="end" class="ghost small">End session</button>
       </div>
       </div>

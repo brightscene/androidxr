@@ -114,14 +114,15 @@ export class Voice {
     const words = text.split(/\s+/).length;
     this._safety = setTimeout(done, (words / 1.6 + 6) * 1000); // never hang a session
 
+    const vol = this.e.mix?.voice ?? 1;   // the mixer's voice layer (0 when switched off)
     if (useRecorded) {
       this._playClip(id, done);
-    } else if (this.tts && this.ttsVoice !== undefined) {
+    } else if (this.tts && this.ttsVoice !== undefined && vol > 0.01) {
       const u = new SpeechSynthesisUtterance(text);
       if (this.ttsVoice) { u.voice = this.ttsVoice; u.lang = this.ttsVoice.lang; } else u.lang = 'en-IE';
       u.rate = this.rate;
       u.pitch = this.pitch;
-      u.volume = 1;
+      u.volume = Math.min(1, vol);
       u.onend = done;
       u.onerror = done;
       this._utter = u; // keep a reference (Chrome can GC it and drop onend)
@@ -144,7 +145,7 @@ export class Voice {
     const send = ctx.createGain();
     send.gain.value = 0.08;
     src.connect(g).connect(this.e.voiceBus);
-    g.connect(send).connect(this.e.reverbSend);
+    g.connect(send).connect(this.e.voiceSend);
     src.onended = () => { g.disconnect(); done(); };
     this._src = src;
     src.start();
@@ -167,7 +168,7 @@ export class Voice {
     const p = ctx.createStereoPanner(); p.pan.value = pan;
     const send = ctx.createGain(); send.gain.value = 0.1;
     src.connect(g).connect(p).connect(this.e.voiceBus);
-    g.connect(send).connect(this.e.reverbSend);
+    g.connect(send).connect(this.e.voiceSend);
     src.onended = () => { g.disconnect(); p.disconnect(); };
     src.start();
     return true;

@@ -142,7 +142,7 @@ function previewMaterial(tint, planes) {
   });
 }
 
-const TABS = ['Journeys', 'Scene', 'Sound', 'Lights', 'Voice'];
+const TABS = ['Journeys', 'Scene', 'Sound', 'Session', 'Lights', 'Voice'];
 const MARK = typeof Image !== 'undefined' ? Object.assign(new Image(), { src: 'icons/mark.svg' }) : {};
 const W = 1.56, H = 1.34;
 const ROW0 = 0.33, ROWH = 0.1, LX = -0.74, PX = -0.4;
@@ -227,7 +227,7 @@ export class XRMenu {
 
     // tabs
     TABS.forEach((name, i) => {
-      this._btn(this.panel, new Button(0.19, 0.075, pill(name, () => this.tab === name), () => this.setTab(name)), -0.16 + i * 0.2, 0.53);
+      this._btn(this.panel, new Button(0.148, 0.075, pill(name, () => this.tab === name), () => this.setTab(name)), -0.125 + i * 0.155, 0.53);
     });
 
     this.pages = {};
@@ -236,6 +236,7 @@ export class XRMenu {
     this._buildJourneys();
     this._buildScene();
     this._buildSound();
+    this._buildSession();
     this._buildLights();
     this._buildVoice();
 
@@ -271,6 +272,19 @@ export class XRMenu {
     this.group.add(this.orb.mesh);
     this.buttons.push(this.orb);
     // the orb lives on your left wrist during a session: a short note says so, where it used to be
+    // beside it on the wrist: the sound mixer, one tap away
+    this.soundBtn = new Button(0.1, 0.1, (c, w, h, b) => {
+      c.beginPath(); c.arc(w / 2, h / 2, w / 2 - 5, 0, Math.PI * 2);
+      c.fillStyle = b.hover ? 'rgba(40,36,80,0.85)' : 'rgba(10,10,28,0.6)'; c.fill();
+      c.strokeStyle = 'rgba(200,190,255,0.6)'; c.lineWidth = 3; c.stroke();
+      c.fillStyle = '#fff';   // a little speaker with sound waves
+      c.beginPath(); c.moveTo(w * 0.24, h * 0.42); c.lineTo(w * 0.34, h * 0.42); c.lineTo(w * 0.48, h * 0.3); c.lineTo(w * 0.48, h * 0.7); c.lineTo(w * 0.34, h * 0.58); c.lineTo(w * 0.24, h * 0.58); c.fill();
+      c.strokeStyle = '#fff'; c.lineWidth = 4;
+      for (const r of [0.12, 0.2]) { c.beginPath(); c.arc(w * 0.48, h * 0.5, w * r, -0.8, 0.8); c.stroke(); }
+    }, () => { this.show(true); this.setTab('Sound'); }, 600);
+    this.soundBtn.mesh.visible = false;
+    this.group.add(this.soundBtn.mesh);
+    this.buttons.push(this.soundBtn);
     this.wristNote = new Button(0.62, 0.075, (c, w, h) => {
       roundRect(c, 3, 3, w - 6, h - 6, (h - 6) / 2);
       c.fillStyle = 'rgba(12,10,30,0.55)'; c.fill();
@@ -537,17 +551,41 @@ export class XRMenu {
     }, { alpha: 0.6, size: 0.46 })), 0, ROW0 - 8.5 * ROWH);
   }
 
+  // the sound mixer: quick mixes, then a row per layer (on/off, level, and its kind)
   _buildSound() {
     const app = this.app, p = this.pages.Sound;
-    this._row(p, 0, 'Length', [['5 min', 5], ['10 min', 10], ['20 min', 20], ['30 min', 30]], () => (app.selected.guided ? -1 : app.minutes), (v) => app.setMinutes(v));
-    this._row(p, 1, 'Brainwave tones', [['Binaural', 'binaural'], ['Isochronic', 'isochronic'], ['Both', 'both'], ['Off', 'off']], () => app.entrainment, (v) => app.setEntrainment(v));
-    this._row(p, 2, 'Brainwave journey', [['Auto', 'auto'], ['Relax', 'relax'], ['Meditate', 'meditate'], ['Sleep', 'sleep'], ['Focus', 'focus']], () => app.journey, (v) => app.setJourney(v));
-    this._row(p, 3, 'Nature', [['Off', 'off'], ['Soft rain', 'rain'], ['Ocean', 'ocean']], () => app.nature, (v) => app.engine.init().then(() => app.setNature(v)));
-    this._row(p, 4, 'Deep dives', [['Gentle', 'gentle'], ['Full speed', 'full'], ['Fast', 'fast'], ['Insanely fast', 'insane'], ['Off', 'off']], () => app.dives, (v) => app.setDives(v));
-    this._row(p, 5, 'Solfeggio tone', [['On', true], ['Off', false]], () => app.solfeggio, (v) => app.setSolfeggio(v));
-    this._row(p, 6, 'Volume', [['−', 'down'], [() => `${Math.round(app.volume * 100)}%`, 'x'], ['+', 'up']], () => null,
+    this._row(p, 0, 'Quick mix', [['Everything', 'all'], ['Music only', 'music'], ['Tones only', 'tones'], ['Scene only', 'scene'], ['Silent', 'silent']], () => null, (v) => { app.mixPreset(v); this.refresh(); }, [0.17, 0.17, 0.16, 0.17, 0.12]);
+    const layer = (i, label, k, extras = [], get, set) => {
+      const y = ROW0 - i * ROWH;
+      this._btn(p, new Button(0.32, 0.07, textDraw(label, { alpha: 0.65 })), LX + 0.16, y, false);
+      let x = PX;
+      const add = (w, b) => { this._btn(p, b, x + w / 2, y); x += w + 0.012; };
+      add(0.12, new Button(0.12, 0.07, pill(() => (app.layerOn(k) ? 'On' : 'Off'), () => app.layerOn(k)), () => { app.setLayerOn(k, !app.layerOn(k)); this.refresh(); }));
+      const step = (d) => () => { app.setLayerLevel(k, Math.round((app.mixLevels[k] + d) * 10) / 10); this.refresh(); };
+      add(0.07, new Button(0.07, 0.07, pill('\u2212', () => false), step(-0.1)));
+      add(0.11, new Button(0.11, 0.07, pill(() => `${Math.round(app.mixLevels[k] * 100)}%`, () => false), () => {}));
+      add(0.07, new Button(0.07, 0.07, pill('+', () => false), step(0.1)));
+      x += 0.02;
+      for (const [t, v, w] of extras) add(w, new Button(w, 0.07, pill(t, () => get() === v), () => { set(v); this.refresh(); }));
+    };
+    layer(1, 'Music', 'music');
+    layer(2, 'Brainwave tones', 'tones', [['Binaural', 'binaural', 0.15], ['Isochronic', 'isochronic', 0.16], ['Both', 'both', 0.1]], () => app.toneType, (v) => app.setToneType(v));
+    layer(3, 'Solfeggio tone', 'sol');
+    layer(4, 'Nature', 'nature', [['Soft rain', 'rain', 0.15], ['Ocean', 'ocean', 0.12]], () => app.natureType, (v) => app.setNatureType(v));
+    layer(5, 'Voice', 'voice');
+    layer(6, 'Scene & instrument', 'scene');
+    this._row(p, 7, 'Volume', [['\u2212', 'down'], [() => `${Math.round(app.volume * 100)}%`, 'x'], ['+', 'up']], () => null,
       (v) => { if (v !== 'x') { app.setVolume(Math.min(1, Math.max(0, Math.round((app.volume + (v === 'up' ? 0.1 : -0.1)) * 10) / 10))); this.refresh(); } }, [0.1, 0.14, 0.1]);
-    this._btn(p, new Button(1.4, 0.05, textDraw('Binaural needs headphones; isochronic works on speakers. Journey changes apply from the next session.', { alpha: 0.5, size: 0.48 }), null), 0, ROW0 - 7 * ROWH + 0.02, false);
+    this._btn(p, new Button(1.4, 0.05, textDraw('Binaural tones need headphones; isochronic works on speakers. Changes apply straight away.', { alpha: 0.5, size: 0.48 }), null), 0, ROW0 - 7.75 * ROWH, false);
+  }
+
+  // how a session runs: its length, the brainwave journey, and the deep dives
+  _buildSession() {
+    const app = this.app, p = this.pages.Session;
+    this._row(p, 0, 'Length', [['5 min', 5], ['10 min', 10], ['20 min', 20], ['30 min', 30]], () => (app.selected.guided ? -1 : app.minutes), (v) => app.setMinutes(v));
+    this._row(p, 1, 'Brainwave journey', [['Auto', 'auto'], ['Relax', 'relax'], ['Meditate', 'meditate'], ['Sleep', 'sleep'], ['Focus', 'focus'], ['Restore', 'restore']], () => app.journey, (v) => app.setJourney(v), [0.12, 0.13, 0.16, 0.12, 0.13, 0.15]);
+    this._row(p, 2, 'Deep dives', [['Gentle', 'gentle'], ['Full speed', 'full'], ['Fast', 'fast'], ['Insanely fast', 'insane'], ['Off', 'off']], () => app.dives, (v) => app.setDives(v));
+    this._btn(p, new Button(1.4, 0.05, textDraw('Length and the brainwave journey apply from the next session; deep dives straight away.', { alpha: 0.5, size: 0.48 }), null), 0, ROW0 - 3 * ROWH + 0.02, false);
   }
 
   _buildLights() {
@@ -788,7 +826,7 @@ export class XRMenu {
   // its old place, low in front of you.
   _wristOrb(dt) {
     const o = this.orb.mesh;
-    if (!this.orbWanted || this.visible) return;
+    if (!this.orbWanted || this.visible) { this.soundBtn.mesh.visible = false; return; }
     const xr = this.app.renderer.xr;
     let wrist = null;
     for (let i = 0; i < 2; i++) {
@@ -802,6 +840,9 @@ export class XRMenu {
     if (!wrist) {   // nothing to wear it on: back to its spot in front of you
       if (this.orbHome) { o.position.copy(this.orbHome.pos); o.rotation.copy(this.orbHome.rot); }
       o.scale.setScalar(1); o.visible = true; this.orbOnWrist = false;
+      const sb = this.soundBtn.mesh;
+      sb.visible = true; sb.scale.setScalar(1); sb.quaternion.copy(o.quaternion);
+      sb.position.copy(o.position).add(new THREE.Vector3(0.13, 0.02, 0).applyQuaternion(o.quaternion));
       return;
     }
     this.orbOnWrist = true;
@@ -815,6 +856,12 @@ export class XRMenu {
     o.position.copy(wrist).add(new THREE.Vector3(0, 0.07, 0));
     o.lookAt(head);
     o.scale.setScalar(0.55 * (0.6 + 0.4 * this._wristA));
+    // the sound button just beside it
+    const sb = this.soundBtn.mesh;
+    sb.visible = o.visible;
+    sb.quaternion.copy(o.quaternion);
+    sb.position.copy(o.position).add(new THREE.Vector3(0.075, -0.012, 0).applyQuaternion(o.quaternion));
+    sb.scale.copy(o.scale);
   }
 
   update(dt = 1 / 72) {

@@ -95,7 +95,7 @@ class Sequenced {
     const lfoAmt = ctx.createGain();
     lfoAmt.gain.value = level * 0.3;
     lfo.connect(lfoAmt).connect(this.solGain.gain);
-    this.osc.connect(this.solGain).connect(this.e.headBus);
+    this.osc.connect(this.solGain).connect(this.e.solBus);
     this.osc.start(t); lfo.start(t);
     this._continuous = (this._continuous || []).concat([this.osc, lfo]);
     this.ent = new Entrainment(this.e, { carrier: this.root, profile: this.profile, t0: t, duration: this.duration, mode: this.entrainMode });
@@ -128,7 +128,7 @@ class Sequenced {
     g.gain.setTargetAtTime(0.025 * intensity, t + rise, duration * 0.3);
     g.gain.linearRampToValueAtTime(0, t + rise + duration + 3);
     src.connect(bp).connect(g).connect(this.e.dry);
-    src.connect(bp); g.connect(this.e.reverbSend);
+    src.connect(bp); g.connect(this.e.musicSend);
     src.start(t); src.stop(t + rise + duration + 3.2);
     const sub = ctx.createOscillator();
     sub.frequency.setValueAtTime(this.root / 2, t + rise - 0.1);
@@ -328,7 +328,7 @@ export class Composer extends Sequenced {
     const send = ctx.createGain(); send.gain.value = 0.6;
     this.droneFilter.connect(this.droneGain);
     this.droneGain.connect(this.e.dry);
-    this.droneGain.connect(send).connect(this.e.reverbSend);
+    this.droneGain.connect(send).connect(this.e.musicSend);
     [a, b, c].forEach((o) => o.start(t));
     this._continuous.push(a, b, c);
   }
@@ -495,7 +495,7 @@ export class ImportedPlayer extends Sequenced {
       node = node.connect(lp);
     }
     node.connect(g).connect(this.e.dry);
-    node.connect(send).connect(this.e.reverbSend);
+    node.connect(send).connect(this.e.musicSend);
     this.src.start(this.t0);
     this.nextBreath = this.t0;
     this.breathGuide = 0.4;
@@ -622,7 +622,7 @@ export class StreamPlayer extends Sequenced {
     this.gain.gain.value = 0.95;
     const send = ctx.createGain(); send.gain.value = 0.1;
     node.connect(this.gain).connect(this.e.dry);
-    node.connect(send).connect(this.e.reverbSend);
+    node.connect(send).connect(this.e.musicSend);
     this._startSolfeggio(this.t0);
     audio.addEventListener('ended', () => { this.finished = true; });
     this.playPromise = audio.play().catch((err) => { this.error = err; });

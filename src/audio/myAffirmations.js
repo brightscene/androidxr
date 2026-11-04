@@ -100,7 +100,7 @@ export class MyAffirmations {
     const p = ctx.createStereoPanner(); p.pan.value = pan;
     const send = ctx.createGain(); send.gain.value = 0.18;
     src.connect(g).connect(p).connect(this.e.voiceBus);
-    g.connect(send).connect(this.e.reverbSend);
+    g.connect(send).connect(this.e.voiceSend);
     if (duck) this.e.duck(true);
     src.onended = () => { g.disconnect(); p.disconnect(); if (duck) this.e.duck(false); };
     src.start();
