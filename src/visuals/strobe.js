@@ -13,7 +13,7 @@ import { U, POINT_SIZE } from './common.js';
 export const SYMBOLS = ['Flower of Life', 'Sri Yantra', 'Lotus', 'Merkaba', 'Ripples', 'Seed of Life'];
 
 const FRAG = /* glsl */ `
-  uniform vec3 uCol; uniform float uBright, uStyle, uSym, uSymB, uMix, uTime, uMax;
+  uniform vec3 uCol; uniform float uBright, uStyle, uGlow, uSym, uSymB, uMix, uTime, uMax;
   varying vec2 vUv;
   #define PI 3.14159265
   float ring(vec2 p, vec2 c, float r){ return abs(length(p - c) - r); }
@@ -77,19 +77,18 @@ const FRAG = /* glsl */ `
     line *= smoothstep(0.58, 0.48, length(p));
     // saturated colour glow, with a slightly hotter core on the symbol lines so it reads crisply
     float core = mix(exp(-da * 260.0), exp(-db * 260.0), uMix);
-    float k = uStyle < 0.5 ? line * 1.5 : (uStyle < 1.5 ? field * 1.2 : line * 1.5 + field * 0.55);
-    vec3 col = uCol * k + mix(uCol, vec3(1.0), 0.45) * core * (uStyle < 1.5 && uStyle > 0.5 ? 0.0 : 0.9);
-    if (uStyle > 4.5) { // WIDE: a broad, soft band of light filling this side, joining its partner in the middle
-      vec2 q = vUv - 0.5;
-      float band = exp(-pow(q.y * 3.2, 2.0)) * smoothstep(0.5, 0.3, abs(q.y)) * smoothstep(0.5, 0.36, abs(q.x));
-      col = uCol * band * 1.3 + mix(uCol, vec3(1.0), 0.4) * exp(-pow(q.y * 7.0, 2.0)) * smoothstep(0.5, 0.3, abs(q.x)) * 0.5;
-    } else if (uStyle > 2.5 && uStyle < 3.5) { // glowing orb: solid filled disc, white-hot core, corona
+    // uStyle: the symbol's kind (0 sacred symbol, 1 glowing orb, 2 neon ring, 3 none: a solid shape is drawn instead)
+    // uGlow: a soft coloured glow behind it (0 none, 1 glow)
+    vec3 col = vec3(0.0);
+    if (uStyle < 0.5) col = uCol * line * 1.5 + mix(uCol, vec3(1.0), 0.45) * core * 0.9;
+    else if (uStyle < 1.5) { // glowing orb: solid filled disc, white-hot core, corona
       float disc = smoothstep(0.37, 0.34, r);
       col = uCol * (disc * 1.25 + exp(-r * 3.2) * 0.7) + vec3(1.0) * exp(-r * r * 28.0) * 0.75 * disc;
-    } else if (uStyle > 3.5) { // neon ring: thick solid ring with a hot centre line
+    } else if (uStyle < 2.5) { // neon ring: thick solid ring with a hot centre line
       float dr = abs(r - 0.3);
       col = uCol * (smoothstep(0.06, 0.04, dr) * 1.3 + exp(-dr * 10.0) * 0.55) + vec3(1.0) * smoothstep(0.018, 0.0, dr) * 0.6;
     }
+    col += uCol * field * uGlow * (uStyle > 2.5 ? 0.9 : 0.55);
     gl_FragColor = vec4(col * b, 1.0);
   }`;
 
@@ -136,7 +135,7 @@ export class StrobeLayer {
         new THREE.ShaderMaterial({
           transparent: true, depthTest: false, depthWrite: false, blending: THREE.AdditiveBlending,
           uniforms: {
-            uCol: { value: new THREE.Color(1, 1, 1) }, uBright: { value: 0 }, uStyle: { value: 2 },
+            uCol: { value: new THREE.Color(1, 1, 1) }, uBright: { value: 0 }, uStyle: { value: 0 }, uGlow: { value: 1 },
             uSym: { value: 0 }, uSymB: { value: 0 }, uMix: { value: 0 }, uTime: { value: 0 }, uMax: { value: 0.6 },
           },
           vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
@@ -183,17 +182,18 @@ export class StrobeLayer {
       crystal: [0, 1].map(() => this._solid(crystalGeo, CRYSTAL_FRAG)),
     };
 
-    this.leds = { leds: [0, 1].map((side) => this._buildLeds(side, 'dome')), pandora: [0, 1].map((side) => this._buildLeds(side, 'disc')) };
-
-    // Pandora panel diffuser: a soft glow behind the LED disc
-    this.diffuser = [0, 1].map((side) => {
-      const m = new THREE.Mesh(new THREE.CircleGeometry(1.05, 64, side ? -Math.PI / 2 : Math.PI / 2, Math.PI), new THREE.ShaderMaterial({
+    // WIDE: a broad, soft band of light filling each side, joining its partner in the middle (behind the symbol)
+    this.wash = [0, 1].map(() => {
+      const m = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.ShaderMaterial({
         transparent: true, depthTest: false, depthWrite: false, blending: THREE.AdditiveBlending,
         uniforms: { uCol: { value: new THREE.Color() }, uB: { value: 0 } },
-        vertexShader: 'varying vec2 vP; void main(){ vP = position.xy; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
-        fragmentShader: 'uniform vec3 uCol; uniform float uB; varying vec2 vP; void main(){ float r = length(vP); gl_FragColor = vec4(uCol * uB * 0.22 * smoothstep(1.05, 0.7, r), 1.0); }',
+        vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
+        fragmentShader: `uniform vec3 uCol; uniform float uB; varying vec2 vUv; void main(){
+          vec2 q = vUv - 0.5;
+          float band = exp(-pow(q.y * 3.2, 2.0)) * smoothstep(0.5, 0.3, abs(q.y)) * smoothstep(0.5, 0.36, abs(q.x));
+          vec3 col = uCol * band * 1.1 + mix(uCol, vec3(1.0), 0.4) * exp(-pow(q.y * 7.0, 2.0)) * smoothstep(0.5, 0.3, abs(q.x)) * 0.4;
+          gl_FragColor = vec4(col * uB, 1.0); }`,
       }));
-      m.position.z = -2.02;
       m.renderOrder = 949;
       m.frustumCulled = false;
       m.visible = false;
@@ -206,59 +206,6 @@ export class StrobeLayer {
     this.symbol = 0;
     this.symbolTimer = 0;
     this.auto = true;
-  }
-
-  // LED layouts. The left half is driven by the left light channel, the right half by the right.
-  //  dome: NeuroVizr-style starfield, a wide curved dome of LEDs in concentric rings
-  //  disc: Pandora Star-style, one large round panel densely packed with LED rings
-  _buildLeds(side, kind) {
-    const pos = [], seed = [], ring = [];
-    const rings = kind === 'disc' ? 15 : 12;
-    for (let k = 0; k <= rings; k++) {
-      const count = k === 0 ? 1 : 6 * k;
-      for (let j = 0; j < count; j++) {
-        const phi = (j / count) * Math.PI * 2 + (kind === 'disc' ? 0 : k * 0.37);
-        let x, y, z;
-        if (kind === 'disc') {
-          const r = (k / rings) * 0.95;
-          x = Math.cos(phi) * r; y = Math.sin(phi) * r; z = -2.0;
-        } else {
-          const R = 2.4, ang = (k / rings) * 62 * (Math.PI / 180);
-          const yaw = ang * Math.cos(phi) * 1.15, pitch = ang * Math.sin(phi) * 0.72;
-          x = Math.sin(yaw) * Math.cos(pitch) * R; y = Math.sin(pitch) * R; z = -Math.cos(yaw) * Math.cos(pitch) * R;
-        }
-        if (k > 0 && (side ? x < -0.002 : x > 0.002)) continue; // this half only (centre LED in both)
-        pos.push(x, y, z);
-        seed.push(Math.random());
-        ring.push(k / rings);
-      }
-    }
-    const ledSize = kind === 'disc' ? 0.055 : 0.095;
-    const g = new THREE.BufferGeometry();
-    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-    g.setAttribute('aSeed', new THREE.Float32BufferAttribute(seed, 1));
-    g.setAttribute('aRing', new THREE.Float32BufferAttribute(ring, 1));
-    const pts = new THREE.Points(g, new THREE.ShaderMaterial({
-      transparent: true, depthTest: false, depthWrite: false, blending: THREE.AdditiveBlending,
-      uniforms: { uViewH: U.uViewH, uTime: U.uTime, uCol: { value: new THREE.Color() }, uB: { value: 0 }, uMax: { value: 0.6 }, uSize: { value: ledSize } },
-      vertexShader: /* glsl */ `attribute float aSeed, aRing; uniform float uViewH, uTime, uSize; varying float vS; varying float vR;
-        ${POINT_SIZE}
-        void main(){ vS = aSeed; vR = aRing; vec4 mv = modelViewMatrix * vec4(position,1.0);
-          gl_PointSize = max(2.0, pointPx(uSize + aSeed * 0.02, mv)); gl_Position = projectionMatrix * mv; }`,
-      fragmentShader: /* glsl */ `uniform vec3 uCol; uniform float uB, uMax, uTime; varying float vS; varying float vR;
-        void main(){
-          float d = length(gl_PointCoord - 0.5) * 2.0;
-          float core = smoothstep(0.32, 0.0, d), halo = exp(-d * d * 4.0) * (1.0 - d);
-          float tw = 0.85 + 0.15 * sin(uTime * (1.0 + vS * 3.0) + vS * 40.0);
-          vec3 c = uCol * (halo * 1.1 + core * 0.6) + mix(uCol, vec3(1.0), 0.6) * core * 0.9;
-          gl_FragColor = vec4(c * uB * uMax * tw * (1.0 - vR * 0.25), 1.0);
-        }`,
-    }));
-    pts.frustumCulled = false;
-    pts.renderOrder = 951;
-    pts.visible = false;
-    this.camera.add(pts);
-    return pts;
   }
 
   _solid(geo, frag) {
@@ -338,7 +285,8 @@ export class StrobeLayer {
     this.xr = on;
   }
 
-  setSymbol(i) { this.auto = i < 0; if (i >= 0) this._go(i); }
+  // 0..5 the sacred symbols; 6 glowing orb, 7 chrome ball, 8 neon ring, 9 crystal
+  setSymbol(i) { if (i >= 0 && i < SYMBOLS.length && i !== this.symbol) this._go(i); }
 
   _go(i) {
     for (const m of this.meshes) {
@@ -357,33 +305,23 @@ export class StrobeLayer {
     const perEye = this.xr && (opts.layout === 'eyes' || opts.layout === 'eyesc');
     const centred = this.xr && opts.layout === 'eyesc';   // each eye's light straight ahead of that eye: they fuse into one
     const eyeX = (side) => (side ? 1 : -1) * (this.ipd || 0.063) / 2;   // each eye's own centre
+    const sym = opts.symbol ?? 0;
+    const glow = opts.style === 'field' ? 1 : 0;
     const wide = opts.style === 'wide';
-    const ledMode = opts.style === 'leds' || opts.style === 'pandora';
-    for (const [kind, set] of Object.entries(this.leds)) set.forEach((p, side) => {
-      p.visible = show && opts.style === kind;
-      if (kind === 'pandora') {
-        const d = this.diffuser[side];
-        d.visible = p.visible;
-        if (d.visible) {
-          const rgb = side ? rgbR : rgbL;
-          const pk = Math.max(rgb[0], rgb[1], rgb[2], 1e-4);
-          d.material.uniforms.uB.value = pk * opts.max;
-          d.material.uniforms.uCol.value.setRGB(rgb[0] / pk, rgb[1] / pk, rgb[2] / pk);
-          d.layers.set(perEye ? side + 1 : 0);
-          d.position.x = centred ? eyeX(side) : 0;
-        }
-      }
-      if (!p.visible) return;
+    const shape = sym < SYMBOLS.length ? 0 : { 6: 1, 8: 2 }[sym] ?? 3;
+    this.wash.forEach((m, side) => {
+      m.visible = show && wide;
+      if (!m.visible) return;
       const rgb = side ? rgbR : rgbL;
       const peak = Math.max(rgb[0], rgb[1], rgb[2], 1e-4);
-      const u = p.material.uniforms;
-      u.uB.value = peak;
-      u.uCol.value.setRGB(rgb[0] / peak, rgb[1] / peak, rgb[2] / peak);
-      u.uMax.value = opts.max;
-      p.layers.set(perEye ? side + 1 : 0);
-      p.position.x = centred ? eyeX(side) : 0;
+      m.material.uniforms.uB.value = peak * opts.max;
+      m.material.uniforms.uCol.value.setRGB(rgb[0] / peak, rgb[1] / peak, rgb[2] / peak);
+      m.layers.set(perEye ? side + 1 : 0);
+      const W = SEP * 2 + 0.6;
+      m.position.set((side ? 1 : -1) * W / 2 * 0.92 + (centred ? eyeX(side) : 0), 0, -DIST - 0.01);
+      m.scale.set(W * 0.96, 3.4 * 0.92, 1);
     });
-    const solidKind = this.solids[opts.style] ? opts.style : null;
+    const solidKind = { 7: 'chrome', 9: 'crystal' }[sym] || null;
     for (const [kind, pair] of Object.entries(this.solids)) pair.forEach((m, side) => {
       m.visible = show && kind === solidKind;
       if (!m.visible) return;
@@ -399,15 +337,15 @@ export class StrobeLayer {
       if (kind === 'crystal') m.rotation.y = t * 0.25 + side * 1.3;
     });
     this.meshes.forEach((m, side) => {
-      m.visible = show && !ledMode;
-      if (!show) return;
+      m.visible = show && !(shape === 3 && !glow);
+      if (!m.visible) return;
       const u = m.material.uniforms;
       const rgb = side ? rgbR : rgbL;
       const peak = Math.max(rgb[0], rgb[1], rgb[2], 1e-4);
       u.uBright.value = peak;
       u.uCol.value.setRGB(rgb[0] / peak, rgb[1] / peak, rgb[2] / peak);
-      // chrome ball / crystal get a soft coloured halo behind them
-      u.uStyle.value = solidKind ? 1 : ({ symbol: 0, field: 1, both: 2, orb: 3, ring: 4, wide: 5 }[opts.style] ?? 2);
+      u.uStyle.value = shape;
+      u.uGlow.value = glow;
       u.uMax.value = opts.max;
       u.uTime.value = t;
       if (u.uMix.value > 0) {
@@ -416,12 +354,7 @@ export class StrobeLayer {
       }
       // per-eye: each eye sees only its own symbol, off to its own side (like LEDs in light glasses)
       m.layers.set(perEye ? side + 1 : 0);
-      if (wide) {
-        // WIDE: each side's light stretched across its half of the view, meeting in the middle
-        const W = SEP * 2 + 0.6;
-        m.position.set((side ? 1 : -1) * W / 2 * 0.92 + (centred ? eyeX(side) : 0), 0, -DIST);
-        m.scale.set(W / 3.4 * 1.15, 0.92, 1);
-      } else {
+      {
         m.position.set(centred ? eyeX(side) : side ? SEP : -SEP, 0, -DIST);
         m.scale.setScalar(solidKind ? 0.65 : 0.92);
       }
@@ -429,10 +362,5 @@ export class StrobeLayer {
     this.dimLevel += ((show ? opts.dim ?? 0.5 : 0) - this.dimLevel) * (1 - Math.exp(-dt * 2));
     this.dim.visible = this.dimLevel > 0.005;
     this.dim.material.uniforms.uDim.value = this.dimLevel;
-    this.dim.material.uniforms.uSides.value = ledMode ? 0 : 1;
-    if (show && this.auto) {
-      this.symbolTimer += dt;
-      if (this.symbolTimer > 24) { this.symbolTimer = 0; this._go((this.symbol + 1) % SYMBOLS.length); }
-    }
   }
 }

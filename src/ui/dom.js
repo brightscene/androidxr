@@ -1,4 +1,4 @@
-import { LIGHT_COLOURS, LIGHT_STYLES, LIGHT_LOOKS, drawStyle } from './lightThumbs.js';
+import { LIGHT_COLOURS, LIGHT_STYLES, LIGHT_SYMBOLS, LIGHT_LOOKS, drawStyle } from './lightThumbs.js';
 import { SYMBOLS } from '../visuals/strobe.js';
 import { SCENES, BACKGROUNDS } from '../visuals/scenes/index.js';
 import SCENE_PALETTES from './scenePalettes.json';
@@ -460,10 +460,11 @@ export class DomUI {
     this.styleTiles = LIGHT_STYLES.map(([v, n]) => { const b = tile($('#light-styles'), n, (c) => drawStyle(c, v, 0, 0, 128, ['#ff4ad0', '#2ee0ff']), () => app.setLightOpt('lightStyle', v)); b._v = v; return b; });
     const thumbs = app.symbolThumbs;
     const symDraw = (i) => (c) => {
-      if (i < 0) { (thumbs || []).slice(0, 4).forEach((t, k) => c.drawImage(t, (k % 2) * 64, Math.floor(k / 2) * 64, 64, 64)); return; }
-      if (thumbs?.[i]) c.drawImage(thumbs[i], 0, 0, 128, 128);
+      const shape = LIGHT_SYMBOLS[i][2];
+      if (shape) drawStyle(c, shape, 0, 0, 128, ['#ff4ad0', '#2ee0ff']);
+      else if (thumbs?.[i]) c.drawImage(thumbs[i], 0, 0, 128, 128);
     };
-    this.symbolTiles = [[-1, 'Cycle all'], ...SYMBOLS.map((n, i) => [i, n])].map(([v, n]) => { const b = tile($('#light-symbols'), n, symDraw(v), () => app.setLightOpt('lightSymbol', v)); b._v = v; return b; });
+    this.symbolTiles = LIGHT_SYMBOLS.map(([v, n]) => { const b = tile($('#light-symbols'), n, symDraw(v), () => app.setLightOpt('lightSymbol', v)); b._v = v; return b; });
     this.swatches = LIGHT_COLOURS.map(([v, n, cs]) => {
       const b = document.createElement('button');
       b.innerHTML = `<span class="dot" style="background:${cs.length > 2 ? `conic-gradient(${cs.join(', ')}, ${cs[0]})` : `linear-gradient(135deg, ${cs.join(', ')})`}"></span>${n}`;
@@ -485,7 +486,6 @@ export class DomUI {
       for (const b of looks.children) b.classList.toggle('on', Object.entries(b._o).every(([k, v]) => app[k] === v));
       for (const b of this.styleTiles) b.classList.toggle('on', b._v === app.lightStyle);
       for (const b of this.symbolTiles) b.classList.toggle('on', b._v === app.lightSymbol);
-      $('#light-symbols').classList.toggle('dim', !['both', 'symbol'].includes(app.lightStyle));
       for (const b of this.swatches) b.classList.toggle('on', b._v === app.lightColour);
       $('#light-max').value = app.lightMax; $('#light-max-v').textContent = `${Math.round(app.lightMax * 100)}%`;
       $('#light-dim').value = app.lightDim; $('#light-dim-v').textContent = app.lightDim ? `${Math.round(app.lightDim * 100)}%` : 'off';

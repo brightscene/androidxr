@@ -10,6 +10,7 @@ import { MyAffirmations } from './audio/myAffirmations.js';
 import { bandName } from './audio/entrainment.js';
 import { decodeStrobe, flashRateAt } from './audio/strobe.js';
 import { StrobeLayer, SYMBOLS } from './visuals/strobe.js';
+import { migrateLights } from './ui/lightThumbs.js';
 import { U, damp, SFX, INPUT } from './visuals/common.js';
 import { World } from './visuals/world.js';
 import { SCENES } from './visuals/scenes/index.js';
@@ -63,7 +64,7 @@ class App {
     // light (AudioStrobe / SpectraStrobe) settings
     this.strobeAccepted = p.strobeAccepted ?? false;
     this.lights = this.strobeAccepted ? p.lights ?? true : false;
-    this.lightStyle = p.lightStyle || 'both';
+    [this.lightStyle, this.lightSymbol] = migrateLights(p.lightStyle, p.lightSymbol);
     // v2 defaults: vivid colours, symbols side by side, dimmed background
     const v2 = p.v >= 2;
     this.lightColour = v2 ? p.lightColour || 'vivid' : 'vivid';
@@ -73,7 +74,6 @@ class App {
     this.lightMode = p.lightMode || 'exact';
     // v3: lights pulse with the tones by default, so switching lights on always shows them
     this.lightsGenerated = p.v >= 3 ? p.lightsGenerated ?? true : true;
-    this.lightSymbol = p.lightSymbol ?? -1;
     // the sound mixer: a level for each layer, and on/off for music, voice and scene sounds
     // (tones, solfeggio and nature switch with their own settings; their kind is remembered)
     this.mixLevels = { music: 1, tones: 1, sol: 1, nature: 1, voice: 1, scene: 1, ...(p.mixLevels || {}) };
@@ -873,7 +873,7 @@ class App {
     if (!target) { this.lightRates = null; this.strobe.update(dt, t, null, null, {}); return; }
     const k = this.lightMode === 'soft' ? 1 - Math.exp(-dt * 7) : 1;
     for (let s = 0; s < 2; s++) for (let c = 0; c < 3; c++) this.rgb[s][c] += (target[s][c] - this.rgb[s][c]) * k;
-    this.strobe.update(dt, t, this.rgb[0], this.rgb[1], { style: this.lightStyle, max: this.lightMax, layout: this.lightLayout, dim: this.lightDim });
+    this.strobe.update(dt, t, this.rgb[0], this.rgb[1], { style: this.lightStyle, symbol: this.lightSymbol, max: this.lightMax, layout: this.lightLayout, dim: this.lightDim });
   }
 
   // A slow, head-locked dimming of the whole view (used as you fall asleep).

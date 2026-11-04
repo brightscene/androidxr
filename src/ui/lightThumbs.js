@@ -12,17 +12,28 @@ export const LIGHT_COLOURS = [
   ['violet', 'Violet', ['#8a4aff', '#4ae08a']],
   ['rainbow', 'Rainbow', ['#ff4a4a', '#ffd24a', '#4ae08a', '#4a9aff', '#c84aff']],
 ];
-export const LIGHT_STYLES = [
-  ['both', 'Symbols'], ['field', 'Glow'], ['wide', 'Wide'], ['orb', 'Orb'], ['ring', 'Ring'],
-  ['crystal', 'Crystal'], ['leds', 'LEDs'], ['pandora', 'Panel'], ['symbol', 'Symbol only'], ['chrome', 'Chrome'],
+// what's behind the symbol
+export const LIGHT_STYLES = [['field', 'Glow'], ['none', 'None'], ['wide', 'Wide']];
+// the symbol itself: the six sacred symbols, then the solid shapes
+export const LIGHT_SYMBOLS = [
+  [0, 'Flower Life'], [1, 'Sri Yantra'], [2, 'Lotus'], [3, 'Merkaba'], [4, 'Ripples'], [5, 'Seed Life'],
+  [6, 'Glowing orb', 'orb'], [7, 'Chrome ball', 'chrome'], [8, 'Neon ring', 'ring'], [9, 'Crystal', 'crystal'],
 ];
 export const LIGHT_LOOKS = [
-  ['Gentle glow', ['#ffb84a', '#ff8ad0'], { lightStyle: 'field', lightColour: 'palette', lightMode: 'soft', lightMax: 0.4, lightDim: 0.3 }],
-  ['Sacred symbols', ['#a46aff', '#5ed6d0'], { lightStyle: 'both', lightColour: 'vivid', lightMode: 'exact', lightMax: 0.6, lightDim: 0.5, lightSymbol: -1 }],
-  ['Glowing orb', ['#ff6a9a', '#ffd27a'], { lightStyle: 'orb', lightColour: 'vivid', lightMode: 'exact', lightMax: 0.7, lightDim: 0.5 }],
-  ['LED starfield', ['#4a9aff', '#c8a8ff'], { lightStyle: 'leds', lightColour: 'vivid', lightMode: 'exact', lightMax: 0.6, lightDim: 0.7 }],
-  ['Wide wash', ['#2ec4b6', '#a493ff'], { lightStyle: 'wide', lightColour: 'violet', lightMode: 'soft', lightMax: 0.5, lightDim: 0.3 }],
+  ['Gentle glow', ['#ffb84a', '#ff8ad0'], { lightStyle: 'field', lightSymbol: 2, lightColour: 'palette', lightMode: 'soft', lightMax: 0.4, lightDim: 0.3 }],
+  ['Sacred', ['#a46aff', '#5ed6d0'], { lightStyle: 'field', lightSymbol: 0, lightColour: 'vivid', lightMode: 'exact', lightMax: 0.6, lightDim: 0.5 }],
+  ['Glowing orb', ['#ff6a9a', '#ffd27a'], { lightStyle: 'none', lightSymbol: 6, lightColour: 'vivid', lightMode: 'exact', lightMax: 0.7, lightDim: 0.5 }],
+  ['Chrome ball', ['#9aa4b8', '#4a9aff'], { lightStyle: 'field', lightSymbol: 7, lightColour: 'vivid', lightMode: 'exact', lightMax: 0.6, lightDim: 0.6 }],
+  ['Wide wash', ['#2ec4b6', '#a493ff'], { lightStyle: 'wide', lightSymbol: 4, lightColour: 'violet', lightMode: 'soft', lightMax: 0.5, lightDim: 0.3 }],
 ];
+
+// old saved settings (from when shapes were styles) to the new ones
+export function migrateLights(style, symbol) {
+  const shape = { orb: 6, chrome: 7, ring: 8, crystal: 9 }[style];
+  if (shape != null) return ['field', shape];
+  const st = { both: 'field', field: 'field', wide: 'wide', symbol: 'none', none: 'none' }[style] || 'field';
+  return [st, Number.isInteger(symbol) && symbol >= 0 && symbol <= 9 ? symbol : 0];
+}
 
 export const gradient = (c, x0, y0, x1, y1, cols) => {
   const g = c.createLinearGradient(x0, y0, x1, y1);
@@ -35,7 +46,8 @@ export function drawStyle(c, kind, x, y, s, cols = ['#ff4ad0', '#2ee0ff']) {
   const cx = x + s / 2, cy = y + s / 2, r = s * 0.36;
   c.save();
   const glow = (gx, gy, gr, col) => { const g = c.createRadialGradient(gx, gy, 0, gx, gy, gr); g.addColorStop(0, col); g.addColorStop(1, 'rgba(0,0,0,0)'); c.fillStyle = g; c.beginPath(); c.arc(gx, gy, gr, 0, Math.PI * 2); c.fill(); };
-  if (kind === 'field') { glow(cx - r * 0.45, cy, r * 1.1, cols[0]); glow(cx + r * 0.45, cy, r * 1.1, cols[1]); }
+  if (kind === 'none') { c.strokeStyle = 'rgba(255,255,255,0.35)'; c.lineWidth = s * 0.025; c.setLineDash([s * 0.06, s * 0.05]); c.beginPath(); c.arc(cx, cy, r * 0.8, 0, Math.PI * 2); c.stroke(); c.setLineDash([]); c.beginPath(); c.moveTo(cx - r * 0.55, cy + r * 0.55); c.lineTo(cx + r * 0.55, cy - r * 0.55); c.stroke(); }
+  else if (kind === 'field') { glow(cx - r * 0.45, cy, r * 1.1, cols[0]); glow(cx + r * 0.45, cy, r * 1.1, cols[1]); }
   else if (kind === 'wide') {
     for (const [i, col] of [[0, cols[0]], [1, cols[1]]]) { const g = c.createLinearGradient(x, cy - r * 0.6, x, cy + r * 0.6); g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(0.5, col); g.addColorStop(1, 'rgba(0,0,0,0)'); c.fillStyle = g; c.fillRect(i ? cx : x + s * 0.06, cy - r * 0.6, s * 0.44, r * 1.2); }
   } else if (kind === 'orb') { glow(cx, cy, r * 1.25, cols[0]); c.fillStyle = '#fff'; c.beginPath(); c.arc(cx, cy, r * 0.45, 0, Math.PI * 2); c.fill(); }
@@ -48,13 +60,6 @@ export function drawStyle(c, kind, x, y, s, cols = ['#ff4ad0', '#2ee0ff']) {
   } else if (kind === 'chrome') {
     const g = c.createRadialGradient(cx - r * 0.35, cy - r * 0.35, r * 0.1, cx, cy, r); g.addColorStop(0, '#ffffff'); g.addColorStop(0.5, '#9aa4b8'); g.addColorStop(0.8, cols[1]); g.addColorStop(1, '#2a2e3a');
     c.fillStyle = g; c.beginPath(); c.arc(cx, cy, r * 0.85, 0, Math.PI * 2); c.fill();
-  } else if (kind === 'leds' || kind === 'pandora') {
-    const n = kind === 'leds' ? 9 : 7;
-    for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) {
-      const px = x + s * (0.12 + 0.76 * (i / (n - 1))), py = y + s * (0.12 + 0.76 * (j / (n - 1)));
-      if (kind === 'leds' && Math.hypot(px - cx, py - cy) > r * 1.15) continue;
-      c.fillStyle = (i + j) % 2 ? cols[0] : cols[1]; c.beginPath(); c.arc(px, py, s * (kind === 'leds' ? 0.025 : 0.03), 0, Math.PI * 2); c.fill();
-    }
   } else {   // symbols: a flower of life
     if (kind === 'both') glow(cx, cy, r * 1.3, cols[0] + '77');
     c.strokeStyle = kind === 'both' ? '#fff' : cols[1]; c.lineWidth = s * 0.02;
@@ -71,7 +76,7 @@ export function renderSymbolThumbs(renderer, strobe, count, size = 192) {
   if (renderer.xr.isPresenting || !strobe.meshes?.[0]) return null;
   const mat = strobe.meshes[0].material.clone();
   const u = mat.uniforms;
-  u.uStyle.value = 0; u.uBright.value = 1; u.uMax.value = 1; u.uMix.value = 0;
+  u.uStyle.value = 0; if (u.uGlow) u.uGlow.value = 0; u.uBright.value = 1; u.uMax.value = 1; u.uMix.value = 0;
   u.uCol.value = new THREE.Color(0.75, 0.6, 1.0);
   mat.blending = THREE.NormalBlending;
   const scene = new THREE.Scene();

@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { LIGHT_COLOURS, LIGHT_STYLES, LIGHT_LOOKS, drawStyle, gradient } from './lightThumbs.js';
+import { LIGHT_COLOURS, LIGHT_STYLES, LIGHT_SYMBOLS, LIGHT_LOOKS, drawStyle, gradient } from './lightThumbs.js';
 import { SYMBOLS } from '../visuals/strobe.js';
 import { BACKGROUNDS, SCENES } from '../visuals/scenes/index.js';
 import SCENE_PALETTES from './scenePalettes.json';
@@ -827,7 +827,7 @@ export class XRMenu {
 
     // styles and symbols: pictures
     const tiles = (yy, items, draw, isOn, onSel) => {
-      const w = XW / items.length - 0.008;
+      const w = Math.min(XW / items.length, XW / 7) - 0.008;
       items.forEach(([v, n], i) => this._btn(ess, new Button(w, TH - 0.008, (c, W, H, b) => {
         const on = isOn(v);
         roundRect(c, 3, 3, W - 6, H - 6, 18);
@@ -842,15 +842,15 @@ export class XRMenu {
     };
     const colsNow = () => { const cs = LIGHT_COLOURS.find(([v]) => v === app.lightColour)?.[2] || ['#ff4ad0', '#2ee0ff']; return [cs[0], cs[cs.length - 1]]; };
     y -= (RH + TH) / 2;
-    card(ess, y, 'Style', 'how the lights look', 'shapes', ['#7a5aff', '#d08aff']);
+    card(ess, y, 'Background', 'behind the symbol', 'shapes', ['#7a5aff', '#d08aff']);
     tiles(y, LIGHT_STYLES, (c, v, x, yy, s) => drawStyle(c, v, x, yy, s, colsNow()), (v) => app.lightStyle === v, (v) => app.setLightOpt('lightStyle', v));
     y -= TH;
-    card(ess, y, 'Symbol', 'for the Symbols styles', 'flower', ['#3a8a8a', '#5ed6d0']);
-    tiles(y, [[-1, 'Cycle all'], ...SYMBOLS.map((n, i) => [i, n.replace(' of ', ' ')])], (c, v, x, yy, s) => {
+    card(ess, y, 'Symbol', 'what the light shows', 'flower', ['#3a8a8a', '#5ed6d0']);
+    tiles(y, LIGHT_SYMBOLS, (c, v, x, yy, s) => {
+      const shape = LIGHT_SYMBOLS[v][2];
+      if (shape) return drawStyle(c, shape, x, yy, s, colsNow());
       const T = app.symbolThumbs;
-      if (!T) return;
-      if (v < 0) T.slice(0, 4).forEach((t, k) => c.drawImage(t, x + (k % 2) * s / 2, yy + Math.floor(k / 2) * s / 2, s / 2, s / 2));
-      else c.drawImage(T[v], x, yy, s, s);
+      if (T?.[v]) c.drawImage(T[v], x, yy, s, s);
     }, (v) => app.lightSymbol === v, (v) => app.setLightOpt('lightSymbol', v));
 
     // more options, in the same space
