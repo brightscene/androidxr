@@ -261,6 +261,9 @@ html, body { overscroll-behavior: none; }
 #menu { left: 0 !important; right: 0 !important; margin-left: auto !important; margin-right: auto !important; transform: none !important; }
 @keyframes sheetUp { from { translate: 0 40px; opacity: 0; } to { translate: 0 0; opacity: 1; } }
 #mix-pop { left: 0; right: 0; margin: 0 auto; transform: none; }
+#lights-pop { position: fixed; left: 0; right: 0; margin: 0 auto; bottom: 120px; width: min(720px, calc(100vw - 24px)); max-height: calc(100vh - 160px); overflow: auto; z-index: 30;
+  background: var(--glass); backdrop-filter: blur(22px); -webkit-backdrop-filter: blur(22px); border: 1px solid var(--line); border-radius: 22px; padding: 16px 18px; box-shadow: 0 20px 60px rgba(0,0,0,0.5); }
+#lights-pop #lights-panel { background: none; border: 0; padding: 0; margin: 0; }
 html, body { overflow-x: hidden; }
 
 .lighthead { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; margin-bottom: 12px; }

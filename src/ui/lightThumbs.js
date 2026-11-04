@@ -17,21 +17,22 @@ export const LIGHT_STYLES = [['field', 'Glow'], ['none', 'None'], ['wide', 'Wide
 // the symbol itself: the six sacred symbols, then the solid shapes
 export const LIGHT_SYMBOLS = [
   [0, 'Flower Life'], [1, 'Sri Yantra'], [2, 'Lotus'], [3, 'Merkaba'], [4, 'Ripples'], [5, 'Seed Life'],
-  [6, 'Glowing orb', 'orb'], [7, 'Chrome ball', 'chrome'], [8, 'Neon ring', 'ring'], [9, 'Crystal', 'crystal'],
+  [6, 'Glowing orb', 'orb'], [8, 'Neon ring', 'ring'], [9, 'Crystal', 'crystal'],
 ];
 export const LIGHT_LOOKS = [
   ['Gentle glow', ['#ffb84a', '#ff8ad0'], { lightStyle: 'field', lightSymbol: 2, lightColour: 'palette', lightMode: 'soft', lightMax: 1, lightDim: 0.3 }],
   ['Sacred', ['#a46aff', '#5ed6d0'], { lightStyle: 'field', lightSymbol: 0, lightColour: 'vivid', lightMode: 'exact', lightMax: 1, lightDim: 0.5 }],
   ['Glowing orb', ['#ff6a9a', '#ffd27a'], { lightStyle: 'none', lightSymbol: 6, lightColour: 'vivid', lightMode: 'exact', lightMax: 1, lightDim: 0.5 }],
-  ['Chrome ball', ['#9aa4b8', '#4a9aff'], { lightStyle: 'field', lightSymbol: 7, lightColour: 'vivid', lightMode: 'exact', lightMax: 1, lightDim: 0.6 }],
+  ['Neon ring', ['#2ee0ff', '#ff4ad0'], { lightStyle: 'field', lightSymbol: 8, lightColour: 'vivid', lightMode: 'exact', lightMax: 1, lightDim: 0.6 }],
   ['Wide wash', ['#2ec4b6', '#a493ff'], { lightStyle: 'wide', lightSymbol: 4, lightColour: 'violet', lightMode: 'soft', lightMax: 1, lightDim: 0.3 }],
 ];
 
 // old saved settings (from when shapes were styles) to the new ones
 export function migrateLights(style, symbol) {
-  const shape = { orb: 6, chrome: 7, ring: 8, crystal: 9 }[style];
+  const shape = { orb: 6, chrome: 6, ring: 8, crystal: 9 }[style];
   if (shape != null) return ['field', shape];
   const st = { both: 'field', field: 'field', wide: 'wide', symbol: 'none', none: 'none' }[style] || 'field';
+  if (symbol === 7) symbol = 6;   // the chrome ball is gone: the glowing orb instead
   return [st, Number.isInteger(symbol) && symbol >= 0 && symbol <= 9 ? symbol : 0];
 }
 

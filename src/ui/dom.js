@@ -246,8 +246,19 @@ export class DomUI {
     this._buildMixer('#mixer', '#mix-presets');
 
     this._buildMixer('#mixer-2', '#mix-presets-2');
-    on('#show-mix', 'click', () => this.$('#mix-pop').classList.toggle('hidden'));
+    on('#show-mix', 'click', () => { this._lightsPop(false); this.$('#mix-pop').classList.toggle('hidden'); });
     on('#mix-close', 'click', () => this.$('#mix-pop').classList.add('hidden'));
+    // the Lights tab's own panel, borrowed into a popover over the session bar while it's open
+    const lightsSpot = document.createComment('lights-panel');
+    this.$('#lights-panel')?.before(lightsSpot);
+    this._lightsPop = (open) => {
+      const pop = this.$('#lights-pop'), panel = this.$('#lights-panel');
+      if (!pop || !panel) return;
+      if (open) { this.$('#mix-pop').classList.add('hidden'); pop.append(panel); pop.classList.remove('hidden'); this.refresh(); }
+      else { if (panel.previousSibling !== lightsSpot) lightsSpot.after(panel); pop.classList.add('hidden'); }
+    };
+    on('#show-lights', 'click', () => this._lightsPop(this.$('#lights-pop').classList.contains('hidden')));
+    on('#lights-close', 'click', () => this._lightsPop(false));
     on('#dives', 'change', (e) => app.setDives(e.target.value));
     for (const b of document.querySelectorAll('#unlock .buy')) b.addEventListener('click', () => { this.$('#ul-msg').textContent = 'Payments are coming soon. Thank you for your interest!'; });
     on('#ul-close', 'click', () => this.$('#unlock').classList.add('hidden'));
@@ -328,7 +339,7 @@ export class DomUI {
     on('#enter-vr', 'click', () => this._enter('immersive-vr'));
     on('#enter-ar', 'click', () => this._enter('immersive-ar'));
     on('#end', 'click', () => app.stop());
-    on('#show-menu', 'click', () => { this.menu.classList.remove('hidden'); this.menu.scrollLeft = 0; try { window.scrollTo(0, window.scrollY); } catch {} });
+    on('#show-menu', 'click', () => { this._lightsPop?.(false); this.$('#mix-pop').classList.add('hidden'); this.menu.classList.remove('hidden'); this.menu.scrollLeft = 0; try { window.scrollTo(0, window.scrollY); } catch {} });
     on('#close-menu', 'click', () => this.menu.classList.add('hidden'));
     on('#file', 'change', async (e) => {
       const f = e.target.files[0];
@@ -460,7 +471,7 @@ export class DomUI {
     this.styleTiles = LIGHT_STYLES.map(([v, n]) => { const b = tile($('#light-styles'), n, (c) => drawStyle(c, v, 0, 0, 128, ['#ff4ad0', '#2ee0ff']), () => app.setLightOpt('lightStyle', v)); b._v = v; return b; });
     const thumbs = app.symbolThumbs;
     const symDraw = (i) => (c) => {
-      const shape = LIGHT_SYMBOLS[i][2];
+      const shape = LIGHT_SYMBOLS.find(([k]) => k === i)[2];
       if (shape) drawStyle(c, shape, 0, 0, 128, ['#ff4ad0', '#2ee0ff']);
       else {
         if (app.lightStyle !== 'none') { const col = cols()[0], g = c.createRadialGradient(64, 64, 0, 64, 64, 64); g.addColorStop(0, col + 'aa'); g.addColorStop(1, col + '00'); c.fillStyle = g; c.fillRect(0, 0, 128, 128); }
@@ -544,6 +555,7 @@ export class DomUI {
     toNative({ type: 'session', state: 'end', completed: !!completed, remote: !!this.app._remoteStop });
     this._resetView();
     this.$('#mix-pop')?.classList.add('hidden');
+    this._lightsPop?.(false);
     if (!this.app.renderer.xr.isPresenting) this.app.recentre(true);   // the view behind the menu, level again
     if (!this.app._remoteStop) this._tvSend({ type: 'stop' });
     this.app._remoteStop = false;

@@ -847,7 +847,7 @@ export class XRMenu {
     y -= TH;
     card(ess, y, 'Symbol', 'what the light shows', 'flower', ['#3a8a8a', '#5ed6d0']);
     tiles(y, LIGHT_SYMBOLS, (c, v, x, yy, s) => {
-      const shape = LIGHT_SYMBOLS[v][2];
+      const shape = LIGHT_SYMBOLS.find(([k]) => k === v)[2];
       if (shape) return drawStyle(c, shape, x, yy, s, colsNow());
       const T = app.symbolThumbs;
       if (app.lightStyle !== 'none') { const col = colsNow()[0], g = c.createRadialGradient(x + s / 2, yy + s / 2, 0, x + s / 2, yy + s / 2, s * 0.5); g.addColorStop(0, col + 'aa'); g.addColorStop(1, col + '00'); c.fillStyle = g; c.fillRect(x, yy, s, s); }
