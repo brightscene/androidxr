@@ -125,7 +125,8 @@ const CRYSTAL_FRAG = /* glsl */ `
   }`;
 
 const DIST = 2.6; // metres in front of you
-const SEP = 0.9; // half the distance between the left and right symbol centres
+const WASH_W = 0.9 * 2 + 0.6; // the wide glow's span (fixed)
+const SEP = WASH_W / 2 * 0.92; // half the distance between the symbol centres: the middle of each side of the wide glow
 
 export class StrobeLayer {
   constructor(camera) {
@@ -319,7 +320,7 @@ export class StrobeLayer {
       m.material.uniforms.uB.value = peak * opts.max;
       m.material.uniforms.uCol.value.setRGB(rgb[0] / peak, rgb[1] / peak, rgb[2] / peak);
       m.layers.set(perEye ? side + 1 : 0);
-      const W = SEP * 2 + 0.6;
+      const W = WASH_W;
       m.position.set((side ? 1 : -1) * W / 2 * 0.92 + (centred ? eyeX(side) : 0), 0, -DIST - 0.01);
       m.scale.set(W * 0.96, 3.4 * 0.92, 1);
     });
