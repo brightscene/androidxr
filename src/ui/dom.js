@@ -183,10 +183,16 @@ export class DomUI {
     });
     if (app.imported) { app.imported.free = true; section('Your track', [app.imported]); }
     // previews load as they scroll into view
-    const io = new IntersectionObserver((es) => {
-      for (const e of es) if (e.isIntersecting) { e.target.style.backgroundImage = `url(previews/${e.target.dataset.scene}.jpg)`; io.unobserve(e.target); }
-    }, { root: this.menu, rootMargin: '200px' });
-    for (const pv of root.querySelectorAll('.pv')) io.observe(pv);
+    // (watched against the whole window: on iPad the page, not the menu, can be what scrolls, and a
+    // menu-rooted watcher missed the cards that were already on screen when the list was built)
+    const load = (el) => { if (!el._pv) { el._pv = true; el.style.backgroundImage = `url(previews/${el.dataset.scene}.jpg)`; io.unobserve(el); } };
+    const io = new IntersectionObserver((es) => { for (const e of es) if (e.isIntersecting) load(e.target); }, { rootMargin: '300px' });
+    const pvs = [...root.querySelectorAll('.pv')];
+    for (const pv of pvs) io.observe(pv);
+    // and then the rest, quietly, a few at a time, so none is ever left blank
+    let k = 0;
+    const trickle = () => { while (k < pvs.length && pvs[k]._pv) k++; if (k < pvs.length) { load(pvs[k]); setTimeout(trickle, 250); } };
+    setTimeout(trickle, 2500);
   }
 
   // scenes: category chips, then colour cards
