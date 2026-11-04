@@ -7,7 +7,7 @@ import { TRACE_AFFIRMATIONS, traceId } from '../../audio/affirmations.js';
 import FONT from './scriptfont.json';
 
 // Reiki: a faint outline of a Usui Reiki symbol hangs in the air in front of
-// you. Trace it with your hand (point at it, or touch it with a fingertip if
+// you (the Usui symbols, then Tibetan and Karuna ones). Trace it with your hand (point at it, or touch it with a fingertip if
 // your hands are tracked) and it fills with golden aura light, stroke by
 // stroke, in the traditional order. When it's complete you're thanked, it
 // glows and fades, and the next symbol appears. The number traced this
@@ -46,6 +46,27 @@ const KO = [[[0, 0.92], [0, 0.55]], [[-0.45, 0.82], [-0.28, 0.58]], [[0.45, 0.82
 const MYO = [[[-0.72, 0.45], [-0.72, -0.5]], [[-0.72, 0.45], [-0.3, 0.45], [-0.3, -0.5]], [[-0.72, 0.0], [-0.3, 0.0]], [[-0.72, -0.45], [-0.3, -0.45]],
   curve([[-0.02, 0.85], [-0.02, -0.2], [-0.12, -0.6], [-0.25, -0.88]]), [[-0.02, 0.85], [0.62, 0.85], [0.62, -0.82], [0.45, -0.7]], [[-0.02, 0.32], [0.62, 0.32]], [[-0.02, -0.2], [0.62, -0.2]]];
 
+// Hon Sha Ze Sho Nen: five kanji stacked into one column
+const HON = [[[-0.8, 0.45], [0.8, 0.45]], [[0, 0.9], [0, -0.9]], curve([[0, 0.35], [-0.35, -0.15], [-0.8, -0.5]]), curve([[0, 0.35], [0.35, -0.15], [0.8, -0.5]]), [[-0.35, -0.45], [0.35, -0.45]]];
+const SHA = [[[-0.5, 0.62], [0.5, 0.62]], [[0, 0.92], [0, 0.32]], [[-0.8, 0.32], [0.8, 0.32]], curve([[0.6, 0.78], [0.1, 0.1], [-0.7, -0.25]]),
+  [[-0.35, -0.12], [-0.35, -0.9]], [[-0.35, -0.12], [0.42, -0.12], [0.42, -0.9]], [[-0.35, -0.5], [0.42, -0.5]], [[-0.35, -0.88], [0.42, -0.88]]];
+const ZE = [[[-0.4, 0.92], [-0.4, 0.32]], [[-0.4, 0.92], [0.4, 0.92], [0.4, 0.32]], [[-0.4, 0.62], [0.4, 0.62]], [[-0.4, 0.34], [0.4, 0.34]],
+  [[-0.82, 0.1], [0.82, 0.1]], [[0.05, 0.1], [0.05, -0.55]], [[0.05, -0.25], [0.5, -0.25]], curve([[-0.32, -0.05], [-0.45, -0.5], [-0.8, -0.85]]), curve([[-0.25, -0.5], [0.15, -0.8], [0.85, -0.85]])];
+const SHO = [[[-0.7, 0.8], [0.7, 0.8]], [[0, 0.8], [0, -0.8]], [[0, 0.05], [0.5, 0.05]], [[-0.45, 0.3], [-0.45, -0.8]], [[-0.85, -0.8], [0.85, -0.8]]];
+const NEN = [curve([[0, 0.95], [-0.4, 0.62], [-0.85, 0.38]]), curve([[0, 0.95], [0.4, 0.62], [0.85, 0.38]]), [[-0.3, 0.42], [0.3, 0.42]], [[-0.38, 0.2], [0.38, 0.2], [0.05, -0.1]],
+  [[-0.75, -0.42], [-0.82, -0.7]], curve([[-0.45, -0.3], [-0.38, -0.85], [0.4, -0.86], [0.52, -0.66]]), [[-0.02, -0.3], [0.1, -0.48]], [[0.6, -0.36], [0.76, -0.56]]];
+// the Fire Serpent: a line across the crown, then down the spine through the chakras, coiling at the base
+const SERPENT = (() => {
+  const pts = [[-0.55, 0.86], [0.25, 0.86]];
+  const waves = curve([[0.25, 0.86], [0.42, 0.68], [-0.3, 0.5], [0.32, 0.3], [-0.3, 0.1], [0.3, -0.1], [-0.25, -0.28], [0.0, -0.42]], 14);
+  return [[...pts, ...waves.slice(1), ...spiral(0, -0.64, 0.22, 0.03, 2.6, Math.PI / 2, false).slice(1)]];
+})();
+// Zonar: a Z, then the infinity sign drawn through its base, round and round
+const ZONAR = [
+  [[-0.5, 0.82], [0.5, 0.82], [-0.5, 0.05], [0.5, 0.05]],
+  Array.from({ length: 2 * 96 + 1 }, (_, i) => { const a = (i / 96) * Math.PI * 2; const d = 1 + Math.sin(a) ** 2; return [0.68 * Math.cos(a) / d, -0.48 + 0.7 * Math.sin(a) * Math.cos(a) / d]; }),
+];
+
 const SYMBOLS = [
   {
     name: 'Cho Ku Rei', meaning: 'power',
@@ -64,8 +85,20 @@ const SYMBOLS = [
     ],
   },
   {
+    name: 'Hon Sha Ze Sho Nen', meaning: 'distance',
+    strokes: [HON, SHA, ZE, SHO, NEN].flatMap((ch, i) => slot(ch, i, 5)).map((st) => st.map(([x, y]) => [x * 1.6, y])),   // wider: five characters in one column
+  },
+  {
     name: 'Dai Ko Myo', meaning: 'great bright light',
     strokes: [...slot(DAI, 0, 3), ...slot(KO, 1, 3), ...slot(MYO, 2, 3)],
+  },
+  {
+    name: 'Fire Serpent', meaning: 'awakening',
+    strokes: SERPENT,
+  },
+  {
+    name: 'Zonar', meaning: 'healing the past',
+    strokes: ZONAR,
   },
   {
     name: 'Raku', meaning: 'grounding and completion',
@@ -188,13 +221,45 @@ const REACH = 0.75;                                   // how far in front of you
 const REIKI = {
   deck: () => SYMBOLS.map((sym) => ({ title: `${sym.name} · ${sym.meaning}`, strokes: sym.strokes.map((st) => st.map(([x, y]) => [x * SIZE, y * SIZE])) })),
   hint: 'Trace the faint outline with your hand',
-  score: (n) => `Symbols traced this session: ${n}`,
+  score: (n) => `Traced ${n} symbol${n === 1 ? '' : 's'}`,
   done(scene) {
     scene.thanks.userData.set('Thank you');
     const k = Math.floor(Math.random() * REIKI_THANKS.length);
     if (scene.fade > 0.5) setTimeout(() => SFX.say(`reiki-thanks-${k + 1}`, 0), 500);
   },
 };
+
+// a small rounded callout in soft aura gold, for the running count
+function badgePlane(w, h) {
+  const cv = document.createElement('canvas');
+  cv.width = 512; cv.height = Math.round(512 * h / w);
+  const tex = new THREE.CanvasTexture(cv);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ map: tex, transparent: true, opacity: 0, depthWrite: false, depthTest: false }));
+  m.renderOrder = 21;
+  let cur = null;
+  m.userData.set = (text) => {
+    if (text === cur) return;
+    cur = text;
+    const c = cv.getContext('2d'), W = cv.width, H = cv.height, r = H * 0.5, pad = 6;
+    c.clearRect(0, 0, W, H);
+    if (!text) { tex.needsUpdate = true; return; }
+    c.beginPath(); c.roundRect(pad, pad, W - pad * 2, H - pad * 2, r - pad);
+    const g = c.createLinearGradient(0, 0, W, 0);
+    g.addColorStop(0, 'rgba(190,140,255,0.32)'); g.addColorStop(1, 'rgba(255,196,110,0.32)');
+    c.fillStyle = g; c.fill();
+    c.shadowColor = 'rgba(255,210,150,0.9)'; c.shadowBlur = 10;
+    c.lineWidth = 3; c.strokeStyle = 'rgba(255,224,170,0.85)'; c.stroke();
+    let size = H * 0.46;
+    const font = (z) => `400 ${z}px "Jost", "Inter", "Roboto", system-ui, sans-serif`;
+    c.font = font(size);
+    while (c.measureText(text).width > W * 0.84) { size -= 2; c.font = font(size); }
+    c.textAlign = 'center'; c.textBaseline = 'middle'; c.shadowBlur = 8; c.fillStyle = '#fff6e4';
+    c.fillText(text, W / 2, H / 2 + 1);
+    tex.needsUpdate = true;
+  };
+  return m;
+}
 
 export class ReikiScene extends BaseScene {
   constructor(opts = REIKI) {
@@ -250,7 +315,8 @@ export class ReikiScene extends BaseScene {
     this.holder.add(this.start);
     this.title = textPlane(U, 0.9, 0.11); this.title.position.set(0, SIZE + 0.1, 0); this.holder.add(this.title);
     this.thanks = textPlane(U, 0.75, 0.13); this.thanks.position.set(0, SIZE + 0.1, 0.01); this.holder.add(this.thanks);
-    this.score = textPlane(U, 0.9, 0.08); this.score.position.set(0, -SIZE - 0.08, 0); this.holder.add(this.score);
+    this.score = textPlane(U, 0.9, 0.08); this.score.position.set(0, -SIZE - 0.08, 0); this.holder.add(this.score);   // the hint, before anything is traced
+    this.badge = badgePlane(0.2, 0.042); this.badge.position.set(0, -SIZE - 0.075, 0.005); this.holder.add(this.badge);   // then a small count
     this.sparks = particles(U, { count: 300, min: [-SIZE, -SIZE, -0.05], max: [SIZE, SIZE, 0.05], vel: [0, 0.04, 0], sway: 0.08, size: [0.003, 0.009], colors: ['#ffe2a0', '#fff5d8'], alpha: 1 });
     this.sparks.userData.u.uAlpha.value = 0;
     this.holder.add(this.sparks);
@@ -291,7 +357,8 @@ export class ReikiScene extends BaseScene {
     this.prog = { s: item.skip || 0, i: 0 };
     this.state = { phase: 'in', t: 0 };
     this.title.userData.set(item.title);
-    this.score.userData.set(this.count ? this.opts.score(this.count) : this.opts.hint);
+    this.score.userData.set(this.count ? '' : this.opts.hint);
+    this.badge.userData.set(this.count ? this.opts.score(this.count) : '');
     this.thanks.userData.set('');
   }
 
@@ -365,7 +432,8 @@ export class ReikiScene extends BaseScene {
         if (P.s >= this.paths.length) {
           st.phase = 'done'; st.t = 0;
           this.count++;
-          this.score.userData.set(this.opts.score(this.count));
+          this.score.userData.set('');
+          this.badge.userData.set(this.opts.score(this.count));
           if (this.opts.doneSound) this.opts.doneSound(this);
           else this._sfx('chime', { gain: 0.6, dur: 5, note: 1, pan: 0 });
           this.opts.done(this);
@@ -392,6 +460,7 @@ export class ReikiScene extends BaseScene {
     m.uShow.value = show;
     this.title.material.uniforms.uA.value = show * 0.75 * (st.phase === 'done' ? Math.max(0, 1 - st.t / 0.5) : 1);
     this.score.material.uniforms.uA.value = show * 0.55;
+    this.badge.material.opacity = Math.min(1, show) * 0.9 * this.fade;
     this.thanks.material.uniforms.uA.value = st.phase === 'done' ? Math.min(1, st.t / 0.6) * show : 0;
   }
 }
@@ -413,7 +482,7 @@ const AFFIRM = {
   },
   strokeSound: (scene) => droneShimmer(scene, [4, 6], 0.05, 2.2),        // a quiet shimmer of high harmonics
   doneSound: (scene) => droneShimmer(scene, [1.25, 1.5, 2, 2.5, 3], 0.07, 5.5),   // the drone blooms into a soft chord
-  score: (n) => `Affirmations traced this session: ${n}`,
+  score: (n) => `Traced ${n} affirmation${n === 1 ? '' : 's'}`,
   done(scene) {
     scene.thanks.userData.set(scene.item.text);   // the finished affirmation glows above as it's spoken
     if (scene.fade > 0.5) setTimeout(() => SFX.say(scene.item.say, 0, scene.item.text), 400);

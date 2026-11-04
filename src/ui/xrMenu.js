@@ -789,16 +789,19 @@ export class XRMenu {
     for (const [ci, ctl] of this.controllers.entries()) {
       const u = ctl.userData;
       if (!u.connected) continue;
-      const showRay = this.visible || this.orb.mesh.visible || (!!this.app.active?.wantsPointer && !hide?.has(ci));
+      const quiet = !this.visible && !this.orb.mesh.visible && !!hide?.has(ci);   // over something you play: just a small marker at the hand
+      const showRay = this.visible || this.orb.mesh.visible || !!this.app.active?.wantsPointer;
       this.raycaster.setFromXRController(ctl);
       const hits = this._hits();
       u.ray.visible = showRay && u.mode !== 'gaze' && u.mode !== 'transient-pointer';
+      u.ray.userData.beam.visible = !quiet;
+      u.ray.userData.emitter.scale.setScalar(quiet ? 0.7 : 1);
       const len = hits.length ? hits[0].distance : 1.6;
       u.ray.userData.beam.scale.z = len;
       if (hits.length) hovered.add(hits[0].object.userData.button);
       // the glowing tip sits where the beam ends (on a button, or at full length)
       u.dot.position.copy(this.raycaster.ray.origin).addScaledVector(this.raycaster.ray.direction, len);
-      u.dot.visible = u.ray.visible;
+      u.dot.visible = u.ray.visible && !quiet;
       u.dot.scale.setScalar(hits.length ? 1.25 : 1);
     }
     for (const b of [...this.buttons, ...this.warnButtons]) if (b.onSelect) b.setHover(hovered.has(b));
@@ -835,6 +838,7 @@ function makeSaber() {
   // the emitter stays unscaled on the holder; only the beam stretches to length
   holder.userData.beam = g;
   holder.add(ring);
+  holder.userData.emitter = ring;
   return holder;
 }
 function makeTip() {
