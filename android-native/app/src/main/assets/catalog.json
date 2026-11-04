@@ -125,6 +125,36 @@
   ],
   "premium": [
    {
+    "id": "j-cycle",
+    "title": "Image cycling",
+    "intent": "Time-line images of your best future, faster and faster",
+    "scene": "cycle",
+    "palette": [
+     "#0a0a1a",
+     "#6a3aa8",
+     "#ffd6a0"
+    ],
+    "free": false,
+    "kind": "Soundscape · 741 Hz",
+    "freq": 741,
+    "audio": null
+   },
+   {
+    "id": "j-affirm",
+    "title": "Affirmation field",
+    "intent": "Words of affirmation lift off a field of light",
+    "scene": "affirm",
+    "palette": [
+     "#06061a",
+     "#3a5aa8",
+     "#ffe0b0"
+    ],
+    "free": false,
+    "kind": "Soundscape · 528 Hz",
+    "freq": 528,
+    "audio": null
+   },
+   {
     "id": "oceamniotic",
     "title": "Oceamniotic",
     "intent": "AudioStrobe light & sound",
@@ -275,24 +305,39 @@
     "audio": null
    },
    {
-    "id": "j-cycle",
-    "title": "Image cycling",
-    "intent": "Time-line images of your best future, faster and faster",
-    "scene": "cycle",
+    "id": "j-mindflash",
+    "title": "Clear mind",
+    "intent": "Rotating, ever-changing light to settle a busy mind · eyes closed",
+    "scene": "mindflash",
     "palette": [
-     "#0a0a1a",
-     "#6a3aa8",
-     "#ffd6a0"
+     "#02100c",
+     "#1a8a5a",
+     "#5aa8ff"
     ],
     "free": false,
-    "kind": "Soundscape · 741 Hz",
-    "freq": 741,
+    "kind": "Soundscape · 963 Hz",
+    "freq": 963,
+    "audio": null
+   },
+   {
+    "id": "j-waterfall",
+    "title": "Waterfall",
+    "intent": "A tall waterfall in a mossy gorge, its roar all around you",
+    "scene": "waterfall",
+    "palette": [
+     "#04140e",
+     "#2a7a5a",
+     "#d8f4ec"
+    ],
+    "free": false,
+    "kind": "Soundscape · 285 Hz",
+    "freq": 285,
     "audio": null
    },
    {
     "id": "j-northernlights",
     "title": "Northern lights",
-    "intent": "Beneath the aurora on a still Icelandic lake",
+    "intent": "Beneath the aurora in an Icelandic valley",
     "scene": "northernlights",
     "palette": [
      "#020a10",
@@ -302,96 +347,6 @@
     "free": false,
     "kind": "Soundscape · 396 Hz",
     "freq": 396,
-    "audio": null
-   },
-   {
-    "id": "j-metalchimes",
-    "title": "Metal wind chimes",
-    "intent": "Sweep your hand through tuned silver chimes at dusk",
-    "scene": "metalchimes",
-    "palette": [
-     "#0a1030",
-     "#6a7ab0",
-     "#ffd0d0"
-    ],
-    "free": false,
-    "kind": "Soundscape · 639 Hz",
-    "freq": 639,
-    "audio": null
-   },
-   {
-    "id": "j-woodchimes",
-    "title": "Wooden wind chimes",
-    "intent": "Bamboo chimes knocking softly in a golden grove",
-    "scene": "woodchimes",
-    "palette": [
-     "#1a1006",
-     "#a8742a",
-     "#ffe0a0"
-    ],
-    "free": false,
-    "kind": "Soundscape · 174 Hz",
-    "freq": 174,
-    "audio": null
-   },
-   {
-    "id": "j-tibetanbowls",
-    "title": "Tibetan singing bowls",
-    "intent": "Circle the rim of each bowl with the mallet to make it sing",
-    "scene": "tibetanbowls",
-    "palette": [
-     "#140904",
-     "#8a4a1a",
-     "#ffc27a"
-    ],
-    "free": false,
-    "kind": "Soundscape · 963 Hz",
-    "freq": 963,
-    "audio": null
-   },
-   {
-    "id": "j-crystalbowls",
-    "title": "Crystal singing bowls",
-    "intent": "Play a chakra set of glowing quartz bowls",
-    "scene": "crystalbowls",
-    "palette": [
-     "#05061a",
-     "#4a4aa8",
-     "#e8ecff"
-    ],
-    "free": false,
-    "kind": "Soundscape · 963 Hz",
-    "freq": 963,
-    "audio": null
-   },
-   {
-    "id": "j-affirmtrace",
-    "title": "Trace your affirmations",
-    "intent": "Trace short affirmations with your finger, then hear them spoken",
-    "scene": "affirmtrace",
-    "palette": [
-     "#120a1f",
-     "#b07d2b",
-     "#ffe8a8"
-    ],
-    "free": false,
-    "kind": "Soundscape · 528 Hz",
-    "freq": 528,
-    "audio": null
-   },
-   {
-    "id": "j-affirm",
-    "title": "Affirmation field",
-    "intent": "Words of affirmation lift off a field of light",
-    "scene": "affirm",
-    "palette": [
-     "#06061a",
-     "#3a5aa8",
-     "#ffe0b0"
-    ],
-    "free": false,
-    "kind": "Soundscape · 528 Hz",
-    "freq": 528,
     "audio": null
    },
    {
@@ -407,21 +362,6 @@
     "free": false,
     "kind": "Soundscape · 174 Hz",
     "freq": 174,
-    "audio": null
-   },
-   {
-    "id": "reiki",
-    "title": "Reiki",
-    "intent": "Healing hands · trace the symbols",
-    "scene": "reiki",
-    "palette": [
-     "#0d0818",
-     "#7a4fd0",
-     "#f3c77a"
-    ],
-    "free": false,
-    "kind": "Soundscape · 528 Hz",
-    "freq": 528,
     "audio": null
    },
    {
@@ -558,6 +498,111 @@
     "kind": "Soundscape · 963 Hz",
     "freq": 963,
     "audio": null
+   },
+   {
+    "id": "j-monks",
+    "title": "Tibetan monks",
+    "intent": "A deep chant in a candlelit hall · touch the rings to bring out its overtones",
+    "scene": "monks",
+    "palette": [
+     "#1a0604",
+     "#8a2a14",
+     "#ffb060"
+    ],
+    "free": false,
+    "kind": "Soundscape · 963 Hz",
+    "freq": 963,
+    "audio": null
+   },
+   {
+    "id": "j-tibetanbowls",
+    "title": "Tibetan singing bowls",
+    "intent": "Circle the rim of each bowl with the mallet to make it sing",
+    "scene": "tibetanbowls",
+    "palette": [
+     "#140904",
+     "#8a4a1a",
+     "#ffc27a"
+    ],
+    "free": false,
+    "kind": "Soundscape · 963 Hz",
+    "freq": 963,
+    "audio": null
+   },
+   {
+    "id": "j-crystalbowls",
+    "title": "Crystal singing bowls",
+    "intent": "Play a chakra set of glowing quartz bowls",
+    "scene": "crystalbowls",
+    "palette": [
+     "#05061a",
+     "#4a4aa8",
+     "#e8ecff"
+    ],
+    "free": false,
+    "kind": "Soundscape · 963 Hz",
+    "freq": 963,
+    "audio": null
+   },
+   {
+    "id": "j-metalchimes",
+    "title": "Metal wind chimes",
+    "intent": "Sweep your hand through tuned silver chimes at dusk",
+    "scene": "metalchimes",
+    "palette": [
+     "#0a1030",
+     "#6a7ab0",
+     "#ffd0d0"
+    ],
+    "free": false,
+    "kind": "Soundscape · 639 Hz",
+    "freq": 639,
+    "audio": null
+   },
+   {
+    "id": "j-woodchimes",
+    "title": "Wooden wind chimes",
+    "intent": "Bamboo chimes knocking softly in a golden grove",
+    "scene": "woodchimes",
+    "palette": [
+     "#1a1006",
+     "#a8742a",
+     "#ffe0a0"
+    ],
+    "free": false,
+    "kind": "Soundscape · 174 Hz",
+    "freq": 174,
+    "audio": null
+   },
+   {
+    "id": "j-affirmtrace",
+    "title": "Trace your affirmations",
+    "intent": "Trace short affirmations with your finger, then hear them spoken",
+    "scene": "affirmtrace",
+    "palette": [
+     "#120a1f",
+     "#b07d2b",
+     "#ffe8a8"
+    ],
+    "free": false,
+    "kind": "Soundscape · 528 Hz",
+    "freq": 528,
+    "audio": null
+   },
+   {
+    "id": "reiki",
+    "title": "Reiki",
+    "intent": "Healing hands · trace the symbols",
+    "scene": "reiki",
+    "palette": [
+     "#0d0818",
+     "#7a4fd0",
+     "#f3c77a"
+    ],
+    "free": false,
+    "kind": "Soundscape · 528 Hz",
+    "freq": 528,
+    "audio": null
    }
   ]
  },
@@ -620,6 +665,16 @@
     "#03071e",
     "#4895ef",
     "#e0fbfc"
+   ]
+  },
+  {
+   "id": "waterfall",
+   "label": "Waterfall",
+   "group": "Nature",
+   "palette": [
+    "#0a0a1a",
+    "#3a3a7a",
+    "#c0c8ff"
    ]
   },
   {

@@ -14,6 +14,9 @@ import { LabyrinthScene } from './labyrinth.js';
 import { ReikiScene, AffirmationTraceScene } from './reiki.js';
 import { SingingBowlsScene, CrystalBowlsScene } from './bowls.js';
 import { WindChimesScene, WoodenChimesScene } from './chimes.js';
+import { WaterfallScene } from './waterfall.js';
+import { MindFlashScene } from './mindflash.js';
+import { MonksScene } from './monks.js';
 import { StarGateScene, WormholeScene } from './stargate.js';
 import { MurmurationScene, FireplaceScene, CampfireScene } from './cozy.js';
 import { QuantumScene } from './quantum.js';
@@ -47,6 +50,9 @@ export const SCENES = {
   nebula: { type: NebulaScene, label: 'Nebula drift', group: 'Space', cruise: 1.5, nebula: 0, world: 'bare' },
   ribbons: { type: LightRibbonsScene, label: 'Light ribbons', group: 'Space', cruise: 0.2, nebula: 0.7, world: 'full' },
   aurora: { type: AuroraScene, label: 'Aurora', group: 'Space', cruise: 0.3, nebula: 0.5, world: 'full' },
+  monks: { type: MonksScene, label: 'Tibetan monks', group: 'Mind', premium: true, cruise: 0, nebula: 0, world: 'off' },
+  mindflash: { type: MindFlashScene, label: 'Clear mind', group: 'Light journeys', premium: true, cruise: 0, nebula: 0, world: 'off' },
+  waterfall: { type: WaterfallScene, label: 'Waterfall', group: 'Nature', cruise: 0, nebula: 0, world: 'off' },
   northernlights: { type: NorthernLightsScene, label: 'Northern lights', group: 'Sky & water', cruise: 0, nebula: 0, world: 'off' },
 
   affirm: { type: AffirmationScene, label: 'Affirmation field', group: 'Dimensions', premium: true, cruise: 2.2, nebula: 0.75, world: 'full' },

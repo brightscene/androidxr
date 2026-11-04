@@ -273,6 +273,60 @@ export class StrobeLayer {
   }
 
   // Layer 1/2 are seen only by the left/right eye in a headset.
+  // ---- light frames: four fields of light, the inner and outer half of each eye's view
+  // (as in light-machine glasses with two LEDs per eye). q = [left outer, left inner,
+  // right inner, right outer] brightness 0..1; colL / colR are each eye's colour.
+  _buildFrames() {
+    const mat = (mode) => new THREE.ShaderMaterial({
+      transparent: true, depthTest: false, depthWrite: false, blending: THREE.AdditiveBlending,
+      uniforms: { uQ: { value: new THREE.Vector4() }, uColL: { value: new THREE.Color() }, uColR: { value: new THREE.Color() }, uMax: { value: 0.6 }, uMode: { value: mode } },
+      vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
+      fragmentShader: /* glsl */ `uniform vec4 uQ; uniform vec3 uColL, uColR; uniform float uMax, uMode; varying vec2 vUv;
+        void main(){
+          float x = vUv.x, v = smoothstep(0.0, 0.22, vUv.y) * smoothstep(1.0, 0.78, vUv.y);
+          vec3 c;
+          if (uMode < 0.5) {            // the left eye's view: outer half on the left, inner on the right
+            float b = mix(uQ.x, uQ.y, smoothstep(0.42, 0.58, x));
+            c = uColL * b * smoothstep(0.0, 0.18, x) * smoothstep(1.0, 0.82, x);
+          } else if (uMode < 1.5) {     // the right eye's view: inner on the left, outer on the right
+            float b = mix(uQ.z, uQ.w, smoothstep(0.42, 0.58, x));
+            c = uColR * b * smoothstep(0.0, 0.18, x) * smoothstep(1.0, 0.82, x);
+          } else {                      // on a screen: four soft bands across the view
+            float k = x * 4.0;
+            float b0 = uQ.x * (1.0 - smoothstep(0.75, 1.25, k));
+            float b1 = uQ.y * smoothstep(0.75, 1.25, k) * (1.0 - smoothstep(1.75, 2.25, k));
+            float b2 = uQ.z * smoothstep(1.75, 2.25, k) * (1.0 - smoothstep(2.75, 3.25, k));
+            float b3 = uQ.w * smoothstep(2.75, 3.25, k);
+            c = uColL * (b0 + b1) + uColR * (b2 + b3);
+          }
+          gl_FragColor = vec4(c * v * uMax * 1.6, 1.0);
+        }`,
+    });
+    this.frames = [0, 1, 2].map((mode) => {
+      const m = new THREE.Mesh(new THREE.PlaneGeometry(mode < 2 ? 3.2 : 4.4, 3.2), mat(mode));
+      m.position.z = -1.2;
+      m.renderOrder = 952;
+      m.frustumCulled = false;
+      m.visible = false;
+      m.layers.set(mode < 2 ? mode + 1 : 0);
+      this.camera.add(m);
+      return m;
+    });
+  }
+
+  updateFrames(q, colL, colR, max) {
+    if (!this.frames) this._buildFrames();
+    const show = !!q;
+    this.frames.forEach((m, mode) => {
+      m.visible = show && (mode < 2 ? !!this.xr : !this.xr);
+      if (!m.visible) return;
+      const u = m.material.uniforms;
+      u.uQ.value.set(q[0], q[1], q[2], q[3]);
+      u.uColL.value.copy(colL); u.uColR.value.copy(colR);
+      u.uMax.value = max;
+    });
+  }
+
   setXR(on) {
     if (on) { this.camera.layers.disable(1); this.camera.layers.disable(2); }
     else { this.camera.layers.enable(1); this.camera.layers.enable(2); }

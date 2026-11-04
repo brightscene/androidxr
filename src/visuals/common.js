@@ -121,6 +121,7 @@ export class BaseScene {
     this.fade = 0;
   }
   setFade(f) { this.fade = f; this.uniforms.uFade.value = f; }
+  silence() {}   // scenes with their own sound stop it here when another journey takes over
   onEvent(_e) {}
   onCue(_name) {}
   update(_dt, _t, _s) {}

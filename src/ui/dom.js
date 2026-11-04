@@ -102,6 +102,9 @@ export class DomUI {
       const u = document.createElement('button'); u.className = 'ghost small'; u.textContent = 'Unlock Premium';
       u.addEventListener('click', () => this.showUnlock()); h.append(u); this._unlockBtn = u;
     });
+    section('Premium Interactive', app.journeys.interactive, (h) => {
+      const pr = document.createElement('span'); pr.className = 'price'; pr.textContent = 'Play with your hands'; h.append(pr);
+    });
     if (app.imported) { app.imported.free = true; section('Your track', [app.imported]); }
     // previews load as they scroll into view
     const io = new IntersectionObserver((es) => {

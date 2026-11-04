@@ -425,6 +425,7 @@ const AFFIRM = {
 const DRONE_F = 264;
 function writingDrone(scene) {
   if (scene.drone) return scene.drone;
+  if (scene.muted) return null;
   const A = SFX.audio();
   if (!A || scene.fade < 0.05) return null;
   const { ctx } = A;
@@ -471,5 +472,6 @@ function stopDrone(scene) {
 export class AffirmationTraceScene extends ReikiScene {
   constructor() { super(AFFIRM); }
   setFade(f) { super.setFade(f); if (f < 0.01) stopDrone(this); }
+  silence() { stopDrone(this); this.muted = true; }
   dispose() { stopDrone(this); super.dispose(); }
 }

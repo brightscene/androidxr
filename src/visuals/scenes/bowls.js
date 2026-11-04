@@ -271,6 +271,7 @@ export class SingingBowlsScene extends BaseScene {
   // ---- sound: each bowl's partials, two slightly detuned oscillators each so they beat
   _sound(b) {
     if (b.nodes) return b.nodes;
+    if (this.muted) return null;
     const A = SFX.audio();
     if (!A) return null;
     const { ctx } = A;
@@ -431,6 +432,7 @@ export class SingingBowlsScene extends BaseScene {
     return [{ id: 'demo', origin: world.clone().add(new THREE.Vector3(0, 0.3, 0)), dir: new THREE.Vector3(0, -1, 0), tip: world }];
   }
 
+  silence() { for (const b of this.bowls) this._silence(b); this.muted = true; }
   setFade(f) {
     super.setFade(f);
     if (f < 0.01) for (const b of this.bowls || []) this._silence(b);

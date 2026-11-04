@@ -146,7 +146,7 @@ export class WindChimesScene extends BaseScene {
 
   // ---- sound: one ring of a chime
   _ring(c, strength) {
-    if (this.fade < 0.12 || this.voices > 28) return;
+    if (this.muted || this.fade < 0.12 || this.voices > 28) return;
     const A = SFX.audio();
     if (!A) return;
     const { ctx } = A, t = ctx.currentTime + 0.005;
@@ -293,6 +293,8 @@ export class WindChimesScene extends BaseScene {
     return [{ id: 'demo', origin: world, dir: new THREE.Vector3(0, 0, -1), tip: world }];
   }
 }
+
+WindChimesScene.prototype.silence = function () { this.muted = true; };
 
 export class WoodenChimesScene extends WindChimesScene {
   constructor() { super('wood'); }

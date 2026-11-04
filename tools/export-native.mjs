@@ -20,7 +20,7 @@ const one = (t) => ({
   id: t.id, title: t.title, intent: t.intent, scene: t.scene, palette: t.palette, free: !!t.free, kind: kind(t),
   freq: t.freq || 0, audio: t.stream ? SITE + t.stream : null,
 });
-const out = { site: SITE, journeys: { free: J.free.map(one), premium: J.premium.map(one) }, scenes };
+const out = { site: SITE, journeys: { free: J.free.map(one), premium: [...J.premium, ...J.interactive].map(one) }, scenes };
 const dir = new URL('../android-native/app/src/main/assets/', import.meta.url);
 fs.mkdirSync(dir, { recursive: true });
 fs.writeFileSync(new URL('catalog.json', dir), JSON.stringify(out, null, 1));

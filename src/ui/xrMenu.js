@@ -312,6 +312,10 @@ export class XRMenu {
         c.textAlign = 'left'; c.fillStyle = '#fff';
         c.font = `600 ${Math.round(hh * 0.55)}px ${FONT}`;
         c.fillText(label, 10, hh * 0.7);
+        if (label === 'Premium Interactive') {
+          c.font = `400 ${Math.round(hh * 0.4)}px ${FONT}`; c.fillStyle = 'rgba(255,255,255,0.7)';
+          c.fillText('Play with your hands', 520, hh * 0.68);
+        }
         if (label === 'Premium') {
           c.font = `400 ${Math.round(hh * 0.4)}px ${FONT}`; c.fillStyle = 'rgba(255,255,255,0.7)';
           c.fillText(app.premium ? 'Unlocked · thank you' : `${PRICES.month}  ·  ${PRICES.year}`, 280, hh * 0.68);
@@ -360,6 +364,7 @@ export class XRMenu {
     };
     head('Free'); cards(J.free);
     head('Premium'); cards(J.premium);
+    head('Premium Interactive'); cards(J.interactive);
     this.jHeight = J_TOP - y;
     // a slim scroll bar on the right edge
     this.jBar = new THREE.Mesh(new THREE.PlaneGeometry(0.008, 1), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.35, depthTest: false, depthWrite: false }));

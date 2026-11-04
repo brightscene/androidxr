@@ -235,7 +235,7 @@ class App {
     this.world.voyage.cruise = feel.cruise;
     this.world.setNebula(feel.nebula);
     if (this.active && this.active.name === name) return;
-    if (this.active) this.outgoing.push(this.active);
+    if (this.active) { this.active.silence?.(); this.outgoing.push(this.active); }
     // switching quickly: only the most recent scene fades out, older ones are freed at once
     while (this.outgoing.length > 1) this.outgoing.shift().dispose();
     const s = new feel.type();
@@ -313,14 +313,28 @@ class App {
 
   async start(track) {
     this.voice.unlock();
+    const token = (this._startToken = {});   // a newer start replaces this one
     if (track.stream && !track.meta) await track.loading;
     if (track.stream && !track.meta) { this.ui.toast('Could not load that track. Check your connection.'); return; }
     // a light track: make sure the viewer sees the safety warning and lights come on
-    if (track.strobe && !this.strobeAccepted) this.setLights(true);
+    if ((track.strobe || track.mindflash) && !this.strobeAccepted) this.setLights(true);
     await this.engine.init();
     this.engine.setVolume(this.volume);
-    this._stopGuide();
-    if (this.player) this.player.stop(2.5);
+    if (this.playing && this.player) {
+      // switching journeys: let everything that's playing (music, tones, voice, the
+      // scene's own instruments) fade right out first, then bring the new one in
+      if (this.renderer.xr.isPresenting) this.menu.show(false);
+      this._stopGuide();
+      this.voice.cancel?.();
+      this.engine.fadeMaster(0, 1.6);
+      await new Promise((r) => setTimeout(r, 1750));
+      if (token !== this._startToken) return;
+      this.player.stop(0.15);
+    } else {
+      if (token !== this._startToken) return;
+      this._stopGuide();
+      if (this.player) this.player.stop(2.5);
+    }
     const guided = !!track.guided;
     const est = guided ? track.estimate + (track.tail || 30) : 0;
     const opts = {
@@ -644,9 +658,39 @@ class App {
 
   // Per-eye light colour from decoded AudioStrobe/SpectraStrobe, or (optionally)
   // pulsed at the brainwave beat rate on generated tracks.
+  // Clear mind: four fields of light (inner and outer half of each eye) flickering
+  // in turn, so the flash rotates round them, at a rate that sweeps smoothly between
+  // 9 and 22 Hz through a repeating five-second cycle. The rotation reverses every
+  // 30 seconds. Green to the left eye, blue to the right. Eases in over 20 seconds.
+  _mindFlash(dt) {
+    const el = this.player.elapsed(this.engine.heardTime);
+    const CYCLE = 5.12;
+    const u = (el % CYCLE) / CYCLE, TAU = Math.PI * 2;
+    const shape = 0.55 * Math.sin(TAU * u) + 0.3 * Math.sin(TAU * 3 * u + 1.3) + 0.15 * Math.sin(TAU * 7 * u + 0.4);   // -1..1
+    const hz = 15.5 + 6.5 * Math.max(-1, Math.min(1, shape));
+    this.mfPhase = ((this.mfPhase || 0) + TAU * hz * dt) % (TAU * 1000);
+    const dir = Math.floor(el / 30) % 2 ? -1 : 1;
+    const ease = Math.min(1, el / 20);
+    const q = [0, 1, 2, 3].map((k) => {
+      const c = Math.cos(this.mfPhase - dir * k * Math.PI / 2);
+      return Math.pow(Math.max(0, c), 3) * ease;     // a short, bright pulse, each field a quarter-cycle after the last
+    });
+    this.lightRates = [hz, hz];
+    return q;
+  }
+
   _updateLights(dt, t) {
     let target = null;
     const tr = this.playingTrack;
+    if (tr?.mindflash) {
+      const on = this.lights && this.strobeAccepted && this.playing && this.player;
+      if (!this._mfCols) this._mfCols = [new THREE.Color(0.1, 1, 0.35), new THREE.Color(0.15, 0.45, 1)];
+      this.strobe.updateFrames(on ? this._mindFlash(dt) : null, this._mfCols[0], this._mfCols[1], this.lightMax);
+      this.strobe.update(dt, t, null, null, { dim: this.lightDim });
+      if (!on) this.lightRates = null;
+      return;
+    }
+    this.strobe.updateFrames?.(null);
     if (this.lights && this.strobeAccepted && this.playing && this.player) {
       const now = this.engine.heardTime;
       const st = tr.strobe;
