@@ -239,6 +239,7 @@ class App {
     this.scene.add(s.group);
     this.active = s;
     if (!this.playing) s.onEvent({ type: 'section', index: 2, energy: 0.6, time: 0 });
+    this.recentre(true);   // every new scene starts facing straight ahead
   }
 
   // ------------------------------------------------------------ playback
@@ -334,6 +335,7 @@ class App {
     if (guided) this._startGuide(track);
     this.xrIdle = false;
     this.setScene(this.sceneFor(track));
+    this.recentre(true);   // a journey always starts facing straight ahead, even in the same scene
     this.applyPalette(track.palette);
     if (this.renderer.xr.isPresenting) this.menu.show(false);
     this.menu.refresh();
@@ -463,9 +465,16 @@ class App {
 
   // Turn the world so that "straight ahead" is wherever you're looking now,
   // and centre it on where you're standing. Floor height is unchanged.
-  recentre() {
+  // Centre the view: in the headset, straight ahead is wherever you're facing now;
+  // on a screen, the view goes back to its starting angle. Quiet when a journey or
+  // scene starts; with a whoosh and caption from the Center View button.
+  recentre(quiet = false) {
     const xr = this.renderer.xr;
-    if (!xr.isPresenting) return;
+    if (!xr.isPresenting) {
+      this.yaw = 0; this.pitch = 0.05;
+      this.camera.rotation.set(this.pitch, this.yaw, 0);
+      return;
+    }
     const ref = xr.getReferenceSpace();
     if (!ref || !ref.getOffsetReferenceSpace) return;
     const cam = xr.getCamera();
@@ -477,6 +486,7 @@ class App {
     const t = new XRRigidTransform({ x: px, y: 0, z: pz, w: 1 }, { x: 0, y: Math.sin(yaw / 2), z: 0, w: Math.cos(yaw / 2) });
     xr.setReferenceSpace(ref.getOffsetReferenceSpace(t));
     this._placeMenuIn = 2;
+    if (quiet) return;
     this.engine.sfx?.('whoosh', { pan: 0, dur: 1.2, gain: 0.5 });
     this.caption = 'View centred';
     clearTimeout(this._capT);
