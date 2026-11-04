@@ -130,7 +130,7 @@ export function textStrokes(text, maxW = 0.8, maxH = 0.34) {
   let cur = '';
   for (const w of words) { const t = cur ? `${cur} ${w}` : w; if (t.length > 13 && cur) { lines.push(cur); cur = w; } else cur = t; }
   lines.push(cur);
-  const LH = 36, out = [];
+  const LH = 36, out = [], dots = [];
   let widest = 0;
   lines.forEach((ln, li) => {
     let x = 0;
@@ -157,6 +157,7 @@ export function textStrokes(text, maxW = 0.8, maxH = 0.34) {
         const ends = Math.hypot(st[st.length - 1][0] - st[0][0], st[st.length - 1][1] - st[0][1]);
         const mark = len < 12 || (len < 26 && ends > len * 0.94);   // a dot, or a short straight bar (t, T, f crosses)
         if (chain && gap < 0.5) chain.push(...st.slice(1));
+        else if (len < 12 && ends < len * 0.6) dots.push(st);   // the dot on an i or j: lit for you, no need to trace it
         else if (mark) marks.push(st);
         else if (chain && gap < 20) chain.push(...st);   // carry the line on to the next letter (o, a, d, g start at the top)
         else chains.push(st.map((p) => [...p]));
@@ -166,11 +167,16 @@ export function textStrokes(text, maxW = 0.8, maxH = 0.34) {
     }
     x -= 14;
     for (const st of lineStrokes) for (const p of st) p[0] -= x / 2;   // centre each line
+    for (const st of dots) if (!st.centred) { for (const p of st) p[0] -= x / 2; st.centred = true; }
     widest = Math.max(widest, x);
     out.push(...lineStrokes);
   });
   const h = lines.length * LH, k = Math.min(maxW / widest, maxH / h);
-  return out.map((st) => smoothStroke(chaikin(st, 2)).map(([px, py]) => [px * k, -(py - h / 2) * k]));
+  const shape = (st) => smoothStroke(chaikin(st, 2)).map(([px, py]) => [px * k, -(py - h / 2) * k]);
+  // dots come first and start already lit, so tracing begins with the letters
+  const strokes = [...dots.map(shape), ...out.map(shape)];
+  strokes.skip = dots.length;
+  return strokes;
 }
 
 const SIZE = 0.26;                                   // half-height of a symbol (m)
@@ -282,7 +288,7 @@ export class ReikiScene extends BaseScene {
     this.lines = new THREE.Mesh(g, this.mat);
     this.lines.renderOrder = 10;
     this.holder.add(this.lines);
-    this.prog = { s: 0, i: 0 };
+    this.prog = { s: item.skip || 0, i: 0 };
     this.state = { phase: 'in', t: 0 };
     this.title.userData.set(item.title);
     this.score.userData.set(this.count ? this.opts.score(this.count) : this.opts.hint);
@@ -397,7 +403,7 @@ export class ReikiScene extends BaseScene {
 const AFFIRM = {
   deck() {
     const order = TRACE_AFFIRMATIONS.map((text, i) => ({ text, i })).sort(() => Math.random() - 0.5);
-    return order.map(({ text, i }) => ({ title: 'Trace the words', strokes: textStrokes(text), step: 0.01, look: 14, width: 0.0085, text, say: traceId(i) }));
+    return order.map(({ text, i }) => { const strokes = textStrokes(text); return { title: 'Trace the words', strokes, skip: strokes.skip, step: 0.01, look: 14, width: 0.0085, text, say: traceId(i) }; });
   },
   hint: 'Trace the words with your finger',
   // writing draws a soft 528 Hz drone out of the air; it swells as you trace and settles when you pause
