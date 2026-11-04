@@ -250,7 +250,7 @@ export class XRMenu {
       roundRect(c, 4, 4, w - 8, h - 8, (h - 8) / 2);
       c.fillStyle = b.hover ? '#fff' : 'rgba(255,255,255,0.86)'; c.fill();
       c.fillStyle = '#111'; c.font = `600 ${Math.round(h * 0.36)}px ${FONT}`; c.textAlign = 'center'; c.textBaseline = 'middle';
-      c.fillText(app.playing ? 'Resume' : !app.selected.free && !app.premium ? 'Unlock' : 'Begin', w / 2, h / 2 + 2);
+      c.fillText(!app.playing && !app.selected.free && !app.premium ? 'Unlock' : 'Begin', w / 2, h / 2 + 2);
     }, () => app.beginOrResume()), 0.33, fy);
 
     // toggle orb shown during a session

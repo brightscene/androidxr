@@ -304,7 +304,7 @@ export class DomUI {
       k.className = 'k' + (tr.free ? ' free' : locked ? ' lock' : '');
       k.textContent = locked ? `🔒 ${c._kind}` : c._kind;
     }
-    { const sel = app.selected; this.$('#begin').textContent = app.playing ? 'Resume' : !sel.free && !app.premium ? 'Unlock to begin' : `Begin: ${sel.title}`; }
+    { const sel = app.selected; this.$('#begin').textContent = !app.playing && !sel.free && !app.premium ? 'Unlock to begin' : 'Begin'; }
     if (this._price) { this._price.textContent = app.premium ? 'Unlocked · thank you' : `${PRICES.month}  ·  ${PRICES.year}`; this._unlockBtn.hidden = app.premium; }
     if (this.sceneCards) this._layoutScenes();
     for (const b of this.$('#durations').children) b.classList.toggle('on', Number(b.dataset.min) === app.minutes);

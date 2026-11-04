@@ -290,6 +290,21 @@
     "audio": null
    },
    {
+    "id": "j-northernlights",
+    "title": "Northern lights",
+    "intent": "Beneath the aurora on a still Icelandic lake",
+    "scene": "northernlights",
+    "palette": [
+     "#020a10",
+     "#1e8a6a",
+     "#ff8ad0"
+    ],
+    "free": false,
+    "kind": "Soundscape · 396 Hz",
+    "freq": 396,
+    "audio": null
+   },
+   {
     "id": "j-tibetanbowls",
     "title": "Tibetan singing bowls",
     "intent": "Circle the rim of each bowl with the mallet to make it sing",
@@ -575,6 +590,16 @@
     "#03071e",
     "#4895ef",
     "#e0fbfc"
+   ]
+  },
+  {
+   "id": "northernlights",
+   "label": "Northern lights",
+   "group": "Sky & water",
+   "palette": [
+    "#0a0a1a",
+    "#3a3a7a",
+    "#c0c8ff"
    ]
   },
   {

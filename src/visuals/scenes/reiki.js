@@ -106,6 +106,23 @@ function chaikin(pts, iters = 3) {
   }
   return p;
 }
+// densify a stroke (no gap over 1.2 font units), then soften it along its length
+function smoothStroke(st) {
+  const dense = [st[0]];
+  for (let i = 1; i < st.length; i++) {
+    const [ax, ay] = st[i - 1], [bx, by] = st[i];
+    const n = Math.max(1, Math.ceil(Math.hypot(bx - ax, by - ay) / 1.2));
+    for (let k = 1; k <= n; k++) dense.push([ax + (bx - ax) * k / n, ay + (by - ay) * k / n]);
+  }
+  let p = dense;
+  for (let pass = 0; pass < 6; pass++) {
+    const q = [p[0]];
+    for (let i = 1; i < p.length - 1; i++) q.push([(p[i - 1][0] + 2 * p[i][0] + p[i + 1][0]) / 4, (p[i - 1][1] + 2 * p[i][1] + p[i + 1][1]) / 4]);
+    q.push(p[p.length - 1]);
+    p = q;
+  }
+  return p;
+}
 const strokeLen = (st) => st.reduce((n, p, i) => (i ? n + Math.hypot(p[0] - st[i - 1][0], p[1] - st[i - 1][1]) : 0), 0);
 
 export function textStrokes(text, maxW = 0.8, maxH = 0.34) {
@@ -153,7 +170,7 @@ export function textStrokes(text, maxW = 0.8, maxH = 0.34) {
     out.push(...lineStrokes);
   });
   const h = lines.length * LH, k = Math.min(maxW / widest, maxH / h);
-  return out.map((st) => chaikin(st).map(([px, py]) => [px * k, -(py - h / 2) * k]));
+  return out.map((st) => smoothStroke(chaikin(st, 2)).map(([px, py]) => [px * k, -(py - h / 2) * k]));
 }
 
 const SIZE = 0.26;                                   // half-height of a symbol (m)
@@ -326,6 +343,7 @@ export class ReikiScene extends BaseScene {
     } else if (st.phase === 'trace') {
       const P = this.prog, path = this.paths[P.s];
       const tol = this.xr ? 0.05 : 0.035;               // how close you need to be (m): hands wobble more than a mouse
+      const before = P.i + P.s * 10000;
       for (const q of touches) {
         // move along the stroke as far as you're following it
         for (let look = 1; look <= (this.item.look || 6) && P.i + look < path.length; look++) {
@@ -333,6 +351,7 @@ export class ReikiScene extends BaseScene {
         }
         if (P.i === 0 && q.distanceTo(path[0]) < tol) P.i = 1;
       }
+      this.tracing = damp(this.tracing || 0, P.i + P.s * 10000 > before ? 1 : 0, P.i + P.s * 10000 > before ? 6 : 1.5, dt);
       if (P.i >= path.length - 1) {
         P.s++; P.i = 0;
         if (this.opts.strokeSound) this.opts.strokeSound(this, P.s);
@@ -359,6 +378,8 @@ export class ReikiScene extends BaseScene {
       show = st.t < 4.5 ? 1 : Math.max(0, 1 - (st.t - 4.5) / 1.5);
       if (st.t >= 6.5) { this.which++; this._load(this.which); show = 0; }
     }
+    if (st.phase !== 'trace') this.tracing = damp(this.tracing || 0, 0, 1.5, dt);
+    this.opts.tone?.(this, this.tracing || 0);
     const P = this.prog;
     m.uDoneS.value = P.s;
     m.uDoneI.value = P.i;
@@ -379,9 +400,13 @@ const AFFIRM = {
     return order.map(({ text, i }) => ({ title: 'Trace the words', strokes: textStrokes(text), step: 0.01, look: 14, width: 0.0085, text, say: traceId(i) }));
   },
   hint: 'Trace the words with your finger',
-  // soft breaths of air instead of chimes
-  strokeSound: (scene, n) => scene._sfx('whoosh', { gain: 0.24, dur: 2.2, note: 0.55, pan: (n % 2 ? 0.3 : -0.3) }),
-  doneSound: (scene) => scene._sfx('whoosh', { gain: 0.4, dur: 3.6, note: 0.45, pan: 0 }),
+  // writing draws a soft 528 Hz drone out of the air; it swells as you trace and settles when you pause
+  tone: (scene, act) => {
+    const D = writingDrone(scene);
+    if (D) D.out.gain.setTargetAtTime(0.13 * act * scene.fade, D.ctx.currentTime, act > 0.5 ? 0.25 : 0.7);
+  },
+  strokeSound: (scene) => droneShimmer(scene, [4, 6], 0.05, 2.2),        // a quiet shimmer of high harmonics
+  doneSound: (scene) => droneShimmer(scene, [1.25, 1.5, 2, 2.5, 3], 0.07, 5.5),   // the drone blooms into a soft chord
   score: (n) => `Affirmations traced this session: ${n}`,
   done(scene) {
     scene.thanks.userData.set(scene.item.text);   // the finished affirmation glows above as it's spoken
@@ -389,6 +414,56 @@ const AFFIRM = {
   },
 };
 
+// 528 Hz (the solfeggio "love" tone) an octave down, with its fifth and octave,
+// each a pair of slightly detuned voices that slowly beat
+const DRONE_F = 264;
+function writingDrone(scene) {
+  if (scene.drone) return scene.drone;
+  const A = SFX.audio();
+  if (!A || scene.fade < 0.05) return null;
+  const { ctx } = A;
+  const out = ctx.createGain(); out.gain.value = 0;
+  const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 1100; lp.Q.value = 0.4;
+  out.connect(lp).connect(A.out);
+  const send = ctx.createGain(); send.gain.value = 0.7;
+  lp.connect(send).connect(A.reverb);
+  const oscs = [];
+  [[1, 0.5, 'sine'], [0.5, 0.3, 'sine'], [1.5, 0.2, 'triangle'], [2, 0.12, 'sine']].forEach(([m, a, type], k) => {
+    const g = ctx.createGain(); g.gain.value = a; g.connect(out);
+    for (const d of [-0.35, 0.35]) {
+      const o = ctx.createOscillator(); o.type = type; o.frequency.value = DRONE_F * m + d * (k + 1); o.connect(g); o.start(); oscs.push(o);
+    }
+  });
+  scene.drone = { ctx, out, oscs, A, nodes: [out, lp, send] };
+  return scene.drone;
+}
+function droneShimmer(scene, ratios, gain, dur) {
+  const D = writingDrone(scene);
+  if (!D) return;
+  const { ctx } = D, t = ctx.currentTime + 0.02;
+  ratios.forEach((r, i) => {
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.type = 'sine'; o.frequency.value = DRONE_F * r;
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(gain * scene.fade / (1 + i * 0.3), t + Math.min(1.2, dur * 0.25));
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g).connect(D.A.out);
+    const send = ctx.createGain(); send.gain.value = 0.8; g.connect(send).connect(D.A.reverb);
+    o.start(t); o.stop(t + dur + 0.1);
+    setTimeout(() => { try { g.disconnect(); send.disconnect(); } catch (_) {} }, (dur + 0.4) * 1000);
+  });
+}
+function stopDrone(scene) {
+  const D = scene.drone;
+  if (!D) return;
+  D.out.gain.setTargetAtTime(0, D.ctx.currentTime, 0.1);
+  for (const o of D.oscs) { try { o.stop(D.ctx.currentTime + 0.6); } catch (_) {} }
+  setTimeout(() => D.nodes.forEach((n) => { try { n.disconnect(); } catch (_) {} }), 900);
+  scene.drone = null;
+}
+
 export class AffirmationTraceScene extends ReikiScene {
   constructor() { super(AFFIRM); }
+  setFade(f) { super.setFade(f); if (f < 0.01) stopDrone(this); }
+  dispose() { stopDrone(this); super.dispose(); }
 }

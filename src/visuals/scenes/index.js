@@ -2,7 +2,7 @@ import { BaseScene } from '../common.js';
 import { GalaxyScene } from './galaxy.js';
 import { OceanScene } from './ocean.js';
 import { OrbScene } from './orb.js';
-import { AuroraScene } from './aurora.js';
+import { AuroraScene, NorthernLightsScene } from './aurora.js';
 import { GeometryScene } from './geometry.js';
 import { MandalaScene } from './mandala.js';
 import { CymaticsScene } from './cymatics.js';
@@ -46,6 +46,7 @@ export const SCENES = {
   nebula: { type: NebulaScene, label: 'Nebula drift', group: 'Space', cruise: 1.5, nebula: 0, world: 'bare' },
   ribbons: { type: LightRibbonsScene, label: 'Light ribbons', group: 'Space', cruise: 0.2, nebula: 0.7, world: 'full' },
   aurora: { type: AuroraScene, label: 'Aurora', group: 'Space', cruise: 0.3, nebula: 0.5, world: 'full' },
+  northernlights: { type: NorthernLightsScene, label: 'Northern lights', group: 'Sky & water', cruise: 0, nebula: 0, world: 'off' },
 
   affirm: { type: AffirmationScene, label: 'Affirmation field', group: 'Dimensions', premium: true, cruise: 2.2, nebula: 0.75, world: 'full' },
   cycle: { type: ImageCycleScene, label: 'Image cycling', group: 'Dimensions', premium: true, cruise: 0.2, nebula: 0.75, world: 'full' },

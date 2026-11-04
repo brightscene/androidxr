@@ -22,7 +22,9 @@ const VOICES = {
   crystal: { partials: [[1, 1, 0.85, 0.25], [2.0, 0.05, 0.18, 0.5], [3.0, 0.025, 0.1, 0.8], [4.0, 0, 0.05, 1.1]], ring: 12, octave: 2 },
 };
 
-const TABLE_Y = -0.36;   // table top, relative to your eyes (m)
+const TABLE_Y = -0.5;    // the floor of the stand, relative to your eyes (m)
+// three tiers rising away from you: [bowls, distance, height of the tier top]
+const TIERS = [{ ids: [0, 1, 2], D: 0.56, y: -0.39, gap: 0.07 }, { ids: [3, 4], D: 0.77, y: -0.25, gap: 0.2 }, { ids: [5, 6], D: 0.97, y: -0.12, gap: 0.3 }];
 
 function bowlProfile(r, crystal) {
   const h = crystal ? 0.78 * r : 0.56 * r;
@@ -36,6 +38,7 @@ export class SingingBowlsScene extends BaseScene {
   constructor(kind = 'tibetan') {
     super();
     this.wantsPointer = true;
+    this.viewPitch = -0.3;   // on a screen, look down at the stand
     this.kind = kind;
     const crystal = kind === 'crystal';
     this.voice = VOICES[kind];
@@ -73,11 +76,11 @@ export class SingingBowlsScene extends BaseScene {
     this.group.add(this.rig);
 
     // the table
-    const table = new THREE.Mesh(new THREE.CircleGeometry(0.62, 64), new THREE.ShaderMaterial({
+    const table = new THREE.Mesh(new THREE.CircleGeometry(0.66, 64), new THREE.ShaderMaterial({
       transparent: true, depthWrite: false, uniforms: U,
       vertexShader: 'varying vec2 vP; void main(){ vP = position.xy; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
       fragmentShader: /* glsl */ `uniform float uFade, uTime; varying vec2 vP; ${NOISE}
-        void main(){ float r = length(vP) / 0.62;
+        void main(){ float r = length(vP) / 0.66;
           ${crystal
     ? `vec3 c = vec3(0.07, 0.07, 0.14) + vec3(0.35, 0.35, 0.7) * smoothstep(0.93, 1.0, r) * 0.6;
           float a = 0.85 * smoothstep(1.0, 0.97, r);`
@@ -88,23 +91,35 @@ export class SingingBowlsScene extends BaseScene {
           gl_FragColor = vec4(c, a * uFade); }`,
     }));
     table.rotation.x = -Math.PI / 2;
-    table.position.set(0, TABLE_Y, -0.74);
+    table.position.set(0, TABLE_Y, -0.78);
     table.renderOrder = -2;
     this.rig.add(table);
 
-    // the bowls: four larger in front, three smaller behind
-    const scale = crystal ? 1.08 : 1;
+    // the bowls on a three-tier stand, each on its own pedestal
+    const scale = (crystal ? 1.08 : 1) * 1.14;
     const radii = [0.1, 0.093, 0.086, 0.08, 0.074, 0.069, 0.065].map((r) => r * scale);
-    const rows = [{ ids: [0, 1, 2, 3], D: 0.64 }, { ids: [4, 5, 6], D: 0.92 }];
     this.bowls = [];
-    for (const row of rows) {
-      const widths = row.ids.map((i) => radii[i] * 2 + 0.035);
-      const total = widths.reduce((a, b) => a + b, 0);
-      let s = -total / 2;
-      row.ids.forEach((i, k) => {
-        const ang = (s + widths[k] / 2) / row.D;   // along the arc, left to right
-        s += widths[k];
-        this.bowls[i] = this._bowl(i, radii[i], crystal, new THREE.Vector3(Math.sin(ang) * row.D, TABLE_Y, -Math.cos(ang) * row.D), ang);
+    const pedMat = new THREE.ShaderMaterial({
+      transparent: crystal, depthWrite: !crystal, uniforms: this.uniforms,
+      vertexShader: 'varying vec3 vN; varying vec3 vP; void main(){ vP = position; vN = normalize(normalMatrix * normal); gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
+      fragmentShader: crystal
+        ? 'uniform float uFade; varying vec3 vN; varying vec3 vP; void main(){ float l = 0.35 + 0.65 * pow(1.0 - abs(normalize(vN).z), 2.0); gl_FragColor = vec4(vec3(0.45, 0.48, 0.8) * l * uFade, 0.55 * uFade); }'
+        : `uniform float uFade; varying vec3 vN; varying vec3 vP; ${NOISE} void main(){ float l = 0.3 + 0.7 * max(dot(normalize(vN), normalize(vec3(-0.3, 0.8, 0.5))), 0.0); float grain = 0.7 + 0.3 * fbm(vec3(vP.y * 40.0, atan(vP.z, vP.x) * 3.0, 1.0)); gl_FragColor = vec4(vec3(0.2, 0.1, 0.05) * grain * l * uFade, 1.0); }`,
+    });
+    for (const tier of TIERS) {
+      const widths = tier.ids.map((i) => radii[i] * 2 + tier.gap);
+      const total = widths.reduce((x, y) => x + y, 0);
+      let s0 = -total / 2;
+      tier.ids.forEach((i, k) => {
+        const ang = (s0 + widths[k] / 2) / tier.D;   // along the arc, left to right
+        s0 += widths[k];
+        const pos = new THREE.Vector3(Math.sin(ang) * tier.D, tier.y, -Math.cos(ang) * tier.D);
+        this.bowls[i] = this._bowl(i, radii[i], crystal, pos, ang);
+        // its pedestal, down to the floor of the stand
+        const hgt = tier.y - TABLE_Y;
+        const ped = new THREE.Mesh(new THREE.CylinderGeometry(radii[i] * 0.78, radii[i] * 0.95, hgt, 32), pedMat);
+        ped.position.set(pos.x, TABLE_Y + hgt / 2, pos.z);
+        this.rig.add(ped);
       });
     }
 
@@ -113,7 +128,7 @@ export class SingingBowlsScene extends BaseScene {
     this.rig.add(this.mallet);
 
     this.hint = textPlane(U, 0.9, 0.07);
-    this.hint.position.set(0, TABLE_Y + 0.4, -1.05);
+    this.hint.position.set(0, 0.12, -1.15);
     this.hint.userData.set('Circle a rim with the mallet to make it sing · tap to strike');
     this.rig.add(this.hint);
     this.hintA = 1;
@@ -292,24 +307,40 @@ export class SingingBowlsScene extends BaseScene {
     b.nodes = null;
   }
 
-  // where a pointer touches a bowl's rim: the bowl and the angle round it
+  // where a pointer touches a bowl's rim: the bowl and the angle round it.
+  // Fingertips: how close the tip is to the rim. Rays (pointing, the mouse): the
+  // point along the ray that passes closest to the rim, so it works from any angle,
+  // even for bowls near eye level.
   _contact(p) {
     let best = null;
     const inv = new THREE.Matrix4().copy(this.rig.matrixWorld).invert();
     const o = p.origin.clone().applyMatrix4(inv), d = p.dir.clone().transformDirection(inv);
     const tip = p.tip ? p.tip.clone().applyMatrix4(inv) : null;
+    const q = new THREE.Vector3();
     for (const b of this.bowls) {
       const rimY = b.g.position.y + b.lift + b.h;
-      let q = null;
-      if (tip && Math.abs(tip.y - rimY) < 0.06) q = tip;   // a fingertip near the rim
-      else if (Math.abs(d.y) > 1e-3) { const k = (rimY - o.y) / d.y; if (k > 0) q = o.clone().addScaledVector(d, k); }
-      if (!q) continue;
-      const dx = q.x - b.g.position.x, dz = q.z - b.g.position.z;
-      const off = Math.abs(Math.hypot(dx, dz) - b.r);
+      const cx = b.g.position.x, cz = b.g.position.z;
+      const rimDist = (v) => Math.hypot(Math.hypot(v.x - cx, v.z - cz) - b.r, v.y - rimY);
+      let at = null, off = Infinity;
+      if (tip) { off = rimDist(tip); at = tip; }
+      if (off > 0.05) {
+        // search along the ray around where it passes the bowl
+        const c = new THREE.Vector3(cx, rimY, cz);
+        const t0 = Math.max(0, c.clone().sub(o).dot(d));
+        for (let k = -12; k <= 12; k++) {
+          const t = t0 + k * 0.025;
+          if (t < 0) continue;
+          q.copy(o).addScaledVector(d, t);
+          const e = rimDist(q);
+          if (e < off) { off = e; at = q.clone(); }
+        }
+      }
+      if (!at) continue;
+      const dx = at.x - cx, dz = at.z - cz;
       const tol = p.id === 'mouse' ? 0.035 : 0.045;
       if (off < tol && (!best || off < best.off)) best = { b, angle: Math.atan2(dz, dx), off, rimY };
       // pointing into the bowl counts for a strike
-      if (!best && Math.hypot(dx, dz) < b.r) best = { b, angle: Math.atan2(dz, dx), off: 1, rimY, inside: true };
+      else if (!best && Math.hypot(dx, dz) < b.r * 0.9 && Math.abs(at.y - rimY) < b.h + 0.03) best = { b, angle: Math.atan2(dz, dx), off: 1, rimY, inside: true };
     }
     return best;
   }

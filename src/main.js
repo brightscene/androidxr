@@ -214,12 +214,12 @@ class App {
     if (instant) [U.uC0, U.uC1, U.uC2].forEach((u, i) => u.value.copy(this.palTarget[i]));
   }
 
-  // A journey uses the scene chosen on the Scene tab, unless that journey IS its
-  // scene (the free journeys, image cycling, the affirmation field, Reiki, Womb, the
-  // singing bowls): those always keep their own world.
+  // A scene picked on the Scene tab is used for the session (tapping a journey in
+  // the list sets it back to Auto). Interactive journeys keep their own world: you
+  // can't trace Reiki symbols or play singing bowls anywhere else.
   sceneFor(track) {
     const own = SCENES[track.scene];
-    return this.background === 'auto' || track.free || own?.premium || own?.own || own?.journey ? track.scene : this.background;
+    return this.background === 'auto' || own?.premium || own?.own ? track.scene : this.background;
   }
 
   setBackground(b) {
@@ -484,7 +484,7 @@ class App {
   recentre(quiet = false) {
     const xr = this.renderer.xr;
     if (!xr.isPresenting) {
-      this.yaw = 0; this.pitch = 0.05;
+      this.yaw = 0; this.pitch = this.active?.viewPitch ?? 0.05;
       this.camera.rotation.set(this.pitch, this.yaw, 0);
       return;
     }
