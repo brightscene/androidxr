@@ -31,7 +31,7 @@ export function buildJourneys() {
   // Premium Interactive: journeys you play with your hands
   const reiki = TRACKS.find((t) => t.id === 'reiki');
   const interactive = [
-    { ...base('crown'), musicOff: true, id: 'j-monks', title: 'Tibetan monks', intent: 'A deep chant in a candlelit hall · touch the rings to bring out its overtones', scene: 'monks', palette: ['#1a0604', '#8a2a14', '#ffb060'] },
+    { ...base('crown'), musicOff: true, id: 'j-monks', title: 'Tibetan monks', intent: 'A deep chant in a candlelit hall · touch the rings to lead the chant and bring out its overtones', scene: 'monks', palette: ['#1a0604', '#8a2a14', '#ffb060'] },
     { ...base('crown'), musicOff: true, id: 'j-tibetanbowls', title: 'Tibetan singing bowls', intent: 'Circle the rim of each bowl with your finger to make it sing', scene: 'tibetanbowls', palette: ['#140904', '#8a4a1a', '#ffc27a'] },
     { ...base('crown'), musicOff: true, id: 'j-crystalbowls', title: 'Crystal singing bowls', intent: 'Play a chakra set of glowing quartz bowls', scene: 'crystalbowls', palette: ['#05061a', '#4a4aa8', '#e8ecff'] },
     { ...base('connect'), musicOff: true, id: 'j-metalchimes', title: 'Metal wind chimes', intent: 'Sweep your hand through tuned silver chimes at dusk', scene: 'metalchimes', palette: ['#0a1030', '#6a7ab0', '#ffd0d0'] },

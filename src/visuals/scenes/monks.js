@@ -10,8 +10,9 @@ import { textPlane } from './imagecycle.js';
 // formants, moving through the syllables in slow, overlapping phrases.
 // Interactive: a column of glowing rings rises in front of you, one for each
 // overtone of the chant's low note. Touch a ring and that overtone sings out of
-// the choir, as real overtone singers do; slide up and down to play melodies
-// made only of the chant's own harmonics.
+// the choir, as real overtone singers do; slide along to play melodies
+// made only of the chant's own harmonics. A second, lower chain sets the note
+// the whole choir chants on, so you can lead the chant itself.
 
 const F0 = 65.41;                                   // C2: the drone
 const HARMONICS = [4, 5, 6, 7, 8, 9, 10, 11, 12];
@@ -20,6 +21,10 @@ const VOWELS = { o: [430, 780, 2600], m: [250, 600, 2200], a: [700, 1100, 2450],
 // Om · Ma · Ni · Pad · Me · Hum: [vowel, seconds]
 const PHRASE = [['o', 3.2], ['m', 1.6], ['a', 1.5], ['i', 1.4], ['a', 1.4], ['e', 1.5], ['u', 2.2], ['m', 1.8]];
 const RING_D = 0.62, RING_Y = -0.12, RING_STEP = 0.082, RING_R = 0.045;   // a chain of linked rings across in front of you
+// a second, lower chain sets the note the monks chant on (minor pentatonic around the C drone)
+const NOTES = [-5, -2, 0, 3, 5, 7, 10], HOME = 2;
+const NOTE_Y = -0.235, NOTE_STEP = 0.1, NOTE_R = 0.052;
+const NOTE_NAMES = ['G', 'B♭', 'C', 'E♭', 'F', 'G', 'B♭'];
 
 export class MonksScene extends BaseScene {
   constructor() {
@@ -135,11 +140,40 @@ export class MonksScene extends BaseScene {
       g.add(ring, glow);
       g.position.set((k - (HARMONICS.length - 1) / 2) * RING_STEP, RING_Y, -RING_D);   // low overtones on the left, high on the right
       this.rig.add(g);
-      return { n, g, ring, glow, on: 0, target: 0 };
+      return { n, g, ring, glow, on: 0, target: 0, R: RING_R };
     });
-    this.hint = textPlane(U, 0.8, 0.06);
-    this.hint.position.set(0, RING_Y - 0.1, -RING_D);
-    this.hint.userData.set('Touch a ring to bring out its overtone');
+    // the chant chain: deeper, saffron and crimson like the robes, slightly larger links
+    this.notes = NOTES.map((semi, k) => {
+      const col = new THREE.Color().setHSL(0.0 + k * 0.022, 0.9, 0.5);
+      const ring = new THREE.Mesh(new THREE.TorusGeometry(NOTE_R, 0.009, 12, 56), new THREE.ShaderMaterial({
+        transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+        uniforms: { uFade: U.uFade, uCol: { value: col }, uOn: { value: 0 }, uSel: { value: 0 } },
+        vertexShader: 'void main(){ gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
+        fragmentShader: 'uniform float uFade, uOn, uSel; uniform vec3 uCol; void main(){ gl_FragColor = vec4(uCol * (0.3 + uSel * 0.5 + uOn * 1.4) * uFade, 1.0); }',
+      }));
+      ring.rotation.y = (k % 2) * 0.5;   // alternate links turned, like a real chain
+      const glow = new THREE.Mesh(new THREE.CircleGeometry(NOTE_R * 2.4, 32), new THREE.ShaderMaterial({
+        transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+        uniforms: { uFade: U.uFade, uCol: { value: col }, uOn: { value: 0 }, uSel: { value: 0 }, uTime: U.uTime },
+        vertexShader: 'varying vec2 vP; void main(){ vP = position.xy; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
+        fragmentShader: `uniform float uFade, uOn, uSel, uTime; uniform vec3 uCol; varying vec2 vP;
+          void main(){ float r = length(vP) / ${(NOTE_R * 2.4).toFixed(4)}; float a = exp(-r * r * 6.0) * (0.04 + uSel * 0.22 + uOn * 0.5) * (0.85 + 0.15 * sin(uTime * 3.0 - r * 10.0));
+            gl_FragColor = vec4(uCol * a * uFade, 1.0); }`,
+      }));
+      const label = textPlane(U, 0.08, 0.03);
+      label.userData.set(NOTE_NAMES[k]);
+      label.position.set(0, -NOTE_R - 0.022, 0);
+      label.material.uniforms.uA.value = 0.35;
+      const g = new THREE.Group();
+      g.add(ring, glow, label);
+      g.position.set((k - (NOTES.length - 1) / 2) * NOTE_STEP, NOTE_Y, -RING_D);
+      this.rig.add(g);
+      return { semi, g, ring, glow, on: 0, target: 0, R: NOTE_R, note: true };
+    });
+    this.sel = HOME; this.root = F0; this.nod = 0;
+    this.hint = textPlane(U, 1.0, 0.06);
+    this.hint.position.set(0, NOTE_Y - 0.11, -RING_D);
+    this.hint.userData.set('Upper rings: overtones · lower rings: the note of the chant');
     this.rig.add(this.hint);
     this.hintA = 1;
     this.placeNext = true;
@@ -203,7 +237,7 @@ export class MonksScene extends BaseScene {
       const w = ctx.createOscillator(); w.type = 'sine'; w.frequency.value = F0 * n;
       const wg = ctx.createGain(); wg.gain.value = 0;
       w.connect(wg).connect(out); w.start();
-      return { g, wg, w };
+      return { g, wg, w, bp };
     });
     this.snd = { ctx, out, send, voices, sub, subG, formants, tones, nodes: [out, send, source, body, bodyG, subLp] };
     this.step = -1; this.stepT = 0; this.breath = 0;
@@ -236,36 +270,57 @@ export class MonksScene extends BaseScene {
     S.subG.gain.setTargetAtTime(vowel === 'm' ? 0.05 : 0.09, now, 0.4);
     // the pitch sags a little at the end of the phrase
     const sag = this.step === PHRASE.length - 1 ? 0.97 : 1;
-    S.voices.forEach((v, i) => v.o.frequency.setTargetAtTime(F0 * (1 + (i - 2.5) * 0.0025) * sag, now, 0.8));
+    S.voices.forEach((v, i) => v.o.frequency.setTargetAtTime(this.root * (1 + (i - 2.5) * 0.0025) * sag, now, this.gliding ? 0.25 : 0.8));
     this.stepT = dur * (0.92 + Math.random() * 0.16);
+  }
+
+  // glide the whole choir (and its overtones) to a new note
+  _retune(k) {
+    if (k === this.sel) return;
+    this.sel = k; this.root = F0 * Math.pow(2, NOTES[k] / 12); this.nod = 1;
+    const S = this.snd;
+    if (!S) return;
+    const now = S.ctx.currentTime, gl = 0.12;
+    S.voices.forEach((v, i) => { v.o.frequency.setTargetAtTime(this.root * (1 + (i - 2.5) * 0.0025), now, gl); });
+    S.sub.frequency.setTargetAtTime(this.root / 2, now, gl);
+    S.tones.forEach((T, j) => { T.bp.frequency.setTargetAtTime(this.root * HARMONICS[j], now, gl); T.w.frequency.setTargetAtTime(this.root * HARMONICS[j], now, gl); });
+    // if the choir is resting between phrases, wake it on the new note
+    if (this.breath) { this.stepT = 0; }
   }
 
   update(dt, t) {
     if (this.placeNext) this.placeNext = !this._place();
     this.rig.updateMatrixWorld(true);
     // the monks sway gently
-    for (const mk of this.monks) mk.m.rotation.z = Math.sin(t * 0.4 + mk.ph) * 0.02;
+    this.nod = Math.max(0, this.nod - dt * 1.5);
+    for (const mk of this.monks) { mk.m.rotation.z = Math.sin(t * 0.4 + mk.ph) * 0.02; mk.m.position.y = -Math.sin(this.nod * Math.PI) * 0.025; }
 
     // touching rings
-    for (const r of this.rings) r.target = 0;
+    const all = this.all ||= [...this.rings, ...this.notes];
+    for (const r of all) r.target = 0;
     const inv = new THREE.Matrix4().copy(this.rig.matrixWorld).invert();
     const pointers = this.demo ? this._demoPointers(t) : INPUT.pointers;
+    const over = this.hideRays ||= new Set();
+    over.clear();
     for (const p of pointers) {
       let best = null, bd = Infinity;
       if (p.tip) {
         const q = p.tip.clone().applyMatrix4(inv);
-        for (const r of this.rings) { const d = q.distanceTo(r.g.position); if (d < RING_R * 1.6 && d < bd) { bd = d; best = r; } }
+        for (const r of all) { const d = q.distanceTo(r.g.position); if (d < r.R * 1.6 && d < bd) { bd = d; best = r; } }
+        // hide this hand's beam while the fingertip is among the rings
+        for (const r of all) if (q.distanceTo(r.g.position) < r.R * 3) { over.add(p.id); break; }
       } else {
         const o = p.origin.clone().applyMatrix4(inv), d = p.dir.clone().transformDirection(inv);
         if (Math.abs(d.z) > 1e-3) {
           const k = (-RING_D - o.z) / d.z;
           if (k > 0) {
             const q = o.addScaledVector(d, k);
-            for (const r of this.rings) { const dd = q.distanceTo(r.g.position); if (dd < RING_R * 1.15 && dd < bd) { bd = dd; best = r; } }
+            if (Math.abs(q.y - (RING_Y + NOTE_Y) / 2) < 0.12 && Math.abs(q.x) < NOTE_STEP * NOTES.length / 2 + 0.03) over.add(p.id);   // over the chains: hide the beam
+            for (const r of all) { const dd = q.distanceTo(r.g.position); if (dd < r.R * 1.15 && dd < bd) { bd = dd; best = r; } }
           }
         }
       }
-      if (best) { best.target = 1; this.hintA = Math.min(this.hintA, 0.99); }
+      if (best) { best.target = 1; this.hintA = Math.min(this.hintA, 0.99); if (best.note) this._retune(this.notes.indexOf(best)); }
     }
 
     const S = this._choir();
@@ -279,20 +334,27 @@ export class MonksScene extends BaseScene {
         T.wg.gain.setTargetAtTime(r.target * 0.045, now, r.target ? 0.15 : 0.6);
       }
     }
-    for (const r of this.rings) {
+    for (const r of all) {
       r.on += (r.target - r.on) * (1 - Math.exp(-dt * (r.target ? 10 : 2.5)));
       r.ring.material.uniforms.uOn.value = r.on;
       r.glow.material.uniforms.uOn.value = r.on;
       r.g.scale.setScalar(1 + r.on * 0.25);
     }
+    // the chanting note stays softly lit, breathing with the choir
+    this.notes.forEach((r, k) => {
+      const s = k === this.sel ? 1 : 0;
+      r.ring.material.uniforms.uSel.value += (s - r.ring.material.uniforms.uSel.value) * (1 - Math.exp(-dt * 4));
+      r.glow.material.uniforms.uSel.value = r.ring.material.uniforms.uSel.value * (0.8 + 0.2 * Math.sin(t * 1.3));
+    });
     if (this.hintA < 1) this.hintA = Math.max(0, this.hintA - dt * 0.3);
     this.hint.material.uniforms.uA.value = 0.5 * this.hintA * Math.min(1, t * 0.3);
   }
 
   // for previews: an invisible hand drifts back and forth along the chain
   _demoPointers(t) {
-    const k = Math.floor((Math.sin(t * 0.5) * 0.5 + 0.5) * (this.rings.length - 0.01));
-    const world = this.rings[k].g.position.clone().applyMatrix4(this.rig.matrixWorld);
+    const row = Math.floor(t / 6) % 2 ? this.notes : this.rings;
+    const k = Math.floor((Math.sin(t * 0.5) * 0.5 + 0.5) * (row.length - 0.01));
+    const world = row[k].g.position.clone().applyMatrix4(this.rig.matrixWorld);
     return [{ id: 'demo', origin: world, dir: new THREE.Vector3(0, 0, -1), tip: world }];
   }
 

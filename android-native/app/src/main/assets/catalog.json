@@ -502,7 +502,7 @@
    {
     "id": "j-monks",
     "title": "Tibetan monks",
-    "intent": "A deep chant in a candlelit hall · touch the rings to bring out its overtones",
+    "intent": "A deep chant in a candlelit hall · touch the rings to lead the chant and bring out its overtones",
     "scene": "monks",
     "palette": [
      "#1a0604",

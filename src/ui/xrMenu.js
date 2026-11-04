@@ -785,10 +785,11 @@ export class XRMenu {
       this.brandHold = null;
     }
     const hovered = new Set();
-    for (const ctl of this.controllers) {
+    const hide = this.app.active?.hideRays;   // a scene can hide a beam while it's over something you play
+    for (const [ci, ctl] of this.controllers.entries()) {
       const u = ctl.userData;
       if (!u.connected) continue;
-      const showRay = this.visible || this.orb.mesh.visible || !!this.app.active?.wantsPointer;
+      const showRay = this.visible || this.orb.mesh.visible || (!!this.app.active?.wantsPointer && !hide?.has(ci));
       this.raycaster.setFromXRController(ctl);
       const hits = this._hits();
       u.ray.visible = showRay && u.mode !== 'gaze' && u.mode !== 'transient-pointer';
