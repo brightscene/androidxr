@@ -309,6 +309,9 @@ export class StrobeLayer {
   }
 
   // 0..5 the sacred symbols; 6 glowing orb, 7 chrome ball, 8 neon ring, 9 crystal
+  // in a headset the pair sits closer together (as it did before), wide glow and all, scaled as one
+  _k() { return this.xr ? 0.9 / SEP : 1; }
+
   setSymbol(i) { if (i >= 0 && i < SYMBOLS.length && i !== this.symbol) this._go(i); }
 
   _go(i) {
@@ -340,7 +343,7 @@ export class StrobeLayer {
       m.material.uniforms.uB.value = peak * opts.max;
       m.material.uniforms.uCol.value.setRGB(rgb[0] / peak, rgb[1] / peak, rgb[2] / peak);
       m.layers.set(perEye ? side + 1 : 0);
-      const W = WASH_W;
+      const W = WASH_W * this._k();
       m.position.set((side ? 1 : -1) * W / 2 * 0.92 + (centred ? eyeX(side) : 0), 0, -DIST - 0.01);
       m.scale.set(W * 0.96, 3.4 * 0.92, 1);
     });
@@ -355,7 +358,7 @@ export class StrobeLayer {
       u.uCol.value.setRGB(rgb[0] / peak, rgb[1] / peak, rgb[2] / peak);
       u.uMax.value = opts.max;
       m.layers.set(perEye ? side + 1 : 0);
-      m.position.set(centred ? eyeX(side) : side ? SEP : -SEP, 0, -DIST);
+      m.position.set(centred ? eyeX(side) : side ? SEP * this._k() : -SEP * this._k(), 0, -DIST);
       m.scale.setScalar(1.3);
       if (kind === 'crystal') m.rotation.y = t * 0.25 + side * 1.3;
     });
@@ -378,7 +381,7 @@ export class StrobeLayer {
       // per-eye: each eye sees only its own symbol, off to its own side (like LEDs in light glasses)
       m.layers.set(perEye ? side + 1 : 0);
       {
-        m.position.set(centred ? eyeX(side) : side ? SEP : -SEP, 0, -DIST);
+        m.position.set(centred ? eyeX(side) : side ? SEP * this._k() : -SEP * this._k(), 0, -DIST);
         m.scale.setScalar(solidKind ? 0.65 : 0.92);
       }
     });
