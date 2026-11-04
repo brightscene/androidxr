@@ -232,3 +232,7 @@ body.ios-app #menu { max-height: calc(100vh - 32px - env(safe-area-inset-top) - 
 #menu::before { content: ""; display: block; width: 44px; height: 5px; border-radius: 3px; background: rgba(255, 255, 255, 0.25); margin: -14px auto 12px; }
 body.ios-app #menu { max-height: min(74vh, calc(100vh - 24px)); }
 #version { margin: 16px 2px 18px; }
+
+/* taps never zoom or shift the page (iPad Safari zooms on quick double taps) */
+button, select, .scard, #menu, #session { touch-action: manipulation; }
+html, body { overscroll-behavior: none; }

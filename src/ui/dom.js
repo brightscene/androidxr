@@ -449,8 +449,20 @@ export class DomUI {
     this.refresh();
   }
 
+  // put the page straight: no leftover zoom or scroll, the menu at its top
+  _resetView() {
+    try { window.scrollTo(0, 0); document.scrollingElement && (document.scrollingElement.scrollTop = 0); } catch {}
+    this.menu.scrollTop = 0;
+    if (window.visualViewport && Math.abs(window.visualViewport.scale - 1) > 0.01) {
+      const m = document.querySelector('meta[name=viewport]');
+      if (m) { const c = m.content; m.content = c + ', minimum-scale=1'; setTimeout(() => { m.content = c; }, 50); }
+    }
+  }
+
   onStop(completed) {
     toNative({ type: 'session', state: 'end', completed: !!completed, remote: !!this.app._remoteStop });
+    this._resetView();
+    if (!this.app.renderer.xr.isPresenting) this.app.recentre(true);   // the view behind the menu, level again
     if (!this.app._remoteStop) this._tvSend({ type: 'stop' });
     this.app._remoteStop = false;
     this.session.classList.add('hidden');
