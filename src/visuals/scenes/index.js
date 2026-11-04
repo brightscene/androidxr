@@ -116,7 +116,7 @@ export const SCENES = {
   ocean: { type: OceanScene, label: 'Light ocean', group: 'Sky & water', cruise: 0.25, nebula: 0.55, world: 'full' },
 
 
-  crystal: { type: CrystalCaveScene, label: 'Crystal cave', group: 'Mind', cruise: 0, nebula: 0, world: 'bare' },
+  crystal: { hidden: true, type: CrystalCaveScene, label: 'Crystal cave', group: 'Mind', cruise: 0, nebula: 0, world: 'bare' },
   chakras: { type: ChakraScene, label: 'Chakras', group: 'Mind', cruise: 0.15, nebula: 0.6, world: 'full' },
   drums: { type: DrumJourneyScene, label: 'Drum circle', group: 'Light journeys', cruise: 0, nebula: 0, world: 'bare' },
   illusions: { type: IllusionScene, label: 'Audio illusions', group: 'Light journeys', cruise: 0, nebula: 0, world: 'bare' },

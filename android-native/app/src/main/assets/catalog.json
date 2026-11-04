@@ -1203,16 +1203,6 @@
    ]
   },
   {
-   "id": "crystal",
-   "label": "Crystal cave",
-   "group": "Mind",
-   "palette": [
-    "#05030f",
-    "#4b2a8a",
-    "#d6b8ff"
-   ]
-  },
-  {
    "id": "chakras",
    "label": "Chakras",
    "group": "Mind",
