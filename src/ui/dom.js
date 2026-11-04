@@ -63,6 +63,7 @@ export class DomUI {
     this.tab = name;
     for (const b of document.querySelectorAll('.tabs button')) b.classList.toggle('on', b.dataset.tab === name);
     for (const p of document.querySelectorAll('.pane')) p.classList.toggle('on', p.dataset.pane === name);
+    this.$('#begin').hidden = name === 'Journeys';   // journeys start with a tap; elsewhere, Begin starts the selected one
   }
 
   // a journey card: moving preview on the left, then title, what it's about and its kind
@@ -77,7 +78,7 @@ export class DomUI {
     b.innerHTML = `<span class="pv" data-scene="${escapeHtml(tr.scene)}"></span><span class="tx"><span class="t">${escapeHtml(tr.title)}</span><span class="i">${escapeHtml(tr.intent)}</span><span class="k"></span></span>`;
     b._kind = kind;
     // tapping a journey starts it (or offers Premium if it's locked)
-    b.addEventListener('click', () => { app.select(tr); app.beginOrResume(); });
+    b.addEventListener('click', () => app.playJourney(tr));
     b._track = tr;
     return b;
   }
@@ -242,6 +243,7 @@ export class DomUI {
     on('#sw-accept', 'click', () => app.acceptStrobe());
     on('#sw-cancel', 'click', () => app.declineStrobe());
     on('#volume', 'input', (e) => app.setVolume(Number(e.target.value)));
+    on('#begin', 'click', () => app.beginOrResume());
     // long-press the logo to switch Premium on or off (testing, until payments are connected)
     {
       const brand = this.$('.brand');
@@ -302,6 +304,7 @@ export class DomUI {
       k.className = 'k' + (tr.free ? ' free' : locked ? ' lock' : '');
       k.textContent = locked ? `🔒 ${c._kind}` : c._kind;
     }
+    { const sel = app.selected; this.$('#begin').textContent = app.playing ? 'Resume' : !sel.free && !app.premium ? 'Unlock to begin' : `Begin: ${sel.title}`; }
     if (this._price) { this._price.textContent = app.premium ? 'Unlocked · thank you' : `${PRICES.month}  ·  ${PRICES.year}`; this._unlockBtn.hidden = app.premium; }
     if (this.sceneCards) this._layoutScenes();
     for (const b of this.$('#durations').children) b.classList.toggle('on', Number(b.dataset.min) === app.minutes);

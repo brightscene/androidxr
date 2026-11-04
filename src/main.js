@@ -81,6 +81,8 @@ class App {
     SFX.play = (kind, opts) => { if (this.playing) this.engine.sfx(kind, opts); };
     SFX.say = (id, pan, text) => (this.playing ? this.voice.sayPanned(id, pan, text) : Promise.resolve(false));
     SFX.preload = (id) => this.voice.preload(id);
+    SFX.audio = () => (this.playing && this.engine.ctx && this.engine.master
+      ? { ctx: this.engine.ctx, out: this.engine.sfxOut(), reverb: this.engine.reverbSend, noise: this.engine.noise || this.engine.whiteNoise } : null);
     this.voice.setChoice(this.voiceChoice);
     this.voice.onVoices = () => this.ui?.refreshVoices();
     this.state = { energy: 0.35, breath: 0, low: 0, mid: 0, high: 0, level: 0 };
@@ -113,6 +115,8 @@ class App {
     this.menu.group.visible = false;
     this.scene.add(this.menu.group);
     this.menu.attachControllers(r, this.scene);
+    // pinches and trigger presses, for scenes you play (strike a singing bowl)
+    for (let i = 0; i < 2; i++) r.xr.getController(i).addEventListener('selectstart', () => { if (this.active?.wantsPointer && !this.menu.visible) INPUT.presses.push(i); });
     for (let i = 0; i < 2; i++) this.scene.add(this.renderer.xr.getHand(i));   // fingertips for tracing scenes
     // realistic hand models, shown in scenes that want your hands (the jet ski)
     const handSkin = new THREE.ShaderMaterial({
@@ -211,10 +215,11 @@ class App {
   }
 
   // A journey uses the scene chosen on the Scene tab, unless that journey IS its
-  // scene (image cycling, the affirmation field, Reiki, Womb): those always keep their own world.
+  // scene (the free journeys, image cycling, the affirmation field, Reiki, Womb, the
+  // singing bowls): those always keep their own world.
   sceneFor(track) {
     const own = SCENES[track.scene];
-    return this.background === 'auto' || own?.premium || own?.own || own?.journey ? track.scene : this.background;
+    return this.background === 'auto' || track.free || own?.premium || own?.own || own?.journey ? track.scene : this.background;
   }
 
   setBackground(b) {
@@ -252,6 +257,14 @@ class App {
     this.menu.showUnlock?.(false);
     this.menu._layoutJourneys?.();
     this._changed();
+  }
+
+  // Tapping a journey in the list: it starts in its own world (any scene picked on
+  // the Scene tab gives way to the journey; pick a scene afterwards to change it).
+  playJourney(tr) {
+    if (this.background !== 'auto') { this.background = 'auto'; this.savePrefs?.(); }
+    this.select(tr);
+    return this.beginOrResume();
   }
 
   beginOrResume() {
@@ -614,6 +627,7 @@ class App {
     if (this.active) {
       this.active.setFade(damp(this.active.fade, 1, 0.8, dt));
       this.active.update(dt, t, s);
+      INPUT.presses.length = 0;
     }
     this.outgoing = this.outgoing.filter((o) => {
       o.setFade(damp(o.fade, 0, 1.2, dt));
@@ -791,7 +805,7 @@ class App {
     const el = this.renderer.domElement;
     let down = null;
     this.yaw = 0; this.pitch = 0.05;
-    el.addEventListener('pointerdown', (e) => { down = { x: e.clientX, y: e.clientY }; el.setPointerCapture(e.pointerId); });
+    el.addEventListener('pointerdown', (e) => { down = { x: e.clientX, y: e.clientY }; el.setPointerCapture(e.pointerId); if (this.active?.wantsPointer && !this.menuVisibleFlat()) INPUT.presses.push('mouse'); });
     el.addEventListener('pointermove', (e) => {
       this.mouse = new THREE.Vector2((e.clientX / window.innerWidth) * 2 - 1, -(e.clientY / window.innerHeight) * 2 + 1);
       if (!down || e.shiftKey || this.active?.wantsPointer) return;   // interactive scenes keep the mouse for tracing

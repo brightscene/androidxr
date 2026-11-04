@@ -144,9 +144,9 @@ export class BaseScene {
 
 // Scenes trigger sounds through this hook; the app connects it to the audio
 // engine and voice. Calls are ignored until audio has started.
-export const SFX = { play() {}, say() { return Promise.resolve(false); }, preload() {} };
+export const SFX = { play() {}, say() { return Promise.resolve(false); }, preload() {}, audio() { return null; } };   // audio(): { ctx, out, reverb, noise } while a session plays
 
 // Hands and pointers for scenes you interact with, refreshed every frame by
 // the app: each has a ray (origin + direction) and, for tracked hands, the
 // index fingertip position.
-export const INPUT = { pointers: [], hands: [], head: null };   // head: { pos, fwd } of the viewer, each frame   // hands: [{ side, joints: [Vector3 x25] }]
+export const INPUT = { pointers: [], hands: [], head: null, presses: [] };   // presses: pointer ids pressed (pinch, trigger, click) this frame   // head: { pos, fwd } of the viewer, each frame   // hands: [{ side, joints: [Vector3 x25] }]

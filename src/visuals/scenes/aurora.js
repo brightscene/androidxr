@@ -12,11 +12,11 @@ export class AuroraScene extends BaseScene {
       uHot: { value: new THREE.Vector3(0, 0, -99) }, // azimuth, unused, time
     });
     const curtains = [
-      { r: 9, a0: -2.3, a1: 0.6, y: 3.2, h: 7, ph: 0 },
-      { r: 12, a0: -0.8, a1: 2.6, y: 4.0, h: 8, ph: 1.7 },
-      { r: 15, a0: 1.2, a1: 4.6, y: 4.5, h: 9, ph: 3.1 },
-      { r: 11, a0: 3.0, a1: 5.8, y: 3.6, h: 7, ph: 4.4 },
-      { r: 7, a0: -1.2, a1: 1.4, y: 5.2, h: 5, ph: 5.9 },
+      // one curtain in each part of the sky, meeting at their faded ends, so none stack up overhead
+      { r: 10, a0: -1.55, a1: 0.5, y: 3.4, h: 7.5, ph: 0 },
+      { r: 12, a0: 0.4, a1: 2.35, y: 4.0, h: 8, ph: 1.7 },
+      { r: 15, a0: 2.25, a1: 4.0, y: 4.5, h: 9, ph: 3.1 },
+      { r: 11, a0: 3.9, a1: 4.85, y: 3.6, h: 7, ph: 4.4 },
     ];
     for (const c of curtains) {
       const g = new THREE.PlaneGeometry(1, 1, 220, 1);

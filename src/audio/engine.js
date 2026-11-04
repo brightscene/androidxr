@@ -83,6 +83,12 @@ export class AudioEngine {
   // Short scene sounds, panned left/right in the head (not spatialised):
   //   'thud'  a soft, dull low thump, like something landing on a cushion
   //   'whoosh' a breathy swell of air that drifts across
+  // the bus scenes play their own instruments into (singing bowls and so on)
+  sfxOut() {
+    if (!this.sfxBus) { this.sfxBus = this.ctx.createGain(); this.sfxBus.gain.value = 0.9; this.sfxBus.connect(this.master); }
+    return this.sfxBus;
+  }
+
   sfx(kind, { pan = 0, gain = 1, decay = 0.35, dur = 1.4, note = 1, freq = 0 } = {}) {
     const opts_note = note, opts_freq = freq;
     if (!this.ctx || !this.master) return;
@@ -183,9 +189,10 @@ export class AudioEngine {
       const n = ctx.createBufferSource(), bp = ctx.createBiquadFilter(), g = ctx.createGain();
       n.buffer = this.noise || this.whiteNoise;
       bp.type = 'bandpass'; bp.Q.value = 1.6;
-      bp.frequency.setValueAtTime(260, t);
-      bp.frequency.exponentialRampToValueAtTime(1900, t + dur * 0.55);
-      bp.frequency.exponentialRampToValueAtTime(700, t + dur);
+      const fk = opts_note || 1;   // note < 1: a deeper, softer breath
+      bp.frequency.setValueAtTime(260 * fk, t);
+      bp.frequency.exponentialRampToValueAtTime(1900 * fk, t + dur * 0.55);
+      bp.frequency.exponentialRampToValueAtTime(700 * fk, t + dur);
       g.gain.setValueAtTime(0.0001, t);
       g.gain.exponentialRampToValueAtTime(0.5 * gain, t + dur * 0.5);
       g.gain.exponentialRampToValueAtTime(0.0001, t + dur);

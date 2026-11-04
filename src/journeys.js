@@ -20,6 +20,8 @@ export function buildJourneys() {
   ];
   const special = [
     { ...base('clarity'), id: 'j-cycle', title: 'Image cycling', intent: 'Time-line images of your best future, faster and faster', scene: 'cycle', palette: ['#0a0a1a', '#6a3aa8', '#ffd6a0'] },
+    { ...base('crown'), musicOff: true, id: 'j-tibetanbowls', title: 'Tibetan singing bowls', intent: 'Circle the rim of each bowl with the mallet to make it sing', scene: 'tibetanbowls', palette: ['#140904', '#8a4a1a', '#ffc27a'] },
+    { ...base('crown'), musicOff: true, id: 'j-crystalbowls', title: 'Crystal singing bowls', intent: 'Play a chakra set of glowing quartz bowls', scene: 'crystalbowls', palette: ['#05061a', '#4a4aa8', '#e8ecff'] },
     { ...base('reiki'), id: 'j-affirmtrace', title: 'Trace your affirmations', intent: 'Trace short affirmations with your finger, then hear them spoken', scene: 'affirmtrace', palette: ['#120a1f', '#b07d2b', '#ffe8a8'] },
     { ...base('bloom'), id: 'j-affirm', title: 'Affirmation field', intent: 'Words of affirmation lift off a field of light', scene: 'affirm', palette: ['#06061a', '#3a5aa8', '#ffe0b0'] },
   ];

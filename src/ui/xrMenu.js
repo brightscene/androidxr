@@ -245,6 +245,13 @@ export class XRMenu {
     this.endBtn = this._btn(this.panel, new Button(0.24, 0.09, pill('End session'), () => app.stop()), -0.12, fy);
     this.closeBtn = this._btn(this.panel, new Button(0.17, 0.09, pill('Close'), () => this.show(false)), 0.1, fy);
     this._btn(this.panel, new Button(0.28, 0.09, pill('Exit Immersive'), () => app.exitXR()), 0.6, fy);
+    // on the other tabs: start (or go back to) the selected journey and close the menu
+    this.beginBtn = this._btn(this.panel, new Button(0.22, 0.09, (c, w, h, b) => {
+      roundRect(c, 4, 4, w - 8, h - 8, (h - 8) / 2);
+      c.fillStyle = b.hover ? '#fff' : 'rgba(255,255,255,0.86)'; c.fill();
+      c.fillStyle = '#111'; c.font = `600 ${Math.round(h * 0.36)}px ${FONT}`; c.textAlign = 'center'; c.textBaseline = 'middle';
+      c.fillText(app.playing ? 'Resume' : !app.selected.free && !app.premium ? 'Unlock' : 'Begin', w / 2, h / 2 + 2);
+    }, () => app.beginOrResume()), 0.33, fy);
 
     // toggle orb shown during a session
     this.orb = new Button(0.14, 0.17, (c, w, h, b) => {
@@ -340,7 +347,7 @@ export class XRMenu {
           c.font = `500 ${Math.round(h * 0.095)}px ${FONT}`;
           c.fillStyle = tr.free ? '#7ff0c8' : locked ? '#ffd27a' : '#d8ccff';
           c.fillText(tr.free ? 'FREE' : locked ? `🔒 ${kind}` : kind, x0, h * 0.85);
-        }, () => { if (!this.jDragged) { app.select(tr); this.refresh(); app.beginOrResume(); } }), (col - 0.5) * (CW + GAP), cy);
+        }, () => { if (!this.jDragged) { app.playJourney(tr); this.refresh(); } }), (col - 0.5) * (CW + GAP), cy);
         clipMat(card.mesh.material); card.mesh.userData.clip = true;
         // the moving preview: a sheet of 100 frames, cross-faded on the GPU
         const pv = new THREE.Mesh(new THREE.PlaneGeometry(PVW, PVH), previewMaterial(tr.palette[1], this.clipPlanes));
@@ -621,6 +628,7 @@ export class XRMenu {
 
   setTab(name) {
     this.tab = name;
+    if (this.beginBtn) this.beginBtn.mesh.visible = name !== 'Journeys';
     for (const [t, g] of Object.entries(this.pages)) g.visible = t === name;
     this._layoutJourneys?.();   // start or pause the journey previews
     if (name === 'Scene' && this._layoutScenes) {

@@ -89,39 +89,71 @@ function resample(st, step) {
   return out;
 }
 
-// Words as single-line handwriting (Hershey Script Simplex), centred, in metres.
-// Pen strokes that meet are joined, so a word is usually one long flowing stroke.
-function textStrokes(text, maxW = 0.8, maxH = 0.34) {
+// Words as joined-up handwriting (Hershey Script Simplex), centred, in metres.
+// Within each word the letters are joined into one flowing stroke; dots and
+// crosses (i, j, t, x) come after the word, the way you'd write it; then every
+// stroke is smoothed into soft curves.
+function chaikin(pts, iters = 3) {
+  let p = pts;
+  for (let k = 0; k < iters; k++) {
+    const out = [p[0]];
+    for (let i = 0; i < p.length - 1; i++) {
+      const [ax, ay] = p[i], [bx, by] = p[i + 1];
+      out.push([ax * 0.75 + bx * 0.25, ay * 0.75 + by * 0.25], [ax * 0.25 + bx * 0.75, ay * 0.25 + by * 0.75]);
+    }
+    out.push(p[p.length - 1]);
+    p = out;
+  }
+  return p;
+}
+const strokeLen = (st) => st.reduce((n, p, i) => (i ? n + Math.hypot(p[0] - st[i - 1][0], p[1] - st[i - 1][1]) : 0), 0);
+
+export function textStrokes(text, maxW = 0.8, maxH = 0.34) {
   const words = text.split(' '), lines = [];
   let cur = '';
   for (const w of words) { const t = cur ? `${cur} ${w}` : w; if (t.length > 13 && cur) { lines.push(cur); cur = w; } else cur = t; }
   lines.push(cur);
-  const LH = 36, raw = [];
+  const LH = 36, out = [];
   let widest = 0;
   lines.forEach((ln, li) => {
     let x = 0;
-    const these = [];
-    for (const ch of ln) {
-      const g = FONT.chars[ch.charCodeAt(0) - FONT.first];
-      if (!g) { x += 14; continue; }
-      for (const seg of g.d.split('M').slice(1)) {
-        const pts = [...seg.matchAll(/(-?[\d.]+),(-?[\d.]+)/g)].map((m) => [+m[1] + x, +m[2] + li * LH]);
-        if (pts.length > 1) these.push(pts);
+    const lineStrokes = [];
+    for (const word of ln.split(' ')) {
+      // the word's pen strokes, in writing order
+      const raw = [];
+      for (const ch of word) {
+        const g = FONT.chars[ch.charCodeAt(0) - FONT.first];
+        if (!g) { x += 14; continue; }
+        for (const seg of g.d.split('M').slice(1)) {
+          const pts = [...seg.matchAll(/(-?[\d.]+),(-?[\d.]+)/g)].map((m) => [+m[1] + x, +m[2] + li * LH]);
+          if (pts.length > 1) raw.push(pts);
+        }
+        x += g.o * 2;
       }
-      x += g.o * 2;
+      // join everything that continues the line; small marks wait until the word is written
+      const chains = [], marks = [];
+      for (const st of raw) {
+        const chain = chains[chains.length - 1];
+        const end = chain && chain[chain.length - 1];
+        const gap = end ? Math.hypot(end[0] - st[0][0], end[1] - st[0][1]) : Infinity;
+        const len = strokeLen(st);
+        const ends = Math.hypot(st[st.length - 1][0] - st[0][0], st[st.length - 1][1] - st[0][1]);
+        const mark = len < 12 || (len < 26 && ends > len * 0.94);   // a dot, or a short straight bar (t, T, f crosses)
+        if (chain && gap < 0.5) chain.push(...st.slice(1));
+        else if (mark) marks.push(st);
+        else if (chain && gap < 20) chain.push(...st);   // carry the line on to the next letter (o, a, d, g start at the top)
+        else chains.push(st.map((p) => [...p]));
+      }
+      lineStrokes.push(...chains, ...marks);
+      x += 14;   // the space after a word
     }
-    for (const st of these) for (const p of st) p[0] -= x / 2;   // centre each line
+    x -= 14;
+    for (const st of lineStrokes) for (const p of st) p[0] -= x / 2;   // centre each line
     widest = Math.max(widest, x);
-    raw.push(...these);
+    out.push(...lineStrokes);
   });
-  const merged = [];
-  for (const st of raw) {
-    const prev = merged[merged.length - 1];
-    if (prev) { const a = prev[prev.length - 1], b = st[0]; if (Math.hypot(a[0] - b[0], a[1] - b[1]) < 1.6) { prev.push(...st.slice(1)); continue; } }
-    merged.push(st.map((p) => [...p]));
-  }
   const h = lines.length * LH, k = Math.min(maxW / widest, maxH / h);
-  return merged.map((st) => st.map(([x, y]) => [x * k, -(y - h / 2) * k]));
+  return out.map((st) => chaikin(st).map(([px, py]) => [px * k, -(py - h / 2) * k]));
 }
 
 const SIZE = 0.26;                                   // half-height of a symbol (m)
@@ -303,12 +335,14 @@ export class ReikiScene extends BaseScene {
       }
       if (P.i >= path.length - 1) {
         P.s++; P.i = 0;
-        this._sfx('chime', { gain: 0.35, dur: 2.2, note: [1, 1.122, 1.26, 1.335, 1.5][P.s % 5], pan: 0 });
+        if (this.opts.strokeSound) this.opts.strokeSound(this, P.s);
+        else this._sfx('chime', { gain: 0.35, dur: 2.2, note: [1, 1.122, 1.26, 1.335, 1.5][P.s % 5], pan: 0 });
         if (P.s >= this.paths.length) {
           st.phase = 'done'; st.t = 0;
           this.count++;
           this.score.userData.set(this.opts.score(this.count));
-          this._sfx('chime', { gain: 0.6, dur: 5, note: 1, pan: 0 });
+          if (this.opts.doneSound) this.opts.doneSound(this);
+          else this._sfx('chime', { gain: 0.6, dur: 5, note: 1, pan: 0 });
           this.opts.done(this);
         }
       }
@@ -342,9 +376,12 @@ export class ReikiScene extends BaseScene {
 const AFFIRM = {
   deck() {
     const order = TRACE_AFFIRMATIONS.map((text, i) => ({ text, i })).sort(() => Math.random() - 0.5);
-    return order.map(({ text, i }) => ({ title: 'Trace the words', strokes: textStrokes(text), step: 0.012, look: 12, width: 0.006, text, say: traceId(i) }));
+    return order.map(({ text, i }) => ({ title: 'Trace the words', strokes: textStrokes(text), step: 0.01, look: 14, width: 0.0085, text, say: traceId(i) }));
   },
   hint: 'Trace the words with your finger',
+  // soft breaths of air instead of chimes
+  strokeSound: (scene, n) => scene._sfx('whoosh', { gain: 0.24, dur: 2.2, note: 0.55, pan: (n % 2 ? 0.3 : -0.3) }),
+  doneSound: (scene) => scene._sfx('whoosh', { gain: 0.4, dur: 3.6, note: 0.45, pan: 0 }),
   score: (n) => `Affirmations traced this session: ${n}`,
   done(scene) {
     scene.thanks.userData.set(scene.item.text);   // the finished affirmation glows above as it's spoken

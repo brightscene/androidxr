@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { BaseScene, NOISE, GRADE, STARS, damp } from '../common.js';
+import { BaseScene, NOISE, GRADE, STARS, INPUT, damp } from '../common.js';
 import { particles } from './kit.js';
 
 // Scenes made for the built-in AudioStrobe tracks. They follow the track's
@@ -86,27 +86,84 @@ export class DrumJourneyScene extends BaseScene {
       this.group.add(g);
       this.drums.push({ skin, glow: 0 });
     }
-    // the fire
-    const flame = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 2.6), new THREE.ShaderMaterial({
-      transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, uniforms: U,
-      vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
-      fragmentShader: /* glsl */ `uniform float uTime, uFade, uFire; varying vec2 vUv; ${NOISE}
-        void main(){ vec2 p = vec2((vUv.x - 0.5) * 2.0, vUv.y);
-          float n = fbm(vec3(p.x * 2.5, p.y * 3.0 - uTime * 2.2, uTime * 0.4));
-          float width = (1.0 - p.y) * (0.55 + 0.25 * uFire) + 0.02;
-          float shape = smoothstep(width, width * 0.25, abs(p.x + (n - 0.5) * 0.5 * p.y)) * smoothstep(0.0, 0.08, p.y);
-          float body = shape * smoothstep(0.95, 0.15, p.y + (n - 0.5) * 0.5);
-          vec3 c = mix(vec3(1.0, 0.35, 0.06), vec3(1.0, 0.85, 0.45), smoothstep(0.2, 0.9, body));
-          gl_FragColor = vec4(c * body * (1.2 + uFire * 0.6) * uFade, 1.0); }`,
+    // the fire pit: a ring of stones round a bed of embers, logs leaning in, and layered flames
+    const PIT = new THREE.Vector3(0, 0, -6);
+    const lit = (base, glow) => new THREE.ShaderMaterial({
+      uniforms: { ...U, uBase: { value: new THREE.Color(base) }, uGlow: { value: glow } },
+      vertexShader: 'varying vec3 vN; varying vec3 vW; void main(){ vN = normalize(mat3(modelMatrix) * normal); vW = (modelMatrix * vec4(position,1.0)).xyz; gl_Position = projectionMatrix * viewMatrix * vec4(vW,1.0); }',
+      fragmentShader: /* glsl */ `uniform float uFade, uFire, uTime, uGlow; uniform vec3 uBase; varying vec3 vN; varying vec3 vW; ${NOISE}
+        void main(){
+          vec3 toFire = vec3(0.0, 0.7, -6.0) - vW; float dist = length(toFire);
+          float flick = 0.85 + 0.15 * sin(uTime * 11.0 + vW.x * 3.0) * sin(uTime * 7.3);
+          float lit = max(0.0, dot(normalize(vN), toFire / dist)) * flick * (0.9 + uFire * 0.4) / (0.6 + dist * dist * 0.6);
+          float grain = 0.6 + 0.4 * fbm(vW * 9.0);
+          float near = exp(-dist * dist * 0.5);   // close to the fire, everything catches its glow
+          vec3 c = uBase * grain * (0.08 + lit * 2.2 + near * (0.35 + uGlow * 0.5) * flick) * vec3(1.0, 0.62, 0.38);
+          // glowing embers in the charred wood, strongest low down
+          float cracks = smoothstep(0.62, 0.8, fbm(vW * 14.0 + vec3(0.0, uTime * 0.15, 0.0)));
+          c += vec3(1.0, 0.32, 0.05) * cracks * uGlow * smoothstep(0.75, 0.05, vW.y) * flick * 2.0;
+          gl_FragColor = vec4(c * uFade, 1.0); }`,
+    });
+    // stones
+    const stoneMat = lit('#8a8178', 0);
+    for (let i = 0; i < 13; i++) {
+      const a = (i / 13) * Math.PI * 2 + Math.random() * 0.15;
+      const rock = new THREE.Mesh(new THREE.DodecahedronGeometry(0.2 + Math.random() * 0.07, 1), stoneMat);
+      rock.scale.set(1.15, 0.62 + Math.random() * 0.2, 0.9);
+      rock.rotation.set(Math.random(), Math.random() * 6, Math.random() * 0.4);
+      rock.position.set(PIT.x + Math.cos(a) * 0.95, 0.09, PIT.z + Math.sin(a) * 0.95);
+      this.group.add(rock);
+    }
+    // the ember bed
+    const embers = new THREE.Mesh(new THREE.CircleGeometry(0.85, 48).rotateX(-Math.PI / 2), new THREE.ShaderMaterial({
+      transparent: true, depthWrite: false, uniforms: U,
+      vertexShader: 'varying vec2 vP; void main(){ vP = position.xz; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
+      fragmentShader: /* glsl */ `uniform float uTime, uFade, uFire; varying vec2 vP; ${NOISE}
+        void main(){ float r = length(vP) / 0.85;
+          float coal = fbm(vec3(vP * 9.0, 2.0));
+          float hot = smoothstep(0.45, 0.75, fbm(vec3(vP * 6.0, uTime * 0.25))) * smoothstep(1.0, 0.2, r);
+          vec3 c = vec3(0.05, 0.03, 0.025) * coal + vec3(1.0, 0.3, 0.04) * hot * (0.9 + 0.3 * sin(uTime * 5.0 + coal * 9.0) + uFire * 0.4);
+          c += vec3(0.5, 0.15, 0.02) * smoothstep(1.0, 0.0, r) * 0.25;
+          gl_FragColor = vec4(c * uFade, smoothstep(1.0, 0.85, r) * uFade); }`,
     }));
-    flame.position.set(0, 1.25, -6);
-    this.group.add(flame);
-    // logs
-    for (let i = 0; i < 4; i++) {
-      const log = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.11, 1.3, 10), new THREE.MeshBasicMaterial({ color: 0x2a1408 }));
-      log.rotation.set(Math.PI / 2 - 0.35, (i / 4) * Math.PI, 0); log.position.set(0, 0.25, -6);
+    embers.position.set(PIT.x, 0.03, PIT.z);
+    this.group.add(embers);
+    // logs leaning in, teepee-style
+    const logMat = lit('#3a2414', 1);
+    for (let i = 0; i < 6; i++) {
+      const a = (i / 6) * Math.PI * 2 + 0.3;
+      const log = new THREE.Mesh(new THREE.CylinderGeometry(0.065, 0.085, 0.95, 10), logMat);
+      log.position.set(PIT.x + Math.cos(a) * 0.36, 0.22, PIT.z + Math.sin(a) * 0.36);
+      log.lookAt(PIT.x, 0.75, PIT.z);
+      log.rotateX(Math.PI / 2);
       this.group.add(log);
     }
+    // flames: several tongues of fire that always face you
+    this.flames = [];
+    const flameMat = (seed) => new THREE.ShaderMaterial({
+      transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, uniforms: { ...U, uSeed: { value: seed } },
+      vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
+      fragmentShader: /* glsl */ `uniform float uTime, uFade, uFire, uSeed; varying vec2 vUv; ${NOISE}
+        void main(){ vec2 p = vec2((vUv.x - 0.5) * 2.0, vUv.y);
+          float t = uTime * (1.0 + uSeed * 0.15);
+          float n = fbm(vec3(p.x * 2.2 + uSeed * 7.0, p.y * 3.2 - t * 2.4, t * 0.35 + uSeed));
+          float n2 = fbm(vec3(p.x * 5.0 - uSeed * 3.0, p.y * 6.0 - t * 3.6, t * 0.5));
+          float sway = (n - 0.5) * 0.7 * p.y + sin(t * 1.3 + uSeed * 4.0) * 0.06 * p.y;
+          float width = pow(1.0 - p.y, 1.25) * (0.5 + 0.2 * uFire) + 0.015;
+          float shape = smoothstep(width, width * 0.15, abs(p.x + sway));
+          float body = shape * smoothstep(0.0, 0.06, p.y) * smoothstep(0.98, 0.25, p.y + (n2 - 0.5) * 0.55);
+          vec3 c = mix(vec3(0.9, 0.18, 0.02), vec3(1.0, 0.62, 0.18), smoothstep(0.1, 0.6, body));
+          c = mix(c, vec3(1.0, 0.93, 0.7), smoothstep(0.65, 1.0, body) * smoothstep(0.55, 0.1, p.y));   // white-hot at the base
+          gl_FragColor = vec4(c * body * (1.15 + uFire * 0.6) * uFade, 1.0); }`,
+    });
+    [[0, 0.05, 1.5, 2.5, 0], [-0.32, 0.04, 0.9, 1.6, 1.7], [0.3, 0.05, 1.0, 1.8, 3.1], [0.08, 0.04, 0.7, 1.15, 4.6]].forEach(([x, y, w, h, seed]) => {
+      const f = new THREE.Mesh(new THREE.PlaneGeometry(w, h), flameMat(seed));
+      f.geometry.translate(0, h / 2, 0);
+      f.position.set(PIT.x + x, y, PIT.z + (seed ? 0.05 : 0));
+      f.renderOrder = 5;
+      this.group.add(f);
+      this.flames.push(f);
+    });
     this.sparks = particles(U, { count: 300, min: [-0.9, 0.6, -6.9], max: [0.9, 9, -5.1], vel: [0, 1.3, 0], sway: 0.7, size: [0.012, 0.03], colors: ['#ffcf7a', '#ff8a3a'], alpha: 0.9 });
     this.group.add(this.sparks);
     const glow = new THREE.Mesh(new THREE.PlaneGeometry(4, 4), new THREE.ShaderMaterial({
@@ -132,6 +189,9 @@ export class DrumJourneyScene extends BaseScene {
     U.uFire.value *= Math.exp(-dt * 2.2);
     this.sparks.userData.u.uBoost.value *= Math.exp(-dt * 2);
     for (const d of this.drums) { d.glow *= Math.exp(-dt * 3); d.skin.material.opacity = (0.12 + d.glow * 0.85) * this.fade; }
+    // the flames turn to face you (about the vertical only)
+    const head = INPUT.head?.pos;
+    if (head) for (const f of this.flames) f.rotation.set(0, Math.atan2(head.x - f.position.x, head.z - f.position.z), 0);
   }
 }
 
