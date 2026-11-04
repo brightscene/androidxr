@@ -82,7 +82,7 @@ class App {
     SFX.say = (id, pan, text) => (this.playing ? this.voice.sayPanned(id, pan, text) : Promise.resolve(false));
     SFX.preload = (id) => this.voice.preload(id);
     SFX.audio = () => (this.playing && this.engine.ctx && this.engine.master
-      ? { ctx: this.engine.ctx, out: this.engine.sfxOut(), reverb: this.engine.reverbSend, noise: this.engine.noise || this.engine.whiteNoise } : null);
+      ? { ctx: this.engine.ctx, out: this.engine.sfxOut(), reverb: this.engine.reverbSend, noise: this.engine.noise || this.engine.whiteNoise, analyser: this.engine.analyser } : null);
     this.voice.setChoice(this.voiceChoice);
     this.voice.onVoices = () => this.ui?.refreshVoices();
     this.state = { energy: 0.35, breath: 0, low: 0, mid: 0, high: 0, level: 0 };

@@ -83,13 +83,12 @@ export class WaterfallScene extends BaseScene {
 
     // the falls: dense streams of glowing space-water orbs pouring off the lip and
     // falling forever into the void, each orb on its own arc, the stream widening as it goes
-    const N = 14000;
+    const N = 26000;
     const seed = new Float32Array(N * 4), col = new Float32Array(N * 3);
     const pal = ['#9fe4ff', '#7ab8ff', '#a690ff', '#d78cff', '#ff9ad8', '#ffffff'].map((c) => new THREE.Color(c));
     for (let i = 0; i < N; i++) {
       const g = (Math.random() + Math.random() + Math.random() - 1.5) / 1.5;   // most water in the middle of the stream
-      const big = Math.random() < 0.07;
-      seed.set([g * 1.9, Math.random(), 0.09 + Math.random() * 0.06, big ? 0.22 + Math.random() * 0.3 : 0.04 + Math.random() * 0.09], i * 4);
+      seed.set([g * 1.9, Math.random(), 0.09 + Math.random() * 0.06, 0.03 + Math.random() * 0.07], i * 4);
       const c = pal[Math.floor(Math.random() * pal.length)];
       col.set([c.r, c.g, c.b], i * 3);
     }
@@ -120,8 +119,7 @@ export class WaterfallScene extends BaseScene {
       fragmentShader: /* glsl */ `uniform float uFade; varying vec3 vC; varying float vA, vBig;
         void main(){ vec2 q = gl_PointCoord - 0.5; float r = length(q) * 2.0;
           float core = exp(-r * r * 10.0), halo = exp(-r * r * 2.5) * 0.35;
-          float rim = vBig * smoothstep(0.75, 0.62, r) * smoothstep(0.45, 0.62, r) * 0.5;   // big drops: a glassy edge
-          vec3 c = vC * (halo + rim) + mix(vC, vec3(1.0), 0.6) * core;
+          vec3 c = vC * halo + mix(vC, vec3(1.0), 0.6) * core;
           gl_FragColor = vec4(c * vA * uFade, 1.0); }`,
     }));
     fall.frustumCulled = false;

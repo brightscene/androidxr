@@ -635,6 +635,21 @@
     "audio": null
    },
    {
+    "id": "j-cymatics",
+    "title": "Cymatics",
+    "intent": "See sound: touch a frequency ring, or watch the plate follow the music",
+    "scene": "cymaticplate",
+    "palette": [
+     "#06041a",
+     "#5a3ab0",
+     "#ffe8c0"
+    ],
+    "free": false,
+    "kind": "Soundscape · 963 Hz",
+    "freq": 963,
+    "audio": null
+   },
+   {
     "id": "j-affirmtrace",
     "title": "Trace your affirmations",
     "intent": "Trace short affirmations with your finger, then hear them spoken",
