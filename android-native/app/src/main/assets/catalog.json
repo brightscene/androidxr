@@ -305,6 +305,36 @@
     "audio": null
    },
    {
+    "id": "j-metalchimes",
+    "title": "Metal wind chimes",
+    "intent": "Sweep your hand through tuned silver chimes at dusk",
+    "scene": "metalchimes",
+    "palette": [
+     "#0a1030",
+     "#6a7ab0",
+     "#ffd0d0"
+    ],
+    "free": false,
+    "kind": "Soundscape · 639 Hz",
+    "freq": 639,
+    "audio": null
+   },
+   {
+    "id": "j-woodchimes",
+    "title": "Wooden wind chimes",
+    "intent": "Bamboo chimes knocking softly in a golden grove",
+    "scene": "woodchimes",
+    "palette": [
+     "#1a1006",
+     "#a8742a",
+     "#ffe0a0"
+    ],
+    "free": false,
+    "kind": "Soundscape · 174 Hz",
+    "freq": 174,
+    "audio": null
+   },
+   {
     "id": "j-tibetanbowls",
     "title": "Tibetan singing bowls",
     "intent": "Circle the rim of each bowl with the mallet to make it sing",

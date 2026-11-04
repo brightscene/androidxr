@@ -21,6 +21,8 @@ export function buildJourneys() {
   const special = [
     { ...base('clarity'), id: 'j-cycle', title: 'Image cycling', intent: 'Time-line images of your best future, faster and faster', scene: 'cycle', palette: ['#0a0a1a', '#6a3aa8', '#ffd6a0'] },
     { ...base('release'), id: 'j-northernlights', title: 'Northern lights', intent: 'Beneath the aurora on a still Icelandic lake', scene: 'northernlights', palette: ['#020a10', '#1e8a6a', '#ff8ad0'] },
+    { ...base('connect'), musicOff: true, id: 'j-metalchimes', title: 'Metal wind chimes', intent: 'Sweep your hand through tuned silver chimes at dusk', scene: 'metalchimes', palette: ['#0a1030', '#6a7ab0', '#ffd0d0'] },
+    { ...base('ground'), musicOff: true, id: 'j-woodchimes', title: 'Wooden wind chimes', intent: 'Bamboo chimes knocking softly in a golden grove', scene: 'woodchimes', palette: ['#1a1006', '#a8742a', '#ffe0a0'] },
     { ...base('crown'), musicOff: true, id: 'j-tibetanbowls', title: 'Tibetan singing bowls', intent: 'Circle the rim of each bowl with the mallet to make it sing', scene: 'tibetanbowls', palette: ['#140904', '#8a4a1a', '#ffc27a'] },
     { ...base('crown'), musicOff: true, id: 'j-crystalbowls', title: 'Crystal singing bowls', intent: 'Play a chakra set of glowing quartz bowls', scene: 'crystalbowls', palette: ['#05061a', '#4a4aa8', '#e8ecff'] },
     { ...base('reiki'), id: 'j-affirmtrace', title: 'Trace your affirmations', intent: 'Trace short affirmations with your finger, then hear them spoken', scene: 'affirmtrace', palette: ['#120a1f', '#b07d2b', '#ffe8a8'] },
