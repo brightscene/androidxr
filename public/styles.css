@@ -218,3 +218,16 @@ body:not(.playing) #close-menu { display: none; }
 body.ios-app #enter-vr, body.ios-app #enter-ar, body.ios-app #xr-note { display: none; }
 body.ios-app #menu { max-height: calc(100vh - 32px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); }
 #app-settings { margin-left: auto; }
+
+/* the menu outside the headset: a sheet that slides up from the bottom, so the scene stays in view above it */
+#menu {
+  top: auto; bottom: 0; transform: translateX(-50%);
+  max-height: min(74vh, calc(100vh - 24px));
+  border-radius: 28px 28px 0 0; border-bottom: 0;
+  padding-bottom: max(22px, env(safe-area-inset-bottom));
+  animation: sheetUp 0.45s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+#menu:not(.hidden) { animation: sheetUp 0.45s cubic-bezier(0.2, 0.8, 0.2, 1); }
+@keyframes sheetUp { from { transform: translate(-50%, 40px); opacity: 0; } to { transform: translateX(-50%); opacity: 1; } }
+#menu::before { content: ""; display: block; width: 44px; height: 5px; border-radius: 3px; background: rgba(255, 255, 255, 0.25); margin: -14px auto 12px; }
+body.ios-app #menu { max-height: min(74vh, calc(100vh - 24px)); }

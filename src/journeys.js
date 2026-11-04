@@ -15,6 +15,8 @@ export function buildJourneys() {
     freeOne('j-bluestars', 'Blue stars', 'Blue stars all around, drifting past you', 'bluestars', 'intuition', ['#010414', '#1a3a8a', '#8fc0ff']),
     freeOne('j-starsaura', 'White stars with aura', 'Stars beneath soft curtains of coloured light', 'starsaura', 'crown', ['#05030f', '#4a2a7a', '#7ff0d8']),
     freeOne('j-bluestarsaura', 'Blue stars with aura', 'Blue stars and drifting aura light', 'bluestarsaura', 'clarity', ['#02051a', '#2a3a9a', '#d08fff']),
+    freeOne('j-greenstarsaura', 'Green stars with aura', 'Green stars under curtains of green and teal light', 'greenstarsaura', 'mend', ['#02100a', '#1e7a55', '#9ff5c8']),
+    freeOne('j-neonstarsaura', 'Neon stars with amber aura', 'Neon stars drifting past beneath an amber aura', 'neonstarsaura', 'release', ['#0c0414', '#8a3a1a', '#ffd27a']),
   ];
   const special = [
     { ...base('clarity'), id: 'j-cycle', title: 'Image cycling', intent: 'Time-line images of your best future, faster and faster', scene: 'cycle', palette: ['#0a0a1a', '#6a3aa8', '#ffd6a0'] },

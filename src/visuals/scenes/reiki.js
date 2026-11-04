@@ -208,6 +208,7 @@ export class ReikiScene extends BaseScene {
   }
 
   update(dt, t) {
+    this.xr = INPUT.pointers.some((p) => p.id !== 'mouse');
     const st = this.state, m = this.mat.uniforms;
     st.t += dt;
     this.holder.updateMatrixWorld(true);
@@ -220,7 +221,7 @@ export class ReikiScene extends BaseScene {
       if (st.t >= 2) { st.phase = 'trace'; st.t = 0; }
     } else if (st.phase === 'trace') {
       const P = this.prog, path = this.paths[P.s];
-      const tol = 0.035;                               // how close you need to be (m)
+      const tol = this.xr ? 0.05 : 0.035;               // how close you need to be (m): hands wobble more than a mouse
       for (const q of touches) {
         // move along the stroke as far as you're following it
         for (let look = 1; look <= 6 && P.i + look < path.length; look++) {

@@ -703,7 +703,8 @@ export class XRMenu {
         const hit = this._hit(ctl);
         if (hit && hit.onSelect) hit.onSelect();
         // pinch on empty space during a session opens the menu
-        else if (!hit && !this.visible && this.app.playing) this.show(true);
+        // (not while tracing in an interactive scene: there the Menu orb opens it)
+        else if (!hit && !this.visible && this.app.playing && !this.app.active?.wantsPointer) this.show(true);
         // in the hall of doors, a press opens the door you're pointing at
         else if (!hit && !this.visible && this.app.active?.onSelect) this.app.active.onSelect();
       });

@@ -209,8 +209,11 @@ class App {
   }
 
   // A journey uses the scene chosen on the Scene tab, unless that journey IS its
-  // scene (image cycling, the affirmation field): those always keep their own world.
-  sceneFor(track) { return this.background === 'auto' || SCENES[track.scene]?.premium ? track.scene : this.background; }
+  // scene (image cycling, the affirmation field, Reiki, Womb): those always keep their own world.
+  sceneFor(track) {
+    const own = SCENES[track.scene];
+    return this.background === 'auto' || own?.premium || own?.own ? track.scene : this.background;
+  }
 
   setBackground(b) {
     this.background = b;
