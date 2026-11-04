@@ -605,6 +605,36 @@
     "audio": null
    },
    {
+    "id": "j-handpan",
+    "title": "Handpan",
+    "intent": "A handpan tuned to the monks’ chant, on a mountain terrace at dusk",
+    "scene": "handpan",
+    "palette": [
+     "#1a0e08",
+     "#a8542a",
+     "#ffd27a"
+    ],
+    "free": false,
+    "kind": "Soundscape · 963 Hz",
+    "freq": 963,
+    "audio": null
+   },
+   {
+    "id": "j-steeldrums",
+    "title": "Space steel drums",
+    "intent": "A chrome steel pan adrift in the stars, singing like Tibetan bowls",
+    "scene": "steeldrums",
+    "palette": [
+     "#05061a",
+     "#5a4ab0",
+     "#bfe0ff"
+    ],
+    "free": false,
+    "kind": "Soundscape · 396 Hz",
+    "freq": 396,
+    "audio": null
+   },
+   {
     "id": "j-affirmtrace",
     "title": "Trace your affirmations",
     "intent": "Trace short affirmations with your finger, then hear them spoken",

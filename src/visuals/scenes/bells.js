@@ -21,7 +21,7 @@ import { textPlane } from './imagecycle.js';
 const pointerDist = (o, d, c) => { const v = c.clone().sub(o); const t = Math.max(0, v.dot(d)); return { off: v.addScaledVector(d, -t).length(), t }; };
 
 // one-shot partials into a bell's own output: [ratio, weight, seconds to fade, beat Hz]
-function strikeVoice(N, f, partials, gain, click) {
+export function strikeVoice(N, f, partials, gain, click) {
   const { ctx } = N;
   const now = ctx.currentTime;
   for (const [ratio, w, dur, beat] of partials) {
@@ -32,8 +32,9 @@ function strikeVoice(N, f, partials, gain, click) {
       const g = ctx.createGain();
       const peak = gain * w / pair.length;
       g.gain.setValueAtTime(0, now);
-      g.gain.linearRampToValueAtTime(peak, now + 0.004);
-      g.gain.setTargetAtTime(0, now + 0.004, dur / 4.6);
+      const att = N.attack || 0.004;
+      g.gain.linearRampToValueAtTime(peak, now + att);
+      g.gain.setTargetAtTime(0, now + att, dur / 4.6);
       o.connect(g).connect(N.out);
       o.start(now); o.stop(now + dur + 0.2);
       o.onended = () => { try { g.disconnect(); } catch (_) {} };
@@ -50,7 +51,7 @@ function strikeVoice(N, f, partials, gain, click) {
   }
 }
 
-function bellOut(scene, pan, wet) {
+export function bellOut(scene, pan, wet) {
   if (scene.muted) return null;
   const A = SFX.audio();
   if (!A) return null;
@@ -253,11 +254,13 @@ export class HandbellsScene extends BellScene {
   }
 
   _ring(b, strength, dir) {
-    // the bell rocks on its handle, away from where it was struck
-    const kick = (dir || new THREE.Vector3(0, 0, -1)).clone().setY(0);
-    if (kick.lengthSq() < 1e-6) kick.set(0, 0, -1);
-    kick.normalize().multiplyScalar(1.6 + strength * 2.4);
-    b.rockV.x += kick.z; b.rockV.y -= kick.x;
+    // a bell in your hand swings through the stroke; one on the table just rings
+    if (b.holder != null) {
+      const kick = (dir || new THREE.Vector3(0, 0, -1)).clone().setY(0);
+      if (kick.lengthSq() < 1e-6) kick.set(0, 0, -1);
+      kick.normalize().multiplyScalar(1.6 + strength * 2.4);
+      b.rockV.x += kick.z; b.rockV.y -= kick.x;
+    }
     if (!b.N || !b.N.ctx || b.N.dead) { b.N = bellOut(this, Math.max(-0.8, Math.min(0.8, Math.sin(b.a) * 2.2)), 0.85); if (b.N) { b.N.clickGain = 0.12; b.N.clickQ = 5; } }
     const N = b.N;
     if (!N) { b.ring = 1; b.haloT = 0; return; }
@@ -284,7 +287,9 @@ export class HandbellsScene extends BellScene {
       if (holding) {
         if (!p.held) { holding.holder = null; continue; }   // let go: it settles back on the table
         const at = p.tip ? p.tip.clone() : p.o.clone().addScaledVector(p.d, holding.grab);
-        holding.g.position.lerp(at, 1 - Math.exp(-dt * 30));
+        // a click just rings it; it only lifts once you hold on or move it
+        if (!holding.lifting && (t - holding.grabT > 0.25 || at.distanceTo(holding.home) > 0.03)) holding.lifting = true;
+        if (holding.lifting) holding.g.position.lerp(at, 1 - Math.exp(-dt * 30));
         continue;
       }
       // which bell is this pointer on?
@@ -312,7 +317,7 @@ export class HandbellsScene extends BellScene {
         // and pick it up while the pinch is held
         best.holder = p.id;
         best.grab = p.tip ? 0 : best.g.position.distanceTo(p.o);
-        best.prev = null; best.peak = 0; best.armed = false; best.lifted = false;
+        best.prev = null; best.peak = 0; best.armed = false; best.lifted = false; best.lifting = false; best.grabT = t;
       }
     }
 
@@ -328,7 +333,7 @@ export class HandbellsScene extends BellScene {
           const v = b.g.position.clone().sub(b.prev).divideScalar(Math.max(dt, 1e-3));
           b.vel.lerp(v, 1 - Math.exp(-dt * 25));
           const sp = b.vel.length();
-          if (sp > 0.9) { b.armed = true; if (sp > b.peak) { b.peak = sp; b.flick = b.vel.clone(); } }
+          if (sp > 0.9 && b.lifting) { b.armed = true; if (sp > b.peak) { b.peak = sp; b.flick = b.vel.clone(); } }
           if (b.armed && sp < b.peak * 0.45) { this._ring(b, Math.min(1, b.peak / 3), b.flick || b.vel); b.armed = false; b.peak = 0; }
           // lowered onto the table: damped
           if (b.g.position.distanceTo(b.home) > 0.05) b.lifted = true;
