@@ -17,7 +17,7 @@ import { buildJourneys, premiumUnlocked } from './journeys.js';
 import { DomUI } from './ui/dom.js';
 
 const PHASE_TEXT = { in: 'Breathe in', hold: 'Hold', out: 'Breathe out', rest: 'Rest' };
-const COMFORT = { off: 0, gentle: 0.5, full: 1 };
+const COMFORT = { off: 0, gentle: 0.5, full: 1, fast: 1.6, insane: 2.6 };
 const shuffle = (a) => { a = [...a]; for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
 
 const loadPrefs = () => { try { return JSON.parse(localStorage.getItem('mindlyte') || '{}'); } catch { return {}; } };

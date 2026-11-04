@@ -321,8 +321,8 @@
    },
    {
     "id": "j-mri",
-    "title": "Space MRI machine",
-    "intent": "Glide into a healing scanner in orbit · a new deep-healing track",
+    "title": "Recovery capsule",
+    "intent": "Glide into a healing capsule in orbit · a deep-healing track",
     "scene": "mri",
     "palette": [
      "#03111a",

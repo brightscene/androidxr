@@ -526,7 +526,7 @@ export class XRMenu {
       this.pageLabel.redraw?.();
     };
     this._layoutScenes();
-    this._row(p, 6.7, 'Deep dives', [['Gentle', 'gentle'], ['Full speed', 'full'], ['Off', 'off']], () => app.dives, (v) => app.setDives(v));
+    this._row(p, 6.7, 'Deep dives', [['Gentle', 'gentle'], ['Full speed', 'full'], ['Fast', 'fast'], ['Insanely fast', 'insane'], ['Off', 'off']], () => app.dives, (v) => app.setDives(v));
     this._row(p, 7.6, 'Visual quality', [['Smooth', 'smooth'], ['Balanced', 'balanced'], ['Sharp', 'sharp']], () => app.quality, (v) => app.setQuality(v));
     this._btn(p, new Button(1.46, 0.06, textDraw(() => {
       const b = app.background;
@@ -543,7 +543,7 @@ export class XRMenu {
     this._row(p, 1, 'Brainwave tones', [['Binaural', 'binaural'], ['Isochronic', 'isochronic'], ['Both', 'both'], ['Off', 'off']], () => app.entrainment, (v) => app.setEntrainment(v));
     this._row(p, 2, 'Brainwave journey', [['Auto', 'auto'], ['Relax', 'relax'], ['Meditate', 'meditate'], ['Sleep', 'sleep'], ['Focus', 'focus']], () => app.journey, (v) => app.setJourney(v));
     this._row(p, 3, 'Nature', [['Off', 'off'], ['Soft rain', 'rain'], ['Ocean', 'ocean']], () => app.nature, (v) => app.engine.init().then(() => app.setNature(v)));
-    this._row(p, 4, 'Deep dives', [['Gentle', 'gentle'], ['Full speed', 'full'], ['Off', 'off']], () => app.dives, (v) => app.setDives(v));
+    this._row(p, 4, 'Deep dives', [['Gentle', 'gentle'], ['Full speed', 'full'], ['Fast', 'fast'], ['Insanely fast', 'insane'], ['Off', 'off']], () => app.dives, (v) => app.setDives(v));
     this._row(p, 5, 'Solfeggio tone', [['On', true], ['Off', false]], () => app.solfeggio, (v) => app.setSolfeggio(v));
     this._row(p, 6, 'Volume', [['−', 'down'], [() => `${Math.round(app.volume * 100)}%`, 'x'], ['+', 'up']], () => null,
       (v) => { if (v !== 'x') { app.setVolume(Math.min(1, Math.max(0, Math.round((app.volume + (v === 'up' ? 0.1 : -0.1)) * 10) / 10))); this.refresh(); } }, [0.1, 0.14, 0.1]);
@@ -569,7 +569,7 @@ export class XRMenu {
     r(6, 'Brightness', [['−', 'down'], [() => `${Math.round(app.lightMax * 100)}%`, 'x'], ['+', 'up']], () => null,
       (v) => { if (v !== 'x') app.setLightOpt('lightMax', Math.min(1, Math.max(0.1, Math.round((app.lightMax + (v === 'up' ? 0.1 : -0.1)) * 10) / 10))); }, [0.1, 0.14, 0.1]);
     r(7, 'Pulse with tones', [['On', true], ['Off', false]], () => app.lightsGenerated, (v) => app.setLightOpt('lightsGenerated', v));
-    r(8, 'Eyes', [['Both eyes see both', 'sides'], ['Each eye its own', 'eyes']], () => app.lightLayout, (v) => app.setLightOpt('lightLayout', v), [0.3, 0.3]);
+    r(8, 'Eyes', [['Both eyes see both', 'sides'], ['Each eye its own', 'eyes'], ['Each eye, centred', 'eyesc']], () => app.lightLayout, (v) => app.setLightOpt('lightLayout', v), [0.27, 0.25, 0.25]);
     r(9, 'Dim background', [['Off', 0], ['30%', 0.3], ['50%', 0.5], ['70%', 0.7], ['85%', 0.85]], () => app.lightDim, (v) => app.setLightOpt('lightDim', v), [0.12, 0.12, 0.12, 0.12, 0.12]);
   }
 

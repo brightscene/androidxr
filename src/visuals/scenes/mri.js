@@ -2,8 +2,8 @@ import * as THREE from 'three';
 import { BaseScene, NOISE, GRADE, SFX } from '../common.js';
 import { particles } from './kit.js';
 
-// ===================================================================== Space MRI machine
-// A healing scanner in orbit. You begin in a quiet white bay high above the
+// ===================================================================== Recovery capsule
+// A healing scanner in orbit (it began as the "Space MRI machine"). You begin in a quiet white bay high above the
 // Earth, the great ring of the machine ahead of you, and glide slowly into its
 // bore. Inside, the walls come alive: soft rings of light sweep past you one
 // after another, a holographic hex lattice shimmers across the walls, a double

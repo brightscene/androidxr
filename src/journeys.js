@@ -25,7 +25,7 @@ export function buildJourneys() {
   ];
   const special = [
     { ...base('crown'), musicOff: true, mindflash: true, id: 'j-mindflash', title: 'Clear mind', intent: 'Rotating, ever-changing light to settle a busy mind · eyes closed', scene: 'mindflash', palette: ['#02100c', '#1a8a5a', '#5aa8ff'] },
-    { ...base('heal'), id: 'j-mri', title: 'Space MRI machine', intent: 'Glide into a healing scanner in orbit · a new deep-healing track', scene: 'mri', palette: ['#03111a', '#3ac0c8', '#ffe2a8'] },
+    { ...base('heal'), id: 'j-mri', title: 'Recovery capsule', intent: 'Glide into a healing capsule in orbit · a deep-healing track', scene: 'mri', palette: ['#03111a', '#3ac0c8', '#ffe2a8'] },
     { ...base('mend'), musicOff: true, id: 'j-waterfall', title: 'Space waterfall', intent: 'An aurora waterfall pouring from a mountain floating in space', scene: 'waterfall', palette: ['#04061a', '#1a8a7a', '#ff9ae0'] },
     { ...base('release'), id: 'j-northernlights', title: 'Northern lights', intent: 'Beneath the aurora on a still Icelandic lake', scene: 'northernlights', palette: ['#020a10', '#1e8a6a', '#ff8ad0'] },
   ];

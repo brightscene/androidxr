@@ -107,13 +107,13 @@ export class Voyage {
       else this.dive = null;
       env *= d.intensity;
     }
-    const peak = this.comfort >= 1 ? 32 : 11;
+    const peak = this.comfort >= 1 ? 32 * this.comfort ** 1.4 : 11;   // full 32; fast ~62; insanely fast ~122
     const target = this.cruise + env * peak;
     this.speed = damp(this.speed, target, 2, dt);
     this.travel += this.speed * dt;
     U.uTravel.value = this.travel;
     U.uSpeed.value = this.speed;
     U.uDive.value = damp(U.uDive.value, env, 3, dt);
-    this.vig.material.uniforms.uAmt.value = this.comfort >= 1 ? 0.45 : 0.75;
+    this.vig.material.uniforms.uAmt.value = this.comfort > 1 ? 0.35 : this.comfort >= 1 ? 0.45 : 0.75;
   }
 }
