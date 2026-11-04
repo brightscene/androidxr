@@ -46,7 +46,7 @@ export class DomUI {
     this.refreshVoices();
     this._wire();
     this._checkXR();
-    this.$('#version').textContent = `MindLyte v${__BUILD__}`;
+    this.$('#version').textContent = `v${__BUILD__}`;
     this.refresh();
   }
 
@@ -325,7 +325,8 @@ export class DomUI {
     on('#cycle-clear', 'click', async () => { await clearUserImages(); cycStatus(await refreshImageAtlas()); });
     on('#sw-accept', 'click', () => app.acceptStrobe());
     on('#sw-cancel', 'click', () => app.declineStrobe());
-    on('#volume', 'input', (e) => app.setVolume(Number(e.target.value)));
+    on('#volume', 'input', (e) => { app.setVolume(Number(e.target.value)); this._volPaint(); });
+    this._volPaint = () => { const v = this.$('#volume'); v.style.setProperty('--p', `${v.value * 100}%`); this.$('#volume-v').textContent = `${Math.round(v.value * 100)}%`; };
     on('#begin', 'click', () => app.beginOrResume());
     // long-press the logo to switch Premium on or off (testing, until payments are connected)
     {
@@ -404,7 +405,7 @@ export class DomUI {
     this.$('#mine-on').checked = app.mineOn;
     this.$('#mine-every').value = String(app.mineEvery);
     this.$('#quality').value = app.quality;
-    this.$('#volume').value = app.volume;
+    this.$('#volume').value = app.volume; this._volPaint?.();
     this._lightsUI?.();
     const tr = app.selected;
     this.$('#sel-title').textContent = tr.title;

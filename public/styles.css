@@ -231,7 +231,7 @@ body.ios-app #menu { max-height: calc(100vh - 32px - env(safe-area-inset-top) - 
 @keyframes sheetUp { from { transform: translate(-50%, 40px); opacity: 0; } to { transform: translateX(-50%); opacity: 1; } }
 #menu::before { content: ""; display: block; width: 44px; height: 5px; border-radius: 3px; background: rgba(255, 255, 255, 0.25); margin: -14px auto 12px; }
 body.ios-app #menu { max-height: min(74vh, calc(100vh - 24px)); }
-#version { margin: 16px 2px 18px; }
+#version { margin: -4px 0 6px 62px; font-size: 12px; }
 
 /* taps never zoom or shift the page (iPad Safari zooms on quick double taps) */
 button, select, .scard, #menu, #session { touch-action: manipulation; }
@@ -330,3 +330,5 @@ details.more summary { cursor: pointer; color: var(--muted); margin-bottom: 10px
 .mrow.mcard.off { opacity: 1; }
 .mcard.off .mname { opacity: 0.55; }
 @media (max-width: 700px) { .mrow.mcard, #mix-pop .mrow.mcard { grid-template-columns: 1fr auto; } .mcard .mslide, .mcard .mtypes { grid-column: 1 / -1; } }
+
+.mrow.mcard.master { margin-top: 10px; background: rgba(255,255,255,0.03); border-color: var(--line); }

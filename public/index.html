@@ -24,6 +24,7 @@
     <header>
       <div>
         <h1 class="brand"><img src="icons/mark.svg" alt="" width="52" height="52" /><span class="sr-only">MindLyte</span><span aria-hidden="true">mind<span class="lyte">lyte</span></span></h1>
+        <p id="version" class="muted"></p>
         <p class="lede">Drift through galaxies on generative soundscapes tuned to the solfeggio frequencies, with brainwave tones and a gentle voice to guide you.</p>
       </div>
       <button id="close-menu" class="ghost small" title="Hide menu">Hide</button>
@@ -54,7 +55,7 @@
     <section class="pane" data-pane="Sound">
       <div class="mixpre seg" id="mix-presets"></div>
       <div class="mixer" id="mixer"></div>
-      <label class="group vol"><span class="label">Volume</span><input id="volume" type="range" min="0" max="1" step="0.01" value="0.8" /></label>
+      <div class="mrow mcard master" style="--c0:#ffffff;--c1:#a493ff"><div class="mname"><span>Master volume<small>everything together</small></span></div><span></span><div class="mslide"><input id="volume" type="range" min="0" max="1" step="0.01" value="0.8" /><b id="volume-v"></b></div></div>
       <p class="muted note">Each layer has its own switch and level, and changes apply straight away. Binaural tones need headphones; isochronic tones work on speakers.</p>
     </section>
 
@@ -167,7 +168,6 @@
       <button id="enter-ar" class="primary alt">Enter passthrough</button>
       <button id="begin" class="ghost">Begin</button>
     </section>
-    <p id="version" class="muted note"></p>
     <p id="xr-note" class="muted note">In the headset: point and pinch to choose. Binaural tones need headphones; isochronic tones work on speakers.</p>
   </main>
 
