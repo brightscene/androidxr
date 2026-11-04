@@ -88,7 +88,8 @@ function resample(st, step) {
 }
 
 const SIZE = 0.26;                                   // half-height of a symbol (m)
-const PLANE = new THREE.Vector3(0, 1.35, -0.75);      // where the symbols hang
+const PLANE = new THREE.Vector3(0, 1.35, -0.75);      // where the symbols hang until we know where you are
+const REACH = 0.75;                                   // how far in front of you (m)
 
 export class ReikiScene extends BaseScene {
   constructor() {
@@ -152,6 +153,7 @@ export class ReikiScene extends BaseScene {
   }
 
   _load(k) {
+    this.placeNext = true;   // each new symbol appears in front of you
     const sym = SYMBOLS[k % SYMBOLS.length];
     this.sym = sym;
     const step = 0.025;
@@ -207,8 +209,21 @@ export class ReikiScene extends BaseScene {
     return out;
   }
 
+  // hang the symbol at your eye level, straight in front of where you're facing
+  _place() {
+    const h = INPUT.head;
+    if (!h) return false;
+    const f = new THREE.Vector3(h.fwd.x, 0, h.fwd.z);
+    if (f.lengthSq() < 1e-4) f.set(0, 0, -1);
+    f.normalize();
+    this.holder.position.set(h.pos.x + f.x * REACH, h.pos.y - 0.04, h.pos.z + f.z * REACH);
+    this.holder.rotation.set(0, Math.atan2(-f.x, -f.z), 0);
+    return true;
+  }
+
   update(dt, t) {
     this.xr = INPUT.pointers.some((p) => p.id !== 'mouse');
+    if (this.placeNext) this.placeNext = !this._place();
     const st = this.state, m = this.mat.uniforms;
     st.t += dt;
     this.holder.updateMatrixWorld(true);

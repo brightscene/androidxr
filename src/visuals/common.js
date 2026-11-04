@@ -149,4 +149,4 @@ export const SFX = { play() {}, say() { return Promise.resolve(false); }, preloa
 // Hands and pointers for scenes you interact with, refreshed every frame by
 // the app: each has a ray (origin + direction) and, for tracked hands, the
 // index fingertip position.
-export const INPUT = { pointers: [], hands: [] };   // hands: [{ side, joints: [Vector3 x25] }]
+export const INPUT = { pointers: [], hands: [], head: null };   // head: { pos, fwd } of the viewer, each frame   // hands: [{ side, joints: [Vector3 x25] }]

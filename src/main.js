@@ -735,6 +735,7 @@ class App {
       list.push({ origin: rc.ray.origin.clone(), dir: rc.ray.direction.clone(), tip: null, id: 'mouse' });
     }
     INPUT.pointers = list;
+    INPUT.head = this.getHead();
     // tracked hands: every joint's position, for scenes that show or use your hands
     const hands = [];
     if (xr.isPresenting) for (let i = 0; i < 2; i++) {
