@@ -321,13 +321,13 @@
    },
    {
     "id": "j-waterfall",
-    "title": "Waterfall",
-    "intent": "A tall waterfall in a mossy gorge, its roar all around you",
+    "title": "Space waterfall",
+    "intent": "An aurora waterfall pouring from a mountain floating in space",
     "scene": "waterfall",
     "palette": [
-     "#04140e",
-     "#2a7a5a",
-     "#d8f4ec"
+     "#04061a",
+     "#1a8a7a",
+     "#ff9ae0"
     ],
     "free": false,
     "kind": "Soundscape · 285 Hz",
@@ -337,7 +337,7 @@
    {
     "id": "j-northernlights",
     "title": "Northern lights",
-    "intent": "Beneath the aurora in an Icelandic valley",
+    "intent": "Beneath the aurora on a still Icelandic lake",
     "scene": "northernlights",
     "palette": [
      "#020a10",
@@ -517,7 +517,7 @@
    {
     "id": "j-tibetanbowls",
     "title": "Tibetan singing bowls",
-    "intent": "Circle the rim of each bowl with the mallet to make it sing",
+    "intent": "Circle the rim of each bowl with your finger to make it sing",
     "scene": "tibetanbowls",
     "palette": [
      "#140904",
@@ -669,8 +669,8 @@
   },
   {
    "id": "waterfall",
-   "label": "Waterfall",
-   "group": "Nature",
+   "label": "Space waterfall",
+   "group": "Space",
    "palette": [
     "#0a0a1a",
     "#3a3a7a",

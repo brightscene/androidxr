@@ -19,7 +19,7 @@ const HARMONICS = [4, 5, 6, 7, 8, 9, 10, 11, 12];
 const VOWELS = { o: [430, 780, 2600], m: [250, 600, 2200], a: [700, 1100, 2450], i: [300, 2100, 2900], e: [480, 1750, 2500], u: [320, 760, 2250] };
 // Om · Ma · Ni · Pad · Me · Hum: [vowel, seconds]
 const PHRASE = [['o', 3.2], ['m', 1.6], ['a', 1.5], ['i', 1.4], ['a', 1.4], ['e', 1.5], ['u', 2.2], ['m', 1.8]];
-const RING_D = 0.62, RING_Y0 = -0.24, RING_STEP = 0.085, RING_R = 0.045;
+const RING_D = 0.62, RING_Y = -0.12, RING_STEP = 0.082, RING_R = 0.045;   // a chain of linked rings across in front of you
 
 export class MonksScene extends BaseScene {
   constructor() {
@@ -133,12 +133,12 @@ export class MonksScene extends BaseScene {
       }));
       const g = new THREE.Group();
       g.add(ring, glow);
-      g.position.set(0, RING_Y0 + k * RING_STEP, -RING_D);
+      g.position.set((k - (HARMONICS.length - 1) / 2) * RING_STEP, RING_Y, -RING_D);   // low overtones on the left, high on the right
       this.rig.add(g);
       return { n, g, ring, glow, on: 0, target: 0 };
     });
     this.hint = textPlane(U, 0.8, 0.06);
-    this.hint.position.set(0, RING_Y0 - 0.1, -RING_D);
+    this.hint.position.set(0, RING_Y - 0.1, -RING_D);
     this.hint.userData.set('Touch a ring to bring out its overtone');
     this.rig.add(this.hint);
     this.hintA = 1;
@@ -289,7 +289,7 @@ export class MonksScene extends BaseScene {
     this.hint.material.uniforms.uA.value = 0.5 * this.hintA * Math.min(1, t * 0.3);
   }
 
-  // for previews: an invisible hand drifts up and down the ladder
+  // for previews: an invisible hand drifts back and forth along the chain
   _demoPointers(t) {
     const k = Math.floor((Math.sin(t * 0.5) * 0.5 + 0.5) * (this.rings.length - 0.01));
     const world = this.rings[k].g.position.clone().applyMatrix4(this.rig.matrixWorld);

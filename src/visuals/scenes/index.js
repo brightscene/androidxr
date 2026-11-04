@@ -52,7 +52,7 @@ export const SCENES = {
   aurora: { type: AuroraScene, label: 'Aurora', group: 'Space', cruise: 0.3, nebula: 0.5, world: 'full' },
   monks: { type: MonksScene, label: 'Tibetan monks', group: 'Mind', premium: true, cruise: 0, nebula: 0, world: 'off' },
   mindflash: { type: MindFlashScene, label: 'Clear mind', group: 'Light journeys', premium: true, cruise: 0, nebula: 0, world: 'off' },
-  waterfall: { type: WaterfallScene, label: 'Waterfall', group: 'Nature', cruise: 0, nebula: 0, world: 'off' },
+  waterfall: { type: WaterfallScene, label: 'Space waterfall', group: 'Space', cruise: 0, nebula: 0, world: 'off' },
   northernlights: { type: NorthernLightsScene, label: 'Northern lights', group: 'Sky & water', cruise: 0, nebula: 0, world: 'off' },
 
   affirm: { type: AffirmationScene, label: 'Affirmation field', group: 'Dimensions', premium: true, cruise: 2.2, nebula: 0.75, world: 'full' },

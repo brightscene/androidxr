@@ -2,174 +2,137 @@ import * as THREE from 'three';
 import { BaseScene, NOISE, GRADE, SFX } from '../common.js';
 import { particles } from './kit.js';
 
-// ===================================================================== Waterfall
-// Morning in a mossy gorge. A tall waterfall pours from the cliff ahead into a
-// green plunge pool; mist billows from its foot and drifts up through shafts of
-// light, with a faint rainbow in the spray. You stand on a mossy ledge at the
-// water's edge. Its roar (and birdsong now and then) is made live, so it never loops.
+// ===================================================================== Space waterfall
+// Deep space. A rocky mountain island floats ahead of you among the stars and a
+// glowing nebula, and from a notch near its peak pours a waterfall made of
+// aurora light, rippling green, teal, magenta and violet, falling past the
+// mountain's roots and dissolving into the void as glowing spray. You stand on
+// a small floating rock; little rocks drift slowly round you. Its sound, a soft
+// distant rush with a shimmering pad and the odd crystal sparkle, is made live.
 
-const FALL_Z = -13.2, TOP = 27.5, WIDTH = 4.2;   // the falls pour over the very top of the cliff
+const ISLE = new THREE.Vector3(0, 7, -18);      // the mountain's heart
+const LIP = new THREE.Vector3(0, 5.75, -9.6);  // where the falls pour over the front rim of its plateau
 
 export class WaterfallScene extends BaseScene {
   constructor() {
     super();
     const U = this.uniforms;
 
-    // sky through the trees
-    this.group.add(Object.assign(new THREE.Mesh(new THREE.SphereGeometry(60, 48, 32), new THREE.ShaderMaterial({
+    // space: stars, a nebula and a distant ringed planet
+    this.group.add(Object.assign(new THREE.Mesh(new THREE.SphereGeometry(80, 64, 40), new THREE.ShaderMaterial({
       side: THREE.BackSide, depthWrite: false, uniforms: U,
       vertexShader: 'varying vec3 vDir; void main(){ vDir = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
       fragmentShader: /* glsl */ `uniform float uTime, uFade; varying vec3 vDir; ${NOISE} ${GRADE}
-        void main(){ vec3 d = normalize(vDir); float y = d.y;
-          vec3 c = mix(vec3(0.75, 0.86, 0.85), vec3(0.32, 0.55, 0.75), smoothstep(0.0, 0.8, y));
-          float leaves = smoothstep(0.45, 0.65, fbm(vec3(d * 5.0 + vec3(uTime * 0.01, 0.0, 0.0))));
-          c = mix(c, vec3(0.05, 0.12, 0.05), leaves * smoothstep(0.1, 0.5, y) * 0.9);
-          c = mix(c, vec3(0.05, 0.08, 0.04), smoothstep(0.08, -0.05, y));
+        float sdHash(vec3 p){ p = fract(p * vec3(0.1031, 0.1030, 0.0973)); p += dot(p, p.yxz + 33.33); return fract((p.x + p.y) * p.z); }
+        float stars(vec3 d, float s, float th){ vec3 p = d * s, c = floor(p); float r = sdHash(c); if (r < th) return 0.0;
+          return smoothstep(0.42, 0.05, length(fract(p) - 0.5)) * (0.6 + 0.4 * sin(uTime * (0.7 + r * 3.0) + r * 50.0)); }
+        void main(){ vec3 d = normalize(vDir);
+          vec3 c = vec3(0.004, 0.006, 0.02);
+          // a nebula sweeping across the sky behind the mountain
+          float n = fbm(d * 2.2 + vec3(0.0, 0.0, uTime * 0.004)), n2 = fbm(d * 4.5 + 3.0);
+          float band = exp(-pow(dot(d, normalize(vec3(0.3, 0.55, -0.8))) * 2.4, 2.0));
+          c += mix(vec3(0.12, 0.03, 0.22), vec3(0.03, 0.18, 0.24), n2) * smoothstep(0.35, 0.8, n) * (0.4 + band);
+          c += vec3(0.45, 0.12, 0.35) * smoothstep(0.62, 0.85, n2) * band * 0.25;
+          c += vec3(stars(d, 240.0, 0.988)) * 0.9 + vec3(0.8, 0.85, 1.0) * stars(d, 90.0, 0.997) * 1.2;
+          // a planet low on the left, lit from one side, with a soft haze
+          vec3 pc = normalize(vec3(-0.75, 0.2, -0.6));
+          vec3 right = normalize(cross(pc, vec3(0.0, 1.0, 0.0))), up = cross(right, pc);
+          vec2 q = vec2(dot(d, right), dot(d, up)) / 0.14;
+          float r2 = dot(q, q);
+          if (dot(d, pc) > 0.0) {
+            if (r2 < 1.0) {
+              vec3 n = normalize(right * q.x + up * q.y - pc * sqrt(1.0 - r2));
+              float lit = max(dot(n, normalize(vec3(0.8, 0.4, 0.4))), 0.0);
+              float bands = 0.85 + 0.15 * sin(q.y * 14.0 + fbm(vec3(q * 3.0, 1.0)) * 4.0);
+              c = mix(vec3(0.03, 0.02, 0.05), vec3(0.7, 0.5, 0.8) * bands, lit) + vec3(0.25, 0.2, 0.5) * pow(r2, 4.0) * 0.4;
+            } else c += vec3(0.45, 0.35, 0.85) * exp(-(sqrt(r2) - 1.0) * 9.0) * 0.18;
+          }
           gl_FragColor = vec4(grade(c), uFade); }`,
     })), { renderOrder: -10 }));
 
-    // the gorge: a curved wall of wet, mossy rock round the front and sides
-    const wall = new THREE.Mesh(new THREE.CylinderGeometry(15, 15, 30, 96, 24, true, Math.PI * 0.32, Math.PI * 1.36), new THREE.ShaderMaterial({
-      side: THREE.BackSide, uniforms: U,
-      vertexShader: /* glsl */ `varying vec3 vW; varying vec3 vN; ${NOISE}
+    // the floating mountain: a craggy peak above, roots tapering away below
+    const rock = (glow) => new THREE.ShaderMaterial({
+      uniforms: { ...U, uGlow: { value: glow } },
+      vertexShader: /* glsl */ `varying vec3 vN; varying vec3 vW; varying vec3 vP; ${NOISE}
         void main(){ vec3 p = position;
-          // rough, overhanging rock
-          float r = fbm(vec3(p.x * 0.25, p.y * 0.18, p.z * 0.25)) - 0.5;
-          p.xz *= 1.0 + r * 0.22;
-          vW = (modelMatrix * vec4(p, 1.0)).xyz; vN = normalize(mat3(modelMatrix) * normal);
+          float r = fbm(p * 0.35 + 2.0) - 0.5, r2 = fbm(p * 1.1 + 7.0) - 0.5;
+          p += normalize(p) * (r * 2.2 + r2 * 0.6) * length(p) * 0.18;
+          vP = p; vW = (modelMatrix * vec4(p, 1.0)).xyz; vN = normalize(mat3(modelMatrix) * normal);
           gl_Position = projectionMatrix * viewMatrix * vec4(vW, 1.0); }`,
-      fragmentShader: /* glsl */ `uniform float uTime, uFade; varying vec3 vW; varying vec3 vN; ${NOISE} ${GRADE}
+      fragmentShader: /* glsl */ `uniform float uTime, uFade, uGlow; varying vec3 vN; varying vec3 vW; varying vec3 vP; ${NOISE}
         void main(){
-          float strata = fbm(vec3(vW.x * 0.6, vW.y * 2.2, vW.z * 0.6));
-          float crack = smoothstep(0.62, 0.72, fbm(vec3(vW.x * 1.4, vW.y * 0.5, vW.z * 1.4)));
-          vec3 rock = mix(vec3(0.13, 0.12, 0.11), vec3(0.28, 0.26, 0.23), strata);
-          float moss = smoothstep(0.42, 0.62, fbm(vec3(vW * 0.7 + 3.0))) * smoothstep(22.0, 2.0, vW.y);
-          vec3 c = mix(rock, vec3(0.12, 0.3, 0.08) * (0.7 + 0.5 * strata), moss);
-          c *= 1.0 - crack * 0.6;
-          // wet and dark beside the falls, and hanging ferns
-          float nearFall = exp(-pow(vW.x / 6.0, 2.0)) * smoothstep(-6.0, -12.0, vW.z);
-          c *= 1.0 - nearFall * 0.45;
-          float fern = smoothstep(0.7, 0.8, fbm(vec3(vW.x * 3.0, vW.y * 1.2, vW.z * 3.0))) * smoothstep(16.0, 6.0, vW.y);
-          c = mix(c, vec3(0.15, 0.4, 0.1), fern * 0.7);
-          // morning light from the upper left
-          float light = 0.55 + 0.45 * smoothstep(0.0, 22.0, vW.y) + 0.25 * smoothstep(5.0, -10.0, vW.x);
-          c *= light;
-          c = mix(c, vec3(0.6, 0.72, 0.72), smoothstep(10.0, 22.0, length(vW.xz)) * 0.3);   // a little haze
-          gl_FragColor = vec4(grade(c), uFade); }`,
-    }));
-    wall.position.set(0, 13, -1);
-    wall.renderOrder = -6;
-    this.group.add(wall);
-
-    // the waterfall: a veil of streaming white water, and a softer outer sheet
-    const fallMat = (soft) => new THREE.ShaderMaterial({
-      transparent: true, depthWrite: false, side: THREE.DoubleSide, uniforms: { ...U, uSoft: { value: soft } },
-      vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; vec3 p = position; p.z += sin(uv.y * 3.0) * 0.4; gl_Position = projectionMatrix * modelViewMatrix * vec4(p,1.0); }',
-      fragmentShader: /* glsl */ `uniform float uTime, uFade, uSoft; varying vec2 vUv; ${NOISE}
-        void main(){
-          float x = vUv.x, fall = 1.0 - vUv.y;                // 0 at the lip, 1 at the pool
-          float speed = 1.2 + fall * 2.2;                     // faster as it falls
-          float streaks = fbm(vec3(x * (uSoft > 0.5 ? 14.0 : 34.0), vUv.y * 2.0 + uTime * speed, 1.0));
-          float fine = fbm(vec3(x * 80.0, vUv.y * 5.0 + uTime * speed * 1.4, 4.0));
-          float edge = smoothstep(0.0, 0.18, x) * smoothstep(1.0, 0.82, x);
-          float a = (0.35 + streaks * 0.8 + fine * 0.3) * edge;
-          a *= uSoft > 0.5 ? 0.35 : 0.9;
-          a *= smoothstep(1.0, 0.86, fall + (fine - 0.5) * 0.15) * 0.6 + 0.4;   // breaking into spray at the foot
-          vec3 c = mix(vec3(0.78, 0.88, 0.9), vec3(1.0), streaks);
-          c *= 0.8 + 0.2 * smoothstep(0.0, 0.3, fall);
-          gl_FragColor = vec4(c * uFade, clamp(a, 0.0, 1.0) * uFade); }`,
-    });
-    for (const [w, z, soft] of [[WIDTH * 1.5, FALL_Z + 0.4, 1], [WIDTH, FALL_Z + 0.7, 0]]) {
-      const f = new THREE.Mesh(new THREE.PlaneGeometry(w, TOP, 1, 40), fallMat(soft));
-      f.position.set(0, TOP / 2, z);
-      f.renderOrder = 4;
-      this.group.add(f);
-    }
-    this.fallTop = TOP;
-
-    // the plunge pool
-    const pool = new THREE.Mesh(new THREE.CircleGeometry(13, 96).rotateX(-Math.PI / 2), new THREE.ShaderMaterial({
-      transparent: true, depthWrite: false, uniforms: U,
-      vertexShader: 'varying vec3 vW; void main(){ vW = (modelMatrix * vec4(position,1.0)).xyz; gl_Position = projectionMatrix * viewMatrix * vec4(vW,1.0); }',
-      fragmentShader: /* glsl */ `uniform float uTime, uFade; varying vec3 vW; ${NOISE} ${GRADE}
-        void main(){
-          vec2 p = vW.xz - vec2(0.0, ${FALL_Z.toFixed(1)});
-          float r = length(p);
-          float rip = sin(r * 3.2 - uTime * 4.0) * 0.5 + 0.5;
-          float n = fbm(vec3(vW.xz * 0.8, uTime * 0.4));
-          vec3 deep = vec3(0.02, 0.12, 0.1), shallow = vec3(0.08, 0.28, 0.2);
-          vec3 c = mix(deep, shallow, smoothstep(12.0, 3.0, length(vW.xz - vec2(0.0, -2.0))) * 0.6 + n * 0.25);
-          // reflections of the bright sky and falls, broken by ripples
-          c += vec3(0.5, 0.62, 0.62) * (0.1 + 0.15 * n) * (0.6 + 0.4 * rip) * smoothstep(1.0, 9.0, r);
-          // white foam where the water lands, spreading in rings
-          float foam = smoothstep(4.5, 0.5, r + (n - 0.5) * 2.0) + smoothstep(0.55, 0.85, fbm(vec3(p * 1.4 - uTime * 0.3, 2.0))) * smoothstep(8.0, 2.0, r) * 0.6;
-          foam += exp(-pow(fract(r * 0.35 - uTime * 0.25) - 0.5, 2.0) * 60.0) * smoothstep(9.0, 3.0, r) * 0.25;
-          c = mix(c, vec3(0.88, 0.94, 0.93), clamp(foam, 0.0, 1.0) * 0.85);
-          gl_FragColor = vec4(grade(c) * uFade, uFade); }`,
-    }));
-    pool.position.set(0, 0.02, -5);
-    pool.renderOrder = -3;
-    this.group.add(pool);
-
-    // the mossy ledge you stand on, and a few wet boulders at the water's edge
-    const rockMat = new THREE.ShaderMaterial({
-      uniforms: U,
-      vertexShader: 'varying vec3 vN; varying vec3 vW; void main(){ vN = normalize(mat3(modelMatrix) * normal); vW = (modelMatrix * vec4(position,1.0)).xyz; gl_Position = projectionMatrix * viewMatrix * vec4(vW,1.0); }',
-      fragmentShader: /* glsl */ `uniform float uFade; varying vec3 vN; varying vec3 vW; ${NOISE}
-        void main(){ vec3 n = normalize(vN); float l = 0.35 + 0.65 * max(dot(n, normalize(vec3(-0.5, 0.8, 0.3))), 0.0);
-          float moss = smoothstep(0.35, 0.65, n.y + (fbm(vW * 3.0) - 0.5) * 0.8);
-          vec3 c = mix(vec3(0.16, 0.15, 0.13) * (0.7 + 0.4 * fbm(vW * 6.0)), vec3(0.14, 0.32, 0.08), moss) * l;
+          vec3 n = normalize(cross(dFdx(vW), dFdy(vW)));
+          float key = max(dot(n, normalize(vec3(0.7, 0.3, 0.6))), 0.0);                 // starlight from the planet's side
+          float rim = pow(1.0 - abs(dot(n, normalize(cameraPosition - vW))), 3.0);
+          float strata = fbm(vec3(vW.x * 0.5, vW.y * 1.6, vW.z * 0.5));
+          vec3 c = mix(vec3(0.05, 0.045, 0.07), vec3(0.2, 0.17, 0.24), strata) * (0.25 + key * 0.9);
+          c += vec3(0.25, 0.4, 0.7) * rim * 0.35;
+          // glowing crystal veins
+          float vein = smoothstep(0.016, 0.0, abs(fbm(vW * 0.6 + 4.0) - 0.5)) * uGlow * smoothstep(0.4, 0.7, fbm(vW * 0.2 + 9.0));
+          c += mix(vec3(0.2, 1.0, 0.7), vec3(0.8, 0.3, 1.0), fbm(vW * 0.3)) * vein * 0.6 * (0.6 + 0.4 * sin(uTime * 0.8 + vW.y));
+          // the falls light the rock beside them
+          c += vec3(0.2, 0.8, 0.6) * exp(-pow((vW.x) / 3.0, 2.0)) * smoothstep(-6.0, -11.0, vW.z) * 0.18;
           gl_FragColor = vec4(c * uFade, 1.0); }`,
     });
-    const ledge = new THREE.Mesh(new THREE.CylinderGeometry(2.6, 3.0, 0.6, 24, 1), rockMat);
-    ledge.position.set(0, -0.25, 0.6);
+    const peak = new THREE.Mesh(new THREE.ConeGeometry(8, 9, 48, 12), rock(1));
+    peak.position.set(ISLE.x, ISLE.y + 3.0, ISLE.z);
+    const body = new THREE.Mesh(new THREE.SphereGeometry(8, 64, 32, 0, Math.PI * 2, Math.PI * 0.5, Math.PI * 0.5), rock(1));
+    body.scale.set(1, 1.35, 1);
+    body.position.set(ISLE.x, ISLE.y - 1.5, ISLE.z);
+    this.group.add(peak, body);
+
+    // the aurora waterfall: ribbons of light pouring off the lip and down into the void
+    const fall = new THREE.Mesh(new THREE.PlaneGeometry(4.2, 34, 1, 60), new THREE.ShaderMaterial({
+      transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, uniforms: U,
+      vertexShader: /* glsl */ `varying vec2 vUv;
+        void main(){ vUv = uv; vec3 p = position;
+          float f = 1.0 - uv.y;                                  // 0 at the lip
+          p.z += 1.6 * sqrt(f) - f * 0.6;                        // arcs out from the lip, then falls
+          p.x *= 1.0 + f * 0.9;                                  // spreading as it falls
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0); }`,
+      fragmentShader: /* glsl */ `uniform float uTime, uFade; varying vec2 vUv; ${NOISE}
+        void main(){
+          float x = vUv.x, f = 1.0 - vUv.y;
+          float speed = 0.6 + f * 1.6;
+          float rays = fbm(vec3(x * 22.0, vUv.y * 3.0 + uTime * speed, 1.0));
+          float fine = fbm(vec3(x * 70.0, vUv.y * 7.0 + uTime * speed * 1.5, 3.0));
+          float edge = smoothstep(0.0, 0.35, x) * smoothstep(1.0, 0.65, x);
+          edge *= 0.55 + 0.45 * smoothstep(0.3, 0.7, fbm(vec3(x * 6.0, vUv.y * 0.8 + uTime * 0.3, 8.0)));   // strands, not a sheet
+          // aurora colours flowing down and across the falls
+          float h = fbm(vec3(x * 2.0, vUv.y * 1.2 + uTime * 0.25, 5.0));
+          vec3 col = mix(vec3(0.15, 1.0, 0.5), vec3(0.1, 0.85, 0.95), smoothstep(0.35, 0.6, h));
+          col = mix(col, vec3(1.0, 0.25, 0.7), smoothstep(0.58, 0.75, h));
+          col = mix(col, vec3(0.6, 0.35, 1.0), smoothstep(0.6, 1.0, f) * 0.6);
+          float a = (0.08 + pow(rays, 2.0) * 1.6 + fine * 0.3) * edge;
+          a *= smoothstep(0.0, 0.03, f) * (1.0 - smoothstep(0.55, 1.0, f) * 0.85);   // fading into the void
+          gl_FragColor = vec4(col * a * 0.6 * uFade, 1.0); }`,
+    }));
+    fall.position.set(LIP.x, LIP.y - 17, LIP.z);
+    fall.renderOrder = 5;
+    this.group.add(fall);
+    // a softer veil of light around the falls, and glowing spray where they dissolve
+    this.group.add(particles(U, { count: 900, min: [-3.5, -16, LIP.z - 1], max: [3.5, LIP.y - 3, LIP.z + 4], vel: [0, -1.6, 0.1], sway: 0.6, size: [0.05, 0.14], colors: ['#7fffd0', '#5ad8ff', '#ff7ad0', '#b48aff'], alpha: 0.75 }));
+    this.group.add(particles(U, { count: 500, min: [-9, -22, LIP.z - 4], max: [9, -6, LIP.z + 6], vel: [0, 0.15, 0], sway: 1.2, size: [0.08, 0.2], colors: ['#7fffd0', '#ff9ae0', '#9ab4ff'], alpha: 0.45 }));
+
+    // the rock you stand on, and little rocks drifting round
+    const ledge = new THREE.Mesh(new THREE.SphereGeometry(2.4, 32, 16, 0, Math.PI * 2, 0, Math.PI * 0.5), rock(0.4));
+    ledge.scale.set(1, 0.32, 1);
+    ledge.rotation.x = Math.PI;
+    ledge.position.set(0, -0.02, 0.4);
     this.group.add(ledge);
-    for (const [x, z, s] of [[-2.4, -1.6, 0.7], [1.9, -2.2, 0.55], [-4.5, -4.0, 1.1], [4.2, -5.0, 0.9], [-1.0, -3.4, 0.4], [6.5, -9.0, 1.4], [-6.8, -8.5, 1.6]]) {
-      const b = new THREE.Mesh(new THREE.DodecahedronGeometry(s, 1), rockMat);
-      b.scale.y = 0.6; b.position.set(x, s * 0.2, z); b.rotation.set(Math.random(), Math.random() * 6, 0);
-      this.group.add(b);
+    this.drifters = [];
+    for (let i = 0; i < 9; i++) {
+      const m = new THREE.Mesh(new THREE.IcosahedronGeometry(0.25 + Math.random() * 0.7, 2), rock(0.6));
+      const a = Math.random() * Math.PI * 2, R = 6 + Math.random() * 10;
+      m.position.set(Math.cos(a) * R, -3 + Math.random() * 12, -6 - Math.abs(Math.sin(a)) * R);
+      this.group.add(m);
+      this.drifters.push({ m, sp: 0.05 + Math.random() * 0.1, bob: Math.random() * 6 });
     }
 
-    // mist billowing from the foot of the falls, spray, and light through it
-    this.mist = new THREE.Mesh(new THREE.PlaneGeometry(16, 9), new THREE.ShaderMaterial({
-      transparent: true, depthWrite: false, uniforms: U,
-      vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
-      fragmentShader: /* glsl */ `uniform float uTime, uFade; varying vec2 vUv; ${NOISE}
-        void main(){ vec2 p = vUv - vec2(0.5, 0.0);
-          float n = fbm(vec3(p.x * 3.0, vUv.y * 2.0 - uTime * 0.12, uTime * 0.05));
-          float shape = exp(-p.x * p.x * 7.0) * smoothstep(1.0, 0.05, vUv.y) * smoothstep(0.0, 0.1, vUv.y) * smoothstep(0.5, 0.36, abs(p.x));
-          // a faint rainbow arcing through the spray
-          float rr = length(vec2(p.x * 1.6, vUv.y - 0.05));
-          float band = smoothstep(0.62, 0.66, rr) * smoothstep(0.78, 0.74, rr);
-          vec3 rain = 0.5 + 0.5 * cos(6.28318 * ((rr - 0.62) / 0.16) + vec3(0.0, 2.1, 4.2));
-          // only the left-hand part of the arc shows, where the sun catches the spray
-          band *= smoothstep(0.1, -0.25, p.x) * smoothstep(0.02, 0.2, vUv.y);
-          float a = shape * (0.22 + n * 0.5);
-          vec3 c = mix(vec3(0.92, 0.96, 0.97), rain, clamp(band * 0.8, 0.0, 1.0));
-          a = max(a, band * 0.16 * smoothstep(0.0, 0.3, shape + 0.15));
-          gl_FragColor = vec4(c * uFade, clamp(a, 0.0, 0.85) * uFade); }`,
-    }));
-    this.mist.position.set(0, 3.5, FALL_Z + 2.2);
-    this.mist.renderOrder = 6;
-    this.group.add(this.mist);
-    this.group.add(particles(U, { count: 700, min: [-4, 0, FALL_Z - 1], max: [4, 7, FALL_Z + 4], vel: [0, 0.7, 0.35], sway: 0.8, size: [0.03, 0.08], colors: ['#ffffff', '#e8f4f4'], alpha: 0.55 }));
-    this.group.add(particles(U, { count: 260, min: [-8, 0.5, -10], max: [8, 9, 2], vel: [0.03, 0.05, 0], sway: 0.4, size: [0.015, 0.03], colors: ['#fff6c8', '#e8ffd0'], alpha: 0.6 }));   // motes in the light
-    const rays = new THREE.Mesh(new THREE.PlaneGeometry(10, 26), new THREE.ShaderMaterial({
-      transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, uniforms: U,
-      vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
-      fragmentShader: /* glsl */ `uniform float uTime, uFade; varying vec2 vUv; ${NOISE}
-        void main(){ float beams = pow(fbm(vec3(vUv.x * 9.0 + vUv.y * 2.0, uTime * 0.03, 1.0)), 3.0) * 2.5;
-          float a = beams * smoothstep(0.0, 0.3, vUv.y) * smoothstep(1.0, 0.6, vUv.y) * sin(vUv.x * 3.14159);
-          gl_FragColor = vec4(vec3(1.0, 0.95, 0.8) * a * 0.22 * uFade, 1.0); }`,
-    }));
-    rays.position.set(-4.5, 11, -6.5);
-    rays.rotation.set(0, 0.4, 0.38);
-    this.group.add(rays);
-
-    this.nextBird = 3;
+    this.nextSpark = 2;
   }
 
-  // ---- sound: the roar of the falls (layered filtered noise that surges gently) and birdsong
+  // ---- sound: a soft distant rush, a shimmering pad, and the odd crystal sparkle
   _sound() {
     if (this.snd) return this.snd;
     if (this.muted) return null;
@@ -178,10 +141,9 @@ export class WaterfallScene extends BaseScene {
     const { ctx } = A;
     const out = ctx.createGain(); out.gain.value = 0;
     out.connect(A.out);
-    const send = ctx.createGain(); send.gain.value = 0.25; out.connect(send).connect(A.reverb);
+    const send = ctx.createGain(); send.gain.value = 0.5; out.connect(send).connect(A.reverb);
     const layers = [];
-    // [filter type, frequency, Q, level, pan]: the deep roar, the body of the water, the hiss of spray
-    for (const [type, f, q, level, pan] of [['lowpass', 380, 0.7, 0.55, 0], ['bandpass', 900, 0.5, 0.32, -0.25], ['bandpass', 1400, 0.6, 0.26, 0.25], ['highpass', 4200, 0.5, 0.09, 0]]) {
+    for (const [type, f, q, level, pan] of [['lowpass', 320, 0.7, 0.3, 0], ['bandpass', 800, 0.5, 0.14, -0.3], ['bandpass', 1300, 0.6, 0.1, 0.3]]) {
       const n = ctx.createBufferSource(); n.buffer = A.noise; n.loop = true;
       const fl = ctx.createBiquadFilter(); fl.type = type; fl.frequency.value = f; fl.Q.value = q;
       const g = ctx.createGain(); g.gain.value = level;
@@ -190,52 +152,60 @@ export class WaterfallScene extends BaseScene {
       n.start(0, Math.random() * 3);
       layers.push({ n, fl, g, level, f });
     }
-    this.snd = { ctx, A, out, send, layers };
+    // the pad: a slow, shimmering chord (A minor pentatonic), each note breathing on its own
+    const pad = [220, 261.63, 329.63, 392, 440, 523.25].map((f, i) => {
+      const o = ctx.createOscillator(); o.type = 'sine'; o.frequency.value = f;
+      const o2 = ctx.createOscillator(); o2.type = 'sine'; o2.frequency.value = f * 1.003;
+      const g = ctx.createGain(); g.gain.value = 0;
+      const p = ctx.createStereoPanner(); p.pan.value = (i % 2 ? 0.5 : -0.5) * (i / 6);
+      o.connect(g); o2.connect(g); g.connect(p).connect(out);
+      o.start(); o2.start();
+      return { o, o2, g, ph: Math.random() * 6, rate: 0.05 + Math.random() * 0.06 };
+    });
+    this.snd = { ctx, A, out, send, layers, pad };
     return this.snd;
   }
 
-  _bird() {
+  _spark() {
     const S = this.snd;
     if (!S) return;
-    const { ctx, A } = S, t0 = ctx.currentTime + 0.05;
-    const pan = ctx.createStereoPanner(); pan.pan.value = (Math.random() - 0.5) * 1.6;
-    const g = ctx.createGain(); g.gain.value = 0.05 * this.fade;
-    g.connect(pan).connect(A.out);
-    const send = ctx.createGain(); send.gain.value = 0.6; pan.connect(send).connect(A.reverb);
-    const base = 2400 + Math.random() * 1800, notes = 3 + Math.floor(Math.random() * 5);
-    let t = t0;
-    for (let i = 0; i < notes; i++) {
-      const o = ctx.createOscillator(), e = ctx.createGain();
-      const f = base * (1 + (Math.random() - 0.3) * 0.35), dur = 0.06 + Math.random() * 0.1;
-      o.type = 'sine';
-      o.frequency.setValueAtTime(f, t); o.frequency.exponentialRampToValueAtTime(f * (Math.random() < 0.5 ? 1.35 : 0.75), t + dur);
-      e.gain.setValueAtTime(0, t); e.gain.linearRampToValueAtTime(1, t + 0.012); e.gain.exponentialRampToValueAtTime(0.001, t + dur);
-      o.connect(e).connect(g); o.start(t); o.stop(t + dur + 0.02);
-      t += dur + 0.04 + Math.random() * 0.08;
-    }
-    setTimeout(() => { try { g.disconnect(); pan.disconnect(); send.disconnect(); } catch (_) {} }, (t - t0 + 1) * 1000);
+    const { ctx, A } = S, t = ctx.currentTime + 0.02;
+    const notes = [880, 1046.5, 1318.5, 1568, 1760, 2093];
+    const f = notes[Math.floor(Math.random() * notes.length)];
+    const o = ctx.createOscillator(), g = ctx.createGain(), p = ctx.createStereoPanner();
+    o.type = 'sine'; o.frequency.value = f;
+    p.pan.value = (Math.random() - 0.5) * 1.4;
+    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.03 * this.fade, t + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t + 3.5);
+    o.connect(g).connect(p).connect(A.out);
+    const send = ctx.createGain(); send.gain.value = 0.9; p.connect(send).connect(A.reverb);
+    o.start(t); o.stop(t + 3.6);
+    setTimeout(() => { try { g.disconnect(); p.disconnect(); send.disconnect(); } catch (_) {} }, 4000);
   }
 
-  update(dt) {
-    const S = this._sound();
-    if (S) {
-      const now = S.ctx.currentTime;
-      S.out.gain.setTargetAtTime(0.32 * this.fade, now, 0.4);
-      // the falls surge and ease, never quite the same
-      for (const L of S.layers) {
-        if (Math.random() < dt * 0.6) L.g.gain.setTargetAtTime(L.level * (0.75 + Math.random() * 0.5), now, 0.8);
-        if (Math.random() < dt * 0.3) L.fl.frequency.setTargetAtTime(L.f * (0.85 + Math.random() * 0.3), now, 1.2);
-      }
-      this.nextBird -= dt;
-      if (this.nextBird <= 0) { this.nextBird = 5 + Math.random() * 9; this._bird(); }
+  update(dt, t) {
+    for (const d of this.drifters) {
+      d.m.rotation.x += dt * d.sp; d.m.rotation.y += dt * d.sp * 0.7;
+      d.m.position.y += Math.sin(t * 0.3 + d.bob) * dt * 0.08;
     }
+    const S = this._sound();
+    if (!S) return;
+    const now = S.ctx.currentTime;
+    S.out.gain.setTargetAtTime(0.36 * this.fade, now, 0.4);
+    for (const L of S.layers) {
+      if (Math.random() < dt * 0.5) L.g.gain.setTargetAtTime(L.level * (0.75 + Math.random() * 0.5), now, 0.9);
+    }
+    for (const P of S.pad) P.g.gain.setTargetAtTime(0.018 * (0.5 + 0.5 * Math.sin(t * P.rate * 6.28 + P.ph)), now, 0.5);
+    this.nextSpark -= dt;
+    if (this.nextSpark <= 0) { this.nextSpark = 2.5 + Math.random() * 5; this._spark(); }
   }
 
   _stop() {
     const S = this.snd;
     if (!S) return;
+    const end = S.ctx.currentTime + 0.8;
     S.out.gain.setTargetAtTime(0, S.ctx.currentTime, 0.15);
-    for (const L of S.layers) try { L.n.stop(S.ctx.currentTime + 0.8); } catch (_) {}
+    for (const L of S.layers) try { L.n.stop(end); } catch (_) {}
+    for (const P of S.pad) try { P.o.stop(end); P.o2.stop(end); } catch (_) {}
     setTimeout(() => { try { S.out.disconnect(); S.send.disconnect(); } catch (_) {} }, 1200);
     this.snd = null;
   }

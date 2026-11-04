@@ -54,8 +54,22 @@ export class SingingBowlsScene extends BaseScene {
           ${crystal
     ? `vec3 c = mix(vec3(0.01, 0.012, 0.04), vec3(0.05, 0.05, 0.13), n);
           c += vec3(0.22, 0.2, 0.5) * exp(-pow(d.y * 3.0 + 0.2, 2.0)) * 0.25 * (0.6 + 0.4 * fbm(d * 4.0 + uTime * 0.02));
-          vec3 sp = d * 160.0; float st = step(0.996, fract(sin(dot(floor(sp), vec3(12.9, 78.2, 37.7))) * 43758.5));
-          c += vec3(st) * smoothstep(-0.1, 0.4, d.y) * 0.6;`
+          // a deep, twinkling starfield: three layers of round stars in true colours, and the Milky Way
+          float band = exp(-pow(dot(d, normalize(vec3(0.9, 0.35, 0.3))) * 3.2, 2.0));
+          c += mix(vec3(0.12, 0.1, 0.2), vec3(0.3, 0.26, 0.4), fbm(d * 7.0)) * band * smoothstep(0.35, 0.75, fbm(d * 3.0 + 2.0)) * 0.5;
+          for (int L = 0; L < 3; L++) {
+            float fl = float(L);
+            vec3 p = d * (150.0 + fl * 170.0), cell = floor(p);
+            float h = fract(sin(dot(cell, vec3(12.9898, 78.233, 37.719))) * 43758.5453);
+            if (h > 0.986 - fl * 0.005 - band * 0.01) {
+              vec3 o = 0.3 + 0.4 * fract(sin(cell * vec3(91.7, 47.3, 23.1)) * 4375.85);
+              float s = smoothstep(0.32, 0.0, length(fract(p) - o));
+              float tw = 0.55 + 0.45 * sin(uTime * (0.8 + h * 4.0) + h * 70.0);
+              vec3 sc = mix(vec3(0.75, 0.82, 1.0), vec3(1.0, 0.9, 0.75), fract(h * 37.0));
+              c += sc * s * tw * (1.4 - fl * 0.35);
+            }
+          }
+          c *= smoothstep(-0.25, 0.05, d.y) * 0.85 + 0.15;`
     : `vec3 c = mix(vec3(0.03, 0.012, 0.008), vec3(0.1, 0.045, 0.02), n);
           // warm candle glows low around the room
           float az = atan(d.x, -d.z);
@@ -123,13 +137,31 @@ export class SingingBowlsScene extends BaseScene {
       });
     }
 
-    // the mallet
-    this.mallet = this._mallet(crystal);
-    this.rig.add(this.mallet);
+    // a trail of light wherever your finger touches a rim, fading as you go
+    this.trailN = 160;
+    const tg = new THREE.BufferGeometry();
+    tg.setAttribute('position', new THREE.Float32BufferAttribute(new Float32Array(this.trailN * 3), 3));
+    tg.setAttribute('aCol', new THREE.Float32BufferAttribute(new Float32Array(this.trailN * 3), 3));
+    tg.setAttribute('aBorn', new THREE.Float32BufferAttribute(new Float32Array(this.trailN).fill(-99), 1));
+    this.trail = new THREE.Points(tg, new THREE.ShaderMaterial({
+      transparent: true, depthWrite: false, depthTest: false, blending: THREE.AdditiveBlending,
+      uniforms: { uTime: U.uTime, uFade: U.uFade, uViewH: U.uViewH },
+      vertexShader: /* glsl */ `attribute vec3 aCol; attribute float aBorn; uniform float uTime, uViewH; varying vec3 vC; varying float vA;
+        void main(){ float age = uTime - aBorn; vA = exp(-age * 1.6) * step(0.0, age); vC = aCol;
+          vec4 mv = modelViewMatrix * vec4(position, 1.0);
+          gl_PointSize = (0.022 + 0.02 * exp(-age * 4.0)) * projectionMatrix[1][1] * uViewH / -mv.z;
+          gl_Position = projectionMatrix * mv; }`,
+      fragmentShader: 'uniform float uFade; varying vec3 vC; varying float vA; void main(){ float d = length(gl_PointCoord - 0.5) * 2.0; float a = exp(-d * d * 4.0) * vA; gl_FragColor = vec4(vC * a * 1.6 * uFade, 1.0); }',
+    }));
+    this.trail.frustumCulled = false;
+    this.trail.renderOrder = 30;
+    this.rig.add(this.trail);
+    this.trailI = 0;
+    this.crystal = crystal;
 
     this.hint = textPlane(U, 0.9, 0.07);
     this.hint.position.set(0, 0.12, -1.15);
-    this.hint.userData.set('Circle a rim with the mallet to make it sing · tap to strike');
+    this.hint.userData.set('Circle a rim with your finger to make it sing · tap to strike');
     this.rig.add(this.hint);
     this.hintA = 1;
 
@@ -237,6 +269,18 @@ export class SingingBowlsScene extends BaseScene {
     g.add(label);
 
     return { i, name, note, f: f0 * this.voice.octave, r, h, lift, g, u, ang, level: 0, strike: 0, rub: 0, nodes: null };
+  }
+
+  // light where you touch: a point on the rim, in the bowl's colour (gold for bronze)
+  _glow(b, angle, born) {
+    const k = this.trailI++ % this.trailN;
+    const g = this.trail.geometry;
+    const x = b.g.position.x + Math.cos(angle) * b.r, z = b.g.position.z + Math.sin(angle) * b.r, y = b.g.position.y + b.lift + b.h;
+    g.attributes.position.setXYZ(k, x, y, z);
+    const c = this.crystal ? b.u.uCol.value : new THREE.Color(1, 0.72, 0.32);
+    g.attributes.aCol.setXYZ(k, c.r, c.g, c.b);
+    g.attributes.aBorn.setX(k, born);
+    g.attributes.position.needsUpdate = g.attributes.aCol.needsUpdate = g.attributes.aBorn.needsUpdate = true;
   }
 
   _mallet(crystal) {
@@ -351,7 +395,6 @@ export class SingingBowlsScene extends BaseScene {
     this.rig.updateMatrixWorld(true);
     const V = this.voice;
     const seen = new Set();
-    let malletAt = null;
 
     const pointers = this.demo ? this._demoPointers(t) : INPUT.pointers;
     for (const p of pointers) {
@@ -359,7 +402,10 @@ export class SingingBowlsScene extends BaseScene {
       if (!c) { this.touch.delete(p.id); continue; }
       const b = c.b;
       // strike: a pinch, trigger or click on a bowl
-      if (INPUT.presses.includes(p.id) || p.press) { b.strike = 1; b.level = Math.max(b.level, 0.55); this.hintA = Math.min(this.hintA, 0.99); }
+      if (INPUT.presses.includes(p.id) || p.press) {
+        b.strike = 1; b.level = Math.max(b.level, 0.55); this.hintA = Math.min(this.hintA, 0.99);
+        for (let k = 0; k < 18; k++) this._glow(b, (k / 18) * Math.PI * 2, t);   // a burst of light round the rim
+      }
       if (c.inside) { this.touch.delete(p.id); continue; }
       // rubbing: how fast you're going round the rim
       const prev = this.touch.get(p.id);
@@ -372,7 +418,12 @@ export class SingingBowlsScene extends BaseScene {
         prev.angle = c.angle;
       } else this.touch.set(p.id, { b, angle: c.angle, speed: 0 });
       seen.add(b);
-      if (!malletAt || p.id !== 'mouse') malletAt = c;
+      // a soft trail of light where you're touching
+      const lastA = this.lastGlow?.get(p.id);
+      if (lastA == null || Math.abs(Math.atan2(Math.sin(c.angle - lastA), Math.cos(c.angle - lastA))) > 0.08) {
+        this._glow(b, c.angle, t);
+        (this.lastGlow ||= new Map()).set(p.id, c.angle);
+      }
     }
 
     for (const b of this.bowls) {
@@ -403,19 +454,6 @@ export class SingingBowlsScene extends BaseScene {
         if (N.quiet > 1.5) this._silence(b);
       }
     }
-
-    // the mallet sits against the rim where you're playing, handle angled up towards you
-    if (malletAt) {
-      const b = malletAt.b;
-      const radial = new THREE.Vector3(Math.cos(malletAt.angle), 0, Math.sin(malletAt.angle));
-      const at = b.g.position.clone().addScaledVector(radial, b.r + 0.013);
-      at.y = malletAt.rimY - 0.02;
-      this.mallet.position.copy(at);
-      const toYou = new THREE.Vector3(-b.g.position.x, 0, -b.g.position.z).normalize();
-      const axis = radial.clone().multiplyScalar(0.55).add(new THREE.Vector3(0, 1, 0)).addScaledVector(toYou, 0.35).normalize();
-      this.mallet.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), axis);
-      this.mallet.visible = true;
-    } else this.mallet.visible = false;
 
     // the hint fades once you've played
     if (this.hintA < 1) this.hintA = Math.max(0, this.hintA - dt * 0.25);
