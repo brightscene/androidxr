@@ -14,3 +14,11 @@ export const affirmationId = (text) => {
   for (let i = 0; i < AFFIRMATIONS.length; i++) { const j = AFFIRMATIONS[i].indexOf(text); if (j >= 0) return `aff-${i + 1}-${j + 1}`; }
   return null;
 };
+
+// Affirmation tracing: short lines you trace with your finger, then hear read back.
+export const TRACE_AFFIRMATIONS = [
+  'You are enough', 'I am amazing', 'I am full of energy', 'I am calm', 'I am loved', 'I believe in myself',
+  'I am strong', 'I am grateful', 'I choose joy', 'I am at peace', 'I trust myself', 'I shine bright',
+  'I am safe', 'I am worthy', 'Today is a gift', 'I am becoming',
+];
+export const traceId = (i) => `trace-${i + 1}`;

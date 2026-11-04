@@ -14,7 +14,7 @@
 // Each spoken line gets a stable id (<script>-<n>) so recorded voice clips
 // can replace the device voice: see tools/generate-voice.mjs.
 
-import { AFFIRMATIONS } from './affirmations.js';
+import { AFFIRMATIONS, TRACE_AFFIRMATIONS, traceId } from './affirmations.js';
 
 const RAW = {
   sleep: `
@@ -290,5 +290,6 @@ export function allLines() {
   WHISPERS.forEach((text, i) => out.push({ id: `whisper-${i + 1}`, text }));
   REIKI_THANKS.forEach((text, i) => out.push({ id: `reiki-thanks-${i + 1}`, text }));
   AFFIRMATIONS.forEach((set, i) => set.forEach((text, j) => out.push({ id: `aff-${i + 1}-${j + 1}`, text })));
+  TRACE_AFFIRMATIONS.forEach((text, i) => out.push({ id: traceId(i), text: text + '.' }));
   return out;
 }

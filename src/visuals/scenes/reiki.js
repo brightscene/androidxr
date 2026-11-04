@@ -3,6 +3,8 @@ import { BaseScene, NOISE, GRADE, SFX, INPUT, damp } from '../common.js';
 import { particles } from './kit.js';
 import { textPlane } from './imagecycle.js';
 import { REIKI_THANKS } from '../../audio/scripts.js';
+import { TRACE_AFFIRMATIONS, traceId } from '../../audio/affirmations.js';
+import FONT from './scriptfont.json';
 
 // Reiki: a faint outline of a Usui Reiki symbol hangs in the air in front of
 // you. Trace it with your hand (point at it, or touch it with a fingertip if
@@ -87,13 +89,63 @@ function resample(st, step) {
   return out;
 }
 
+// Words as single-line handwriting (Hershey Script Simplex), centred, in metres.
+// Pen strokes that meet are joined, so a word is usually one long flowing stroke.
+function textStrokes(text, maxW = 0.8, maxH = 0.34) {
+  const words = text.split(' '), lines = [];
+  let cur = '';
+  for (const w of words) { const t = cur ? `${cur} ${w}` : w; if (t.length > 13 && cur) { lines.push(cur); cur = w; } else cur = t; }
+  lines.push(cur);
+  const LH = 36, raw = [];
+  let widest = 0;
+  lines.forEach((ln, li) => {
+    let x = 0;
+    const these = [];
+    for (const ch of ln) {
+      const g = FONT.chars[ch.charCodeAt(0) - FONT.first];
+      if (!g) { x += 14; continue; }
+      for (const seg of g.d.split('M').slice(1)) {
+        const pts = [...seg.matchAll(/(-?[\d.]+),(-?[\d.]+)/g)].map((m) => [+m[1] + x, +m[2] + li * LH]);
+        if (pts.length > 1) these.push(pts);
+      }
+      x += g.o * 2;
+    }
+    for (const st of these) for (const p of st) p[0] -= x / 2;   // centre each line
+    widest = Math.max(widest, x);
+    raw.push(...these);
+  });
+  const merged = [];
+  for (const st of raw) {
+    const prev = merged[merged.length - 1];
+    if (prev) { const a = prev[prev.length - 1], b = st[0]; if (Math.hypot(a[0] - b[0], a[1] - b[1]) < 1.6) { prev.push(...st.slice(1)); continue; } }
+    merged.push(st.map((p) => [...p]));
+  }
+  const h = lines.length * LH, k = Math.min(maxW / widest, maxH / h);
+  return merged.map((st) => st.map(([x, y]) => [x * k, -(y - h / 2) * k]));
+}
+
 const SIZE = 0.26;                                   // half-height of a symbol (m)
 const PLANE = new THREE.Vector3(0, 1.35, -0.75);      // where the symbols hang until we know where you are
 const REACH = 0.75;                                   // how far in front of you (m)
 
+// What a tracing scene traces. Reiki symbols by default; the affirmation
+// tracing journey passes its own deck (see AffirmationTraceScene below).
+const REIKI = {
+  deck: () => SYMBOLS.map((sym) => ({ title: `${sym.name} · ${sym.meaning}`, strokes: sym.strokes.map((st) => st.map(([x, y]) => [x * SIZE, y * SIZE])) })),
+  hint: 'Trace the faint outline with your hand',
+  score: (n) => `Symbols traced this session: ${n}`,
+  done(scene) {
+    scene.thanks.userData.set('Thank you');
+    const k = Math.floor(Math.random() * REIKI_THANKS.length);
+    if (scene.fade > 0.5) setTimeout(() => SFX.say(`reiki-thanks-${k + 1}`, 0), 500);
+  },
+};
+
 export class ReikiScene extends BaseScene {
-  constructor() {
+  constructor(opts = REIKI) {
     super();
+    this.opts = opts;
+    this.deck = opts.deck();
     this.wantsPointer = true;
     const U = this.uniforms;
     // a soft violet room of light
@@ -154,13 +206,13 @@ export class ReikiScene extends BaseScene {
 
   _load(k) {
     this.placeNext = true;   // each new symbol appears in front of you
-    const sym = SYMBOLS[k % SYMBOLS.length];
-    this.sym = sym;
-    const step = 0.025;
-    this.paths = sym.strokes.map((st) => resample(st, step).map(([x, y]) => new THREE.Vector2(x * SIZE, y * SIZE)));
+    const item = this.deck[k % this.deck.length];
+    this.item = item;
+    const step = item.step || 0.025;
+    this.paths = item.strokes.map((st) => resample(st, step).map(([x, y]) => new THREE.Vector2(x, y)));
     // ribbons along every stroke, with stroke number, point number and position across
     const pos = [], info = [], idx = [];
-    const W = 0.009;
+    const W = item.width || 0.009;
     let base = 0;
     this.paths.forEach((pts, s) => {
       pts.forEach((p, i) => {
@@ -183,8 +235,8 @@ export class ReikiScene extends BaseScene {
     this.holder.add(this.lines);
     this.prog = { s: 0, i: 0 };
     this.state = { phase: 'in', t: 0 };
-    this.title.userData.set(`${sym.name} · ${sym.meaning}`);
-    this.score.userData.set(this.count ? `Symbols traced this session: ${this.count}` : 'Trace the faint outline with your hand');
+    this.title.userData.set(item.title);
+    this.score.userData.set(this.count ? this.opts.score(this.count) : this.opts.hint);
     this.thanks.userData.set('');
   }
 
@@ -193,6 +245,11 @@ export class ReikiScene extends BaseScene {
   // where each pointer meets the symbol plane, in symbol coordinates
   _touches() {
     const out = [];
+    if (this.demo && this.state.phase === 'trace') {
+      const path = this.paths[Math.min(this.prog.s, this.paths.length - 1)];
+      const q = path[Math.min(path.length - 1, this.prog.i + 2)];
+      return [new THREE.Vector2(q.x, q.y)];
+    }
     const inv = new THREE.Matrix4().copy(this.holder.matrixWorld).invert();
     for (const p of INPUT.pointers) {
       let hit = null;
@@ -239,7 +296,7 @@ export class ReikiScene extends BaseScene {
       const tol = this.xr ? 0.05 : 0.035;               // how close you need to be (m): hands wobble more than a mouse
       for (const q of touches) {
         // move along the stroke as far as you're following it
-        for (let look = 1; look <= 6 && P.i + look < path.length; look++) {
+        for (let look = 1; look <= (this.item.look || 6) && P.i + look < path.length; look++) {
           if (q.distanceTo(path[P.i + look]) < tol) { P.i += look; look = 0; }
         }
         if (P.i === 0 && q.distanceTo(path[0]) < tol) P.i = 1;
@@ -250,11 +307,9 @@ export class ReikiScene extends BaseScene {
         if (P.s >= this.paths.length) {
           st.phase = 'done'; st.t = 0;
           this.count++;
-          this.thanks.userData.set('Thank you');
-          this.score.userData.set(`Symbols traced this session: ${this.count}`);
+          this.score.userData.set(this.opts.score(this.count));
           this._sfx('chime', { gain: 0.6, dur: 5, note: 1, pan: 0 });
-          const k = Math.floor(Math.random() * REIKI_THANKS.length);
-          if (this.fade > 0.5) setTimeout(() => SFX.say(`reiki-thanks-${k + 1}`, 0), 500);
+          this.opts.done(this);
         }
       }
       // pulsing ring at the start of the next stroke until you begin it
@@ -278,4 +333,25 @@ export class ReikiScene extends BaseScene {
     this.score.material.uniforms.uA.value = show * 0.55;
     this.thanks.material.uniforms.uA.value = st.phase === 'done' ? Math.min(1, st.t / 0.6) * show : 0;
   }
+}
+
+// ===================================================================== Affirmation tracing
+// A short affirmation hangs in front of you in flowing handwriting. Trace it
+// with your finger (or point), letter by letter, and it fills with golden
+// light; when it's complete it's read aloud to you, then the next one appears.
+const AFFIRM = {
+  deck() {
+    const order = TRACE_AFFIRMATIONS.map((text, i) => ({ text, i })).sort(() => Math.random() - 0.5);
+    return order.map(({ text, i }) => ({ title: 'Trace the words', strokes: textStrokes(text), step: 0.012, look: 12, width: 0.006, text, say: traceId(i) }));
+  },
+  hint: 'Trace the words with your finger',
+  score: (n) => `Affirmations traced this session: ${n}`,
+  done(scene) {
+    scene.thanks.userData.set(scene.item.text);   // the finished affirmation glows above as it's spoken
+    if (scene.fade > 0.5) setTimeout(() => SFX.say(scene.item.say, 0, scene.item.text), 400);
+  },
+};
+
+export class AffirmationTraceScene extends ReikiScene {
+  constructor() { super(AFFIRM); }
 }
