@@ -13,13 +13,18 @@ import { BaseScene, NOISE, GRADE, STARS } from '../common.js';
 //   jupiter: skimming the cloud tops: cream, tan and rust bands curling past,
 //            white ovals, the Great Red Spot sliding by, Io and Europa above
 const WORLDS = {
-  earth: { R: 6371, h: 420, speed: 0.0032 },
-  moon: { R: 1737, h: 45, speed: 0.0055 },
-  jupiter: { R: 69911, h: 4200, speed: 0.0011 },
+  earth: { R: 6371, h: 420, speed: 0.011 },
+  moon: { R: 1737, h: 40, speed: 0.011 },
+  jupiter: { R: 69911, h: 2600, speed: 0.0055 },
 };
 
 const COMMON = /* glsl */ `
   float hitSphere(vec3 o, vec3 d, float r, float hs){ float b = dot(o, d), c = hs * (2.0 * r + hs), h = b * b - c; if (h < 0.0) return -1.0; h = sqrt(h); float t = -b - h; return t > 0.0 ? t : (-b + h > 0.0 ? -b + h : -1.0); }
+  // detail fades out where it would be smaller than a pixel (distant ground, near the horizon),
+  // so nothing shimmers or crawls as the world slides past. fp: one pixel's footprint, in km
+  float FP;
+  float L(float freqPerKm){ return 1.0 - smoothstep(0.4, 1.1, freqPerKm * FP); }
+  float fbmL(vec3 x, float freqPerKm){ return mix(0.47, fbm(x), L(freqPerKm * 1.5)); }
   vec3 rotX(vec3 v, float a){ float c = cos(a), s = sin(a); return vec3(v.x, v.y * c - v.z * s, v.y * s + v.z * c); }
   // a disc in the sky (a moon, the Earth): returns its surface normal in .xyz and coverage in .w
   vec4 skyBody(vec3 d, vec3 dir, float rad){
@@ -57,32 +62,39 @@ const EARTH = /* glsl */ `
     }
     vec3 p = o + d * tg;
     vec3 n = normalize(p);
-    vec3 s = rotX(n, -uTime * SPEED_);
+    vec3 s = rotX(n, -uFly);
+    FP = tg * 0.0016 / max(dot(n, -d), 0.1);
     float lit = dot(n, uSun);
     float day = smoothstep(-0.08, 0.15, lit);
-    // land and sea
-    float land = fbm(s * 2.6 + 4.0) * 1.0 + fbm(s * 9.0 + 1.3) * 0.38 + fbm(s * 40.0) * 0.08 - 0.71;
-    float coast = smoothstep(0.0, 0.03, land);
-    vec3 sea = mix(vec3(0.01, 0.05, 0.16), vec3(0.02, 0.2, 0.32), smoothstep(-0.06, 0.0, land));
-    float dry = fbm(s * 5.0 + 7.0);
-    vec3 ground = mix(vec3(0.1, 0.24, 0.08), vec3(0.5, 0.4, 0.24), smoothstep(0.42, 0.6, dry));
-    ground = mix(ground, vec3(0.62, 0.5, 0.33), smoothstep(0.62, 0.72, dry));
-    ground *= 0.8 + 0.35 * fbm(s * 70.0);
+    // land and sea, at the Final frontier's scales (in km), plus finer texture below you
+    vec3 P = s * R_;
+    float land = fbmL(P * 0.004, 0.004) + 0.35 * fbmL(P * 0.03 + 2.0, 0.03) + 0.08 * fbmL(P * 0.12 + 5.0, 0.12) - 0.62;
+    float coast = smoothstep(0.0, 0.02, land);
+    vec3 sea = mix(vec3(0.02, 0.1, 0.25), vec3(0.05, 0.25, 0.4), fbmL(P * 0.05 + 3.0, 0.05));
+    sea = mix(sea, vec3(0.06, 0.32, 0.42), smoothstep(-0.05, 0.0, land) * 0.7);   // shallows along the coasts
+    float dry = fbmL(P * 0.02 + 4.0, 0.02);
+    vec3 ground = mix(vec3(0.16, 0.28, 0.1), vec3(0.42, 0.36, 0.22), dry);
+    ground = mix(ground, vec3(0.6, 0.5, 0.34), smoothstep(0.62, 0.72, fbmL(P * 0.008 + 9.0, 0.008)));   // deserts
+    ground *= 0.85 + 0.25 * fbmL(P * 0.25 + 5.0, 0.25);
+    ground *= 0.9 + 0.15 * fbmL(P * 1.1 + 8.0, 1.1);
+    // mountain ridges catching the light
+    float ridge = (1.0 - abs(fbm(P * 0.06 + 11.0) * 2.0 - 1.0)) * L(0.24);
+    ground = mix(ground, vec3(0.55, 0.5, 0.45), smoothstep(0.82, 0.95, ridge) * coast * 0.5);
     vec3 col = mix(sea, ground, coast);
     col *= 0.04 + 1.1 * max(lit, 0.0);
     // the sun's glint on the sea
     float glint = pow(max(dot(reflect(d, n), uSun), 0.0), 140.0);
     col += vec3(1.0, 0.85, 0.6) * glint * (1.0 - coast) * 1.6 * day;
     // city lights on the night side
-    float town = smoothstep(0.55, 0.85, fbm(s * 55.0 + 3.0)) * smoothstep(0.62, 0.9, fbm(s * 9.0 + 9.0) + 0.3) * coast;
+    float town = mix(0.12, smoothstep(0.55, 0.8, fbm(P * 0.3 + 3.0)), L(1.2)) * smoothstep(0.5, 0.7, fbmL(P * 0.02 + 9.0, 0.02)) * coast;
     col += vec3(1.0, 0.7, 0.35) * town * 0.9 * (1.0 - smoothstep(-0.12, 0.02, lit));
     // clouds, drifting a little on their own
-    vec3 sc = rotX(n, -uTime * SPEED_ * 1.08);
-    float cl = smoothstep(0.5, 0.74, fbm(sc * 7.0 + vec3(0.0, uTime * 0.004, 0.0)) * 0.72 + fbm(sc * 26.0) * 0.32);
-    col = mix(col, vec3(0.95) * (0.03 + 1.05 * max(lit, 0.0)) + vec3(1.0, 0.45, 0.2) * 0.25 * exp(-pow(lit / 0.06, 2.0)), cl * 0.92);
+    vec3 Pc = rotX(n, -uFly * 1.04) * R_ + vec3(uTime * 0.5, 0.0, 0.0);
+    float cl = smoothstep(0.5, 0.75, fbmL(Pc * 0.02 + 7.0, 0.02) * 0.7 + fbmL(Pc * 0.12 + 8.0, 0.12) * 0.3);
+    col = mix(col, vec3(0.95) * (0.03 + 1.05 * max(lit, 0.0)) + vec3(1.0, 0.45, 0.2) * 0.25 * exp(-pow(lit / 0.06, 2.0)), cl * 0.85);
     // the air thickens toward the horizon
     float graze = pow(1.0 - max(dot(n, -d), 0.0), 4.0);
-    col = mix(col, airCol * 0.9, graze * 0.85);
+    col = mix(col, airCol * 0.9, graze * 0.7);
     return col;
   }
 `;
@@ -108,25 +120,39 @@ const MOON = /* glsl */ `
       grad += normalize(dv + 1e-5) * dh * amp / rad;
     }
   }
+  // the slope of value noise, for rolling ground and rubble
+  vec3 nGrad(vec3 q){ float e = 0.5, v = vnoise(q); return vec3(vnoise(q + vec3(e, 0.0, 0.0)) - v, vnoise(q + vec3(0.0, e, 0.0)) - v, vnoise(q + vec3(0.0, 0.0, e)) - v) / e; }
   vec3 world(vec3 o, vec3 d, float h, vec3 c, float el, float horizonEl){
     float tg = hitSphere(o, d, R_, h);
     if (tg < 0.0) return c;
     vec3 p = o + d * tg;
     vec3 n = normalize(p);
-    vec3 s = rotX(n, -uTime * SPEED_);
+    vec3 s = rotX(n, -uFly);
+    FP = tg * 0.0016 / max(dot(n, -d), 0.1);
     float hgt = 0.0; vec3 grad = vec3(0.0);
+    // craters within craters, from a hundred kilometres across down to a few hundred metres;
+    // the same steepness at every size, each fading out before it gets smaller than a pixel
     craters(s * 18.0, 1.0, hgt, grad);
-    craters(s * 60.0 + 3.0, 0.45, hgt, grad);
-    craters(s * 190.0 + 7.0, 0.22, hgt, grad);
-    // turn the craters' slopes into the lighting, rotated back into the world
-    vec3 g = rotX(grad, uTime * SPEED_);
+    craters(s * 55.0 + 3.0, 0.9 * L(55.0 / R_), hgt, grad);
+    craters(s * 170.0 + 7.0, 0.85 * L(170.0 / R_), hgt, grad);
+    craters(s * 520.0 + 11.0, 0.8 * L(520.0 / R_), hgt, grad);
+    craters(s * 1600.0 + 13.0, 0.75 * L(1600.0 / R_), hgt, grad);
+    // rolling ground and rubble between them
+    grad += nGrad(s * 60.0) * 0.9 * L(60.0 / R_);
+    grad += nGrad(s * 300.0 + 5.0) * 0.7 * L(300.0 / R_);
+    grad += nGrad(s * 1500.0 + 9.0) * 0.6 * L(1500.0 / R_);
+    grad += nGrad(s * 6000.0 + 2.0) * 0.5 * L(6000.0 / R_);
+    // turn the slopes into the lighting, rotated back into the world
+    vec3 g = rotX(grad, uFly);
     g -= n * dot(g, n);
-    vec3 nn = normalize(n - g * 0.035);
+    vec3 nn = normalize(n - g * 0.03);
     float mare = smoothstep(0.5, 0.62, fbm(s * 3.0 + 2.0) * 0.8 + fbm(s * 11.0) * 0.25);
-    vec3 alb = mix(vec3(0.6, 0.58, 0.55), vec3(0.3, 0.3, 0.31), mare) * (0.85 + 0.3 * fbm(s * 120.0));
+    vec3 alb = mix(vec3(0.6, 0.58, 0.55), vec3(0.3, 0.3, 0.31), mare);
+    alb *= 0.8 + 0.4 * fbmL(s * 160.0, 160.0 / R_);
+    alb *= 0.85 + 0.3 * fbmL(s * 1500.0 + 4.0, 1500.0 / R_);
     float lit = max(dot(nn, uSun), 0.0);
-    vec3 col = alb * (0.02 + 1.6 * lit);
-    // no air: just the faintest dusting toward the horizon
+    // shadows: anything facing away from the low sun goes properly dark
+    vec3 col = alb * (0.012 + 1.7 * pow(lit, 1.15));
     col *= 1.0 - 0.25 * pow(1.0 - max(dot(n, -d), 0.0), 6.0);
     return col;
   }
@@ -155,12 +181,13 @@ const JUPITER = /* glsl */ `
     }
     vec3 p = o + d * tg;
     vec3 n = normalize(p);
-    vec3 s = rotX(n, -uTime * SPEED_);
+    vec3 s = rotX(n, -uFly);
+    FP = tg * 0.0016 / max(dot(n, -d), 0.1);
     float t = uTime * 0.01;
     // the bands curl and festoon: latitude bent by turbulence that shears along them
     vec3 w = s * vec3(14.0, 5.0, 5.0);
     float turb = fbm(w + vec3(0.0, t, -t)) - 0.47;
-    float turb2 = fbm(s * vec3(40.0, 12.0, 12.0) + vec3(t * 2.0)) - 0.47;
+    float turb2 = fbmL(s * vec3(40.0, 12.0, 12.0) + vec3(t * 2.0), 40.0 / R_) - 0.47;
     float lat = s.x + turb * 0.05 + turb2 * 0.02;
     // the Great Red Spot, and a few white ovals
     vec3 grs = normalize(vec3(-0.12, 0.6, -0.8));
@@ -169,7 +196,7 @@ const JUPITER = /* glsl */ `
     float swirl = exp(-e * e * 0.5);
     lat += swirl * 0.02 * sin(atan(dv.y, dv.z) * 2.0 + e * 3.0 - uTime * 0.2);
     vec3 col = band(lat * 16.0 + 0.3);
-    col = mix(col, vec3(0.78, 0.33, 0.18) * (0.85 + 0.3 * fbm(s * 90.0)), smoothstep(1.4, 0.6, e));
+    col = mix(col, vec3(0.78, 0.33, 0.18) * (0.85 + 0.3 * fbmL(s * 90.0, 90.0 / R_)), smoothstep(1.4, 0.6, e));
     float ov = 0.0;
     for (int i = 0; i < 5; i++) {
       float fi = float(i);
@@ -177,7 +204,7 @@ const JUPITER = /* glsl */ `
       ov = max(ov, smoothstep(1.0, 0.6, length((s - oc) * vec3(55.0, 32.0, 32.0))));
     }
     col = mix(col, vec3(0.97, 0.95, 0.9), ov * 0.85);
-    col *= 0.85 + 0.25 * fbm(s * 140.0 + vec3(t * 3.0));
+    col *= 0.85 + 0.25 * fbmL(s * 140.0 + vec3(t * 3.0), 140.0 / R_);
     float lit = dot(n, uSun);
     col *= 0.02 + 1.1 * max(lit, 0.0);
     float graze = pow(1.0 - max(dot(n, -d), 0.0), 3.0);
@@ -192,12 +219,12 @@ export class OrbitScene extends BaseScene {
     this.kind = kind;
     const W = WORLDS[kind];
     const U = this.uniforms;
-    Object.assign(U, { uSun: { value: new THREE.Vector3(0.3, 0.1, -0.9).normalize() }, uAlt: { value: W.h } });
+    Object.assign(U, { uFly: { value: 0 }, uSun: { value: new THREE.Vector3(0.3, 0.1, -0.9).normalize() }, uAlt: { value: W.h } });
     const body = { earth: EARTH, moon: MOON, jupiter: JUPITER }[kind];
     const sky = new THREE.Mesh(new THREE.SphereGeometry(150, 96, 64), new THREE.ShaderMaterial({
       side: THREE.BackSide, depthWrite: false, transparent: true, uniforms: U,
       vertexShader: 'varying vec3 vDir; void main(){ vDir = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
-      fragmentShader: /* glsl */ `uniform float uTime, uFade, uAlt; uniform vec3 uSun; varying vec3 vDir; ${NOISE} ${GRADE} ${STARS} ${COMMON} ${body}
+      fragmentShader: /* glsl */ `uniform float uTime, uFade, uAlt, uFly; uniform vec3 uSun; varying vec3 vDir; ${NOISE} ${GRADE} ${STARS} ${COMMON} ${body}
         void main(){ vec3 d = normalize(vDir);
           float h = uAlt;
           vec3 o = vec3(0.0, R_ + h, 0.0);
@@ -238,6 +265,8 @@ export class OrbitScene extends BaseScene {
   }
   update(dt) {
     this.t += dt;
+    // flying forward: the world turns beneath you (its own clock, eased in as the scene starts)
+    this.uniforms.uFly.value = (this.uniforms.uFly.value + dt * WORLDS[this.kind].speed * Math.min(1, this.t / 4)) % (Math.PI * 2);
     const S = this.uniforms.uSun.value;
     if (this.kind === 'earth') {
       // the sun sinks ahead into the band of air and rises again: an orbital day of five minutes
