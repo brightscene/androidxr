@@ -199,7 +199,10 @@ class App {
     if (on && !this.strobeAccepted) { this.ui.showStrobeWarning(); this.menu.showWarning(true); return; }
     this.lights = on; this._changed();
   }
-  acceptStrobe() { this.strobeAccepted = true; this.lights = true; this.menu.showWarning(false); this.ui.hideStrobeWarning(); this._changed(); }
+  acceptStrobe() {
+    this.strobeAccepted = true; this.lights = true; this.menu.showWarning(false); this.ui.hideStrobeWarning(); this._changed();
+    if (this.playing && this.renderer.xr.isPresenting) this.menu.show(false);   // straight into the session that asked
+  }
   declineStrobe() { this.menu.showWarning(false); this.ui.hideStrobeWarning(); }
   setLightOpt(key, v) { this[key] = v; if (key === 'lightSymbol') this.strobe.setSymbol(v); this._changed(); }
   cycle(key, options) { const i = options.indexOf(this[key]); return options[(i + 1) % options.length]; }
@@ -317,13 +320,15 @@ class App {
     if (track.stream && !track.meta) await track.loading;
     if (track.stream && !track.meta) { this.ui.toast('Could not load that track. Check your connection.'); return; }
     // a light track: make sure the viewer sees the safety warning and lights come on
-    if ((track.strobe || track.mindflash) && !this.strobeAccepted) this.setLights(true);
+    const needsWarning = (track.strobe || track.mindflash) && !this.strobeAccepted;
+    if (needsWarning) this.setLights(true);                       // shows the flashing-lights warning first
+    else if (track.mindflash && !this.lights) this.lights = true;  // Clear mind is its lights
     await this.engine.init();
     this.engine.setVolume(this.volume);
     if (this.playing && this.player) {
       // switching journeys: let everything that's playing (music, tones, voice, the
       // scene's own instruments) fade right out first, then bring the new one in
-      if (this.renderer.xr.isPresenting) this.menu.show(false);
+      if (this.renderer.xr.isPresenting && !needsWarning) this.menu.show(false);
       this._stopGuide();
       this.voice.cancel?.();
       this.engine.fadeMaster(0, 1.6);
@@ -364,7 +369,8 @@ class App {
     this.setScene(this.sceneFor(track));
     this.recentre(true);   // a journey always starts facing straight ahead, even in the same scene
     this.applyPalette(track.palette);
-    if (this.renderer.xr.isPresenting) this.menu.show(false);
+    // keep the menu up if it's showing the flashing-lights warning, so it can be answered
+    if (this.renderer.xr.isPresenting && !(needsWarning && !this.strobeAccepted)) this.menu.show(false);
     this.menu.refresh();
     this.ui.onStart(track);
   }

@@ -26,7 +26,7 @@ export function buildJourneys() {
   const special = [
     { ...base('crown'), musicOff: true, mindflash: true, id: 'j-mindflash', title: 'Clear mind', intent: 'Rotating, ever-changing light to settle a busy mind · eyes closed', scene: 'mindflash', palette: ['#02100c', '#1a8a5a', '#5aa8ff'] },
     { ...base('mend'), musicOff: true, id: 'j-waterfall', title: 'Waterfall', intent: 'A tall waterfall in a mossy gorge, its roar all around you', scene: 'waterfall', palette: ['#04140e', '#2a7a5a', '#d8f4ec'] },
-    { ...base('release'), id: 'j-northernlights', title: 'Northern lights', intent: 'Beneath the aurora in an Icelandic valley', scene: 'northernlights', palette: ['#020a10', '#1e8a6a', '#ff8ad0'] },
+    { ...base('release'), id: 'j-northernlights', title: 'Northern lights', intent: 'Beneath the aurora on a still Icelandic lake', scene: 'northernlights', palette: ['#020a10', '#1e8a6a', '#ff8ad0'] },
   ];
   // Premium Interactive: journeys you play with your hands
   const reiki = TRACKS.find((t) => t.id === 'reiki');
