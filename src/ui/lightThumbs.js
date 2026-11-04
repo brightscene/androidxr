@@ -20,11 +20,11 @@ export const LIGHT_SYMBOLS = [
   [6, 'Glowing orb', 'orb'], [7, 'Chrome ball', 'chrome'], [8, 'Neon ring', 'ring'], [9, 'Crystal', 'crystal'],
 ];
 export const LIGHT_LOOKS = [
-  ['Gentle glow', ['#ffb84a', '#ff8ad0'], { lightStyle: 'field', lightSymbol: 2, lightColour: 'palette', lightMode: 'soft', lightMax: 0.4, lightDim: 0.3 }],
-  ['Sacred', ['#a46aff', '#5ed6d0'], { lightStyle: 'field', lightSymbol: 0, lightColour: 'vivid', lightMode: 'exact', lightMax: 0.6, lightDim: 0.5 }],
-  ['Glowing orb', ['#ff6a9a', '#ffd27a'], { lightStyle: 'none', lightSymbol: 6, lightColour: 'vivid', lightMode: 'exact', lightMax: 0.7, lightDim: 0.5 }],
-  ['Chrome ball', ['#9aa4b8', '#4a9aff'], { lightStyle: 'field', lightSymbol: 7, lightColour: 'vivid', lightMode: 'exact', lightMax: 0.6, lightDim: 0.6 }],
-  ['Wide wash', ['#2ec4b6', '#a493ff'], { lightStyle: 'wide', lightSymbol: 4, lightColour: 'violet', lightMode: 'soft', lightMax: 0.5, lightDim: 0.3 }],
+  ['Gentle glow', ['#ffb84a', '#ff8ad0'], { lightStyle: 'field', lightSymbol: 2, lightColour: 'palette', lightMode: 'soft', lightMax: 1, lightDim: 0.3 }],
+  ['Sacred', ['#a46aff', '#5ed6d0'], { lightStyle: 'field', lightSymbol: 0, lightColour: 'vivid', lightMode: 'exact', lightMax: 1, lightDim: 0.5 }],
+  ['Glowing orb', ['#ff6a9a', '#ffd27a'], { lightStyle: 'none', lightSymbol: 6, lightColour: 'vivid', lightMode: 'exact', lightMax: 1, lightDim: 0.5 }],
+  ['Chrome ball', ['#9aa4b8', '#4a9aff'], { lightStyle: 'field', lightSymbol: 7, lightColour: 'vivid', lightMode: 'exact', lightMax: 1, lightDim: 0.6 }],
+  ['Wide wash', ['#2ec4b6', '#a493ff'], { lightStyle: 'wide', lightSymbol: 4, lightColour: 'violet', lightMode: 'soft', lightMax: 1, lightDim: 0.3 }],
 ];
 
 // old saved settings (from when shapes were styles) to the new ones

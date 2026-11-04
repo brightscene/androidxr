@@ -850,6 +850,7 @@ export class XRMenu {
       const shape = LIGHT_SYMBOLS[v][2];
       if (shape) return drawStyle(c, shape, x, yy, s, colsNow());
       const T = app.symbolThumbs;
+      if (app.lightStyle !== 'none') { const col = colsNow()[0], g = c.createRadialGradient(x + s / 2, yy + s / 2, 0, x + s / 2, yy + s / 2, s * 0.5); g.addColorStop(0, col + 'aa'); g.addColorStop(1, col + '00'); c.fillStyle = g; c.fillRect(x, yy, s, s); }
       if (T?.[v]) c.drawImage(T[v], x, yy, s, s);
     }, (v) => app.lightSymbol === v, (v) => app.setLightOpt('lightSymbol', v));
 

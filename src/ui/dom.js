@@ -462,9 +462,12 @@ export class DomUI {
     const symDraw = (i) => (c) => {
       const shape = LIGHT_SYMBOLS[i][2];
       if (shape) drawStyle(c, shape, 0, 0, 128, ['#ff4ad0', '#2ee0ff']);
-      else if (thumbs?.[i]) c.drawImage(thumbs[i], 0, 0, 128, 128);
+      else {
+        if (app.lightStyle !== 'none') { const col = cols()[0], g = c.createRadialGradient(64, 64, 0, 64, 64, 64); g.addColorStop(0, col + 'aa'); g.addColorStop(1, col + '00'); c.fillStyle = g; c.fillRect(0, 0, 128, 128); }
+        if (thumbs?.[i]) c.drawImage(thumbs[i], 0, 0, 128, 128);
+      }
     };
-    this.symbolTiles = LIGHT_SYMBOLS.map(([v, n]) => { const b = tile($('#light-symbols'), n, symDraw(v), () => app.setLightOpt('lightSymbol', v)); b._v = v; return b; });
+    this.symbolTiles = LIGHT_SYMBOLS.map(([v, n]) => { const b = tile($('#light-symbols'), n, symDraw(v), () => app.setLightOpt('lightSymbol', v)); b._v = v; b._draw = symDraw(v); return b; });
     this.swatches = LIGHT_COLOURS.map(([v, n, cs]) => {
       const b = document.createElement('button');
       b.innerHTML = `<span class="dot" style="background:${cs.length > 2 ? `conic-gradient(${cs.join(', ')}, ${cs[0]})` : `linear-gradient(135deg, ${cs.join(', ')})`}"></span>${n}`;
@@ -478,6 +481,8 @@ export class DomUI {
     $('#lights-generated').addEventListener('click', () => { app.setLightOpt('lightsGenerated', !app.lightsGenerated); this.refresh(); });
     $('#light-import').addEventListener('click', () => $('#file')?.click());
     this._lightsUI = () => {
+      const look = app.lightStyle + app.lightColour;
+      if (this._symLook !== look) { this._symLook = look; for (const b of this.symbolTiles) { const cv = b.querySelector('canvas'), c = cv.getContext('2d'); c.clearRect(0, 0, 128, 128); b._draw(c); } }
       $('#lights-tog').classList.toggle('on', app.lights);
       const tr = app.playing ? app.playingTrack : app.selected;
       const avail = app.lightsAvailable();

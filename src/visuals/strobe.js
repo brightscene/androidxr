@@ -88,7 +88,9 @@ const FRAG = /* glsl */ `
       float dr = abs(r - 0.3);
       col = uCol * (smoothstep(0.06, 0.04, dr) * 1.3 + exp(-dr * 10.0) * 0.55) + vec3(1.0) * smoothstep(0.018, 0.0, dr) * 0.6;
     }
-    col += uCol * field * uGlow * (uStyle > 2.5 ? 0.9 : 0.55);
+    // the glow: a soft field, plus a halo hugging the symbol itself
+    float halo = exp(-r * r * 5.0) * smoothstep(0.75, 0.4, r);
+    col += uCol * uGlow * (field * (uStyle > 2.5 ? 0.9 : 0.75) + halo * (uStyle > 2.5 ? 0.3 : 0.6));
     gl_FragColor = vec4(col * b, 1.0);
   }`;
 

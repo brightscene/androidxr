@@ -64,13 +64,14 @@ class App {
     // light (AudioStrobe / SpectraStrobe) settings
     this.strobeAccepted = p.strobeAccepted ?? false;
     this.lights = this.strobeAccepted ? p.lights ?? true : false;
-    [this.lightStyle, this.lightSymbol] = migrateLights(p.lightStyle, p.lightSymbol);
+    // lights v3: every symbol starts with its glow behind it
+    [this.lightStyle, this.lightSymbol] = migrateLights(p.lightsV >= 3 ? p.lightStyle : 'field', p.lightSymbol);
     // v2 defaults: vivid colours, symbols side by side, dimmed background
     const v2 = p.v >= 2;
     this.lightColour = v2 ? p.lightColour || 'vivid' : 'vivid';
     this.lightLayout = p.lightLayout || 'sides';
     this.lightDim = p.lightDim ?? 0.5;
-    this.lightMax = p.lightMax ?? 0.6;
+    this.lightMax = p.lightsV === 4 ? p.lightMax ?? 1 : 1;   // full brightness by default
     this.lightMode = p.lightMode || 'exact';
     // v3: lights pulse with the tones by default, so switching lights on always shows them
     this.lightsGenerated = p.v >= 3 ? p.lightsGenerated ?? true : true;
@@ -168,7 +169,7 @@ class App {
         selected: this.selected.id === 'import' ? undefined : this.selected.id, minutes: this.minutes, entrainment: this.entrainment,
         journey: this.journey, solfeggio: this.solfeggio, voiceInSoundscapes: this.whispers, captions: this.captions,
         dives: this.dives, nature: this.nature, voice: this.voiceChoice, volume: this.volume, background: this.background, quality: this.quality, breathGuide: this.breathText, guideVoice: this.guideVoice, mineOn: this.mineOn, mineEvery: this.mineEvery,
-        strobeAccepted: this.strobeAccepted, lights: this.lights, lightStyle: this.lightStyle, lightColour: this.lightColour,
+        strobeAccepted: this.strobeAccepted, lights: this.lights, lightsV: 4, lightStyle: this.lightStyle, lightColour: this.lightColour,
         mixLevels: this.mixLevels, mixOn: this.mixOn, toneType: this.toneType, natureType: this.natureType,
         v: 3, lightLayout: this.lightLayout, lightDim: this.lightDim,
         lightMax: this.lightMax, lightMode: this.lightMode, lightsGenerated: this.lightsGenerated, lightSymbol: this.lightSymbol,
