@@ -695,6 +695,21 @@
     "audio": null
    },
    {
+    "id": "j-thereminmonks",
+    "title": "Theremin monks",
+    "intent": "The monks chant; your hands draw their overtones out of the air",
+    "scene": "thereminmonks",
+    "palette": [
+     "#1a0604",
+     "#8a2a14",
+     "#ffb060"
+    ],
+    "free": false,
+    "kind": "Soundscape · 963 Hz",
+    "freq": 963,
+    "audio": null
+   },
+   {
     "id": "j-affirmtrace",
     "title": "Trace your affirmations",
     "intent": "Trace short affirmations with your finger, then hear them spoken",

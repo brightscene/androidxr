@@ -26,15 +26,19 @@ const ROD = new THREE.Vector3(0.2, -0.38, -0.5); // foot of the pitch rod
 const LOOP = new THREE.Vector3(-0.22, -0.34, -0.48);
 
 export class ThereminScene extends BaseScene {
-  constructor() {
+  // opts.bare: just the instrument (no backdrop, no voice of its own), for
+  // other scenes to play with it (Theremin monks)
+  constructor(opts = {}) {
     super();
+    this.bare = !!opts.bare;
     this.wantsPointer = true;
     this.wantsHands = true;
     this.viewPitch = -0.3;
     const U = this.uniforms;
+    if (this.bare) this.group.visible = true;
 
     // a dark stage among the stars, a soft violet haze
-    this.group.add(new THREE.Mesh(new THREE.SphereGeometry(40, 48, 32), new THREE.ShaderMaterial({
+    if (!this.bare) this.group.add(new THREE.Mesh(new THREE.SphereGeometry(40, 48, 32), new THREE.ShaderMaterial({
       side: THREE.BackSide, depthWrite: false, uniforms: U,
       vertexShader: 'varying vec3 vDir; void main(){ vDir = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
       fragmentShader: /* glsl */ `uniform float uTime, uFade; varying vec3 vDir; ${NOISE} ${GRADE}
@@ -50,7 +54,7 @@ export class ThereminScene extends BaseScene {
           if (d.y < -0.25) c = mix(c, vec3(0.03, 0.02, 0.04) * (0.8 + 0.4 * fbm(d * 40.0)), smoothstep(-0.25, -0.35, d.y));   // a polished dark floor
           gl_FragColor = vec4(grade(c), uFade); }`,
     })));
-    this.group.add(particles(U, { count: 300, min: [-5, -1, -6], max: [5, 3, 3], vel: [0, 0.02, 0], sway: 0.3, size: [0.005, 0.012], colors: ['#d8c8ff', '#ffd8f0'], alpha: 0.35 }));
+    if (!this.bare) this.group.add(particles(U, { count: 300, min: [-5, -1, -6], max: [5, 3, 3], vel: [0, 0.02, 0], sway: 0.3, size: [0.005, 0.012], colors: ['#d8c8ff', '#ffd8f0'], alpha: 0.35 }));
 
     this.rig = new THREE.Group();
     this.group.add(this.rig);
@@ -227,7 +231,7 @@ export class ThereminScene extends BaseScene {
       (this.chipWas ||= new Map()).set(p.id, hit);
       if (hit && ((q && !was) || press)) { this.snap = !this.snap; try { localStorage.setItem('mindlyte-theremin-free', this.snap ? '0' : '1'); } catch (_) {} }
     }
-    this.chip.userData.set(this.snap ? '◉ Pentatonic   ○ Free pitch' : '○ Pentatonic   ◉ Free pitch');
+    this.chip.userData.set(this.bare ? (this.snap ? '\u25c9 Harmonic steps   \u25cb Glide' : '\u25cb Harmonic steps   \u25c9 Glide') : this.snap ? '\u25c9 Pentatonic   \u25cb Free pitch' : '\u25cb Pentatonic   \u25c9 Free pitch');
     this.chip.material.uniforms.uA.value = 0.55;
 
     if (pitch != null) this.pitch += (pitch - this.pitch) * Math.min(1, dt * 18);
@@ -243,7 +247,7 @@ export class ThereminScene extends BaseScene {
     }
     const target = LOW * 2 ** (semis / 12);
     this.f += (target - this.f) * Math.min(1, dt * (this.snap ? 9 : 25));   // a singing glide between notes
-    const S = this.vol > 0.003 ? this._voice() : this.snd;
+    const S = this.bare ? null : this.vol > 0.003 ? this._voice() : this.snd;
     if (S) {
       const now = S.ctx.currentTime;
       S.o.frequency.setTargetAtTime(this.f, now, 0.015);
@@ -251,7 +255,7 @@ export class ThereminScene extends BaseScene {
       S.out.gain.setTargetAtTime(this.vol * this.vol * 0.14 * this.fade, now, 0.03);
     }
     const n = Math.round(12 * Math.log2(this.f / 16.3516));
-    this.noteLabel.userData.set(this.vol > 0.03 ? `${NAMES[((n % 12) + 12) % 12]}${Math.floor(n / 12)}` : '');
+    this.noteLabel.userData.set(this.vol > 0.03 ? this.label?.() ?? `${NAMES[((n % 12) + 12) % 12]}${Math.floor(n / 12)}` : '');
     this.noteLabel.material.uniforms.uA.value = Math.min(0.8, this.vol * 1.5);
     this.lamp.material.uniforms.uA.value = this.vol * 0.8;
 

@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { ThereminScene } from './theremin.js';
 import { BaseScene, NOISE, GRADE, SFX, INPUT } from '../common.js';
 import { particles } from './kit.js';
 import { textPlane } from './imagecycle.js';
@@ -332,8 +333,9 @@ export class MonksScene extends BaseScene {
       this._chant(dt);
       for (let k = 0; k < this.rings.length; k++) {
         const r = this.rings[k], T = S.tones[k];
-        T.g.gain.setTargetAtTime(r.target * 9, now, r.target ? 0.12 : 0.5);
-        T.wg.gain.setTargetAtTime(r.target * 0.045, now, r.target ? 0.15 : 0.6);
+        const v = this.toneLevels ? this.toneLevels[k] : r.target;   // another instrument can play the overtones
+        T.g.gain.setTargetAtTime(v * 9, now, v ? 0.12 : 0.5);
+        T.wg.gain.setTargetAtTime(v * 0.045, now, v ? 0.15 : 0.6);
       }
     }
     for (const r of all) {
@@ -375,4 +377,45 @@ export class MonksScene extends BaseScene {
   silence() { this._stop(); this.muted = true; }
   setFade(f) { super.setFade(f); if (f < 0.01) this._stop(); }
   dispose() { this._stop(); super.dispose(); }
+}
+
+// ===================================================================== Theremin monks
+// The monks chant in their hall, and a theremin stands before you. Your right
+// hand near the pitch rod chooses which overtone of the chant sings out (from
+// the 4th harmonic to the 12th, as the overtone rings do); your left hand over
+// the loop sets how strongly it rings. Glide between harmonics, or step
+// cleanly from one to the next.
+export class ThereminMonksScene extends MonksScene {
+  constructor() {
+    super();
+    this.rig.visible = false;          // no ring chains: the theremin plays the overtones
+    this.rig.position.y = -50;
+    this.wantsHands = true;
+    this.viewPitch = -0.2;
+    this.th = new ThereminScene({ bare: true });
+    this.th.label = () => {
+      const h = HARMONICS[Math.round(this.pos)];
+      return `overtone \u00d7${h}`;
+    };
+    this.group.add(this.th.group);
+    this.toneLevels = new Array(HARMONICS.length).fill(0);
+    this.pos = 3;
+  }
+
+  setFade(f) { super.setFade(f); this.th?.setFade(f); }
+
+  update(dt, t, s) {
+    this.th.demo = this.demo;
+    this.th.update(dt, t, s);
+    this.hideRays = this.th.hideRays;
+    // pitch hand -> which harmonic; stepping cleanly, or gliding between neighbours
+    const n = HARMONICS.length;
+    this.pos += (this.th.pitch * (n - 1) - this.pos) * Math.min(1, dt * (this.th.snap ? 6 : 12));
+    const at = this.th.snap ? Math.round(this.pos) : this.pos;
+    const width = this.th.snap ? 0.35 : 0.6;
+    for (let k = 0; k < n; k++) this.toneLevels[k] = this.th.vol * Math.exp(-(((k - at) / width) ** 2));
+    super.update(dt, t, s);
+  }
+
+  dispose() { this.th.dispose(); super.dispose(); }
 }

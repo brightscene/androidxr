@@ -17,6 +17,8 @@
 	<dict><key>UIApplicationSupportsMultipleScenes</key><false/></dict>
 	<key>UILaunchScreen</key>
 	<dict><key>UIColorName</key><string>LaunchBackground</string></dict>
+	<key>NSSupportsGroupActivities</key>
+	<true/>
 	<key>UIBackgroundModes</key>
 	<array><string>audio</string></array>
 	<key>UIStatusBarStyle</key><string>UIStatusBarStyleLightContent</string>

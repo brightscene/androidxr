@@ -19,6 +19,15 @@ const IOS_APP = (() => {
   } catch { return false; }
 })();
 const toNative = (msg) => { if (IOS_APP) try { window.webkit.messageHandlers.mindlyte.postMessage(msg); } catch {} };
+// inside the Android app (a Trusted Web Activity): "Share to TV" hands off to it through mindlyte://cast
+const ANDROID_APP = (() => {
+  try {
+    if (new URLSearchParams(location.search).get('source') === 'android-app') sessionStorage.setItem('mindlyte-android', '1');
+    return sessionStorage.getItem('mindlyte-android') === '1';
+  } catch { return false; }
+})();
+// shown on a TV through Chrome's cast (the Presentation API): this page is the TV's
+const TV_RECEIVER = !!navigator.presentation?.receiver;
 
 export class DomUI {
   constructor(app) {
@@ -28,6 +37,7 @@ export class DomUI {
     this.session = this.$('#session');
     this.tab = 'Journeys';
     if (IOS_APP) this._nativeApp();
+    this._buildShare();
     this._buildTabs();
     this._buildCards();
     this._buildScenes();
@@ -50,8 +60,72 @@ export class DomUI {
       pause: () => app.engine.ctx?.suspend(),
       play: () => app.engine.ctx?.resume(),
       end: () => app.stop(),
+      toast: (m) => this.toast(m),
     };
   }
+
+  // ---- Share to TV (and SharePlay in the iOS app)
+  // Android app: Android's Cast screen (Android TV, Chromecast). iOS app: the
+  // AirPlay picker (Apple TV), and SharePlay on a FaceTime call. Chrome on a
+  // computer or phone: Chrome's cast picker, with the journey shown on the TV.
+  // Elsewhere: how to mirror the screen from the device itself.
+  _buildShare() {
+    const app = this.app;
+    const add = (where, id, label, fn) => {
+      const host = this.$(where);
+      if (!host) return;
+      const b = document.createElement('button');
+      b.className = 'ghost small'; b.id = id; b.textContent = label;
+      b.addEventListener('click', fn);
+      host.append(b);
+    };
+    const share = () => this.shareToTV();
+    add('#session .bar-btns', 'share-tv', 'Share to TV', share);
+    add('.go', 'share-tv-menu', 'Share to TV', share);
+    if (IOS_APP) {
+      const sp = () => { const tr = app.playing ? app.playingTrack : app.selected; toNative({ type: 'shareplay', id: tr.id, scene: app.background, title: tr.title }); };
+      add('#session .bar-btns', 'shareplay', 'SharePlay', sp);
+      add('.go', 'shareplay-menu', 'SharePlay', sp);
+    }
+    // journeys started from elsewhere: SharePlay (iOS app) or the phone casting to this TV
+    window.mindlyteRemote = (m) => app.remoteApply(m);
+    if (TV_RECEIVER) {
+      document.body.classList.add('tv');
+      const hook = (c) => c.addEventListener('message', (e) => { try { app.remoteApply(JSON.parse(e.data)); } catch {} });
+      navigator.presentation.receiver.connectionList.then((list) => { list.connections.forEach(hook); list.addEventListener('connectionavailable', (e) => hook(e.connection)); }).catch(() => {});
+    }
+  }
+
+  shareToTV() {
+    const app = this.app;
+    if (IOS_APP) return toNative({ type: 'airplay' });
+    if (ANDROID_APP) { location.href = 'intent://cast#Intent;scheme=mindlyte;package=app.mindlyte.xr;end'; return; }
+    if (window.PresentationRequest) {
+      try {
+        const url = location.origin + location.pathname + '?tv=1';
+        const req = new PresentationRequest([url]);
+        req.start().then((c) => {
+          this.tv = c;
+          const send = () => { const tr = app.playing ? app.playingTrack : app.selected; try { c.send(JSON.stringify(app.playing ? { type: 'start', journey: tr.id, scene: app.background } : { type: 'select', journey: tr.id, scene: app.background })); } catch {} };
+          if (c.state === 'connected') send(); else c.addEventListener('connect', send, { once: true });
+          c.addEventListener('terminate', () => { if (this.tv === c) this.tv = null; });
+          this.toast('Showing on your TV');
+        }).catch((e) => { if (e?.name !== 'AbortError') this._mirrorHelp(); });
+        return;
+      } catch {}
+    }
+    this._mirrorHelp();
+  }
+
+  _mirrorHelp() {
+    const apple = /iPhone|iPad|Macintosh/.test(navigator.userAgent);
+    this.toast(apple
+      ? 'To show MindLyte on an Apple TV: open Control Centre, tap Screen Mirroring and choose your TV'
+      : 'To show MindLyte on a TV: use Cast in Chrome\u2019s menu, or your device\u2019s Screen cast / Smart View');
+  }
+
+  // tell the TV (when casting from Chrome) what's happening here
+  _tvSend(m) { if (this.tv?.state === 'connected') try { this.tv.send(JSON.stringify(m)); } catch {} }
 
   // tabs, the same as in the headset
   _buildTabs() {
@@ -360,7 +434,9 @@ export class DomUI {
   }
 
   onStart(track) {
-    toNative({ type: 'session', state: 'start', title: track.title });
+    toNative({ type: 'session', state: 'start', title: track.title, id: track.id, scene: this.app.background, remote: !!this.app._remoteStart });
+    if (!this.app._remoteStart) this._tvSend({ type: 'start', journey: track.id, scene: this.app.background });
+    this.app._remoteStart = false;
     this.menu.classList.add('hidden');
     this.session.classList.remove('hidden');
     document.body.classList.add('playing');
@@ -374,7 +450,9 @@ export class DomUI {
   }
 
   onStop(completed) {
-    toNative({ type: 'session', state: 'end', completed: !!completed });
+    toNative({ type: 'session', state: 'end', completed: !!completed, remote: !!this.app._remoteStop });
+    if (!this.app._remoteStop) this._tvSend({ type: 'stop' });
+    this.app._remoteStop = false;
     this.session.classList.add('hidden');
     this.menu.classList.remove('hidden');
     document.body.classList.remove('playing');

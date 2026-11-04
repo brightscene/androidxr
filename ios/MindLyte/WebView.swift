@@ -37,6 +37,7 @@ struct WebView: UIViewRepresentable {
         func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
             model.loaded = true
             model.failed = false
+            Task { @MainActor in _ = self.model.sharePlay }   // ready to join a SharePlay session
         }
 
         func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {

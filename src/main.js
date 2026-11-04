@@ -237,6 +237,21 @@ class App {
     this._changed();
   }
 
+  // A journey started, chosen or stopped from elsewhere: SharePlay (everyone on
+  // the call in step) or a phone casting to this screen.
+  remoteApply(m) {
+    if (!m || !m.type) return;
+    if (m.type === 'stop') { if (this.playing) { this._remoteStop = true; this.stop(); } return; }
+    const tr = this.journeys.all.find((t) => t.id === m.journey);
+    if (!tr) return;
+    this.background = m.scene && (m.scene === 'auto' || SCENES[m.scene]) ? m.scene : 'auto';
+    if (m.type === 'select') { this.select(tr); return; }
+    if (this.playing && this.playingTrack === tr) { this.setScene(this.sceneFor(tr)); return; }   // already playing it
+    this.select(tr);
+    this._remoteStart = true;
+    this.start(tr);
+  }
+
   // Tapping a scene in the Scene tab: it starts straight away. If nothing is
   // playing, the selected journey begins in that scene; if something is, the
   // scene changes and the menu gets out of the way.

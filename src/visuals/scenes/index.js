@@ -19,6 +19,7 @@ import { HandpanScene, SteelDrumsScene } from './pans.js';
 import { CymaticPlateScene } from './cymaticplate.js';
 import { AuroraResonanceScene } from './auroraharp.js';
 import { ThereminScene } from './theremin.js';
+import { ThereminMonksScene } from './monks.js';
 import { WaterfallScene } from './waterfall.js';
 import { MindFlashScene } from './mindflash.js';
 import { MonksScene } from './monks.js';
@@ -132,6 +133,7 @@ export const SCENES = {
   cymaticplate: { type: CymaticPlateScene, label: 'Cymatics instrument', group: 'Mind', premium: true, cruise: 0.4, nebula: 0.7, world: 'full' },
   auroraharp: { type: AuroraResonanceScene, label: 'Aurora resonance', group: 'Mind', premium: true, cruise: 0, nebula: 0, world: 'off' },
   theremin: { type: ThereminScene, label: 'Theremin', group: 'Mind', premium: true, cruise: 0, nebula: 0, world: 'off' },
+  thereminmonks: { type: ThereminMonksScene, label: 'Theremin monks', group: 'Mind', premium: true, cruise: 0, nebula: 0, world: 'off' },
   affirmtrace: { type: AffirmationTraceScene, label: 'Affirmation tracing', group: 'Mind', premium: true, cruise: 0, nebula: 0, world: 'bare' },
   orb: { type: OrbScene, label: 'Breathing orb', group: 'Mind', cruise: 0.5, nebula: 0.8, world: 'full' },
   mandala: { type: MandalaScene, label: 'Lotus mandala', group: 'Mind', cruise: 0.4, nebula: 0.7, world: 'full' },
