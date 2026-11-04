@@ -127,7 +127,7 @@ export class DomUI {
       b.className = 'scard';
       b.style.setProperty('--a', pal[0]); b.style.setProperty('--b', pal[1]); b.style.setProperty('--c', pal[2]);
       b.innerHTML = `<span class="t">${escapeHtml(v === 'auto' ? 'Auto' : label)}</span><span class="g">${v === 'auto' ? "each journey's own world" : escapeHtml(SCENES[v]?.group || '')}</span>`;
-      b.addEventListener('click', () => app.setBackground(v));
+      b.addEventListener('click', () => app.pickScene(v));
       b._v = v; b._g = groupOf(v);
       cards.append(b);
       return b;
@@ -350,6 +350,13 @@ export class DomUI {
     this.session.classList.remove('idle');
     clearTimeout(this._idleT);
     this._idleT = setTimeout(() => this.session.classList.add('idle'), 5000);
+  }
+
+  // a scene picked while a journey plays: back to the session view to watch it
+  onSceneStart() {
+    this.menu.classList.add('hidden');
+    this.session.classList.remove('hidden');
+    this._wake?.();
   }
 
   onStart(track) {

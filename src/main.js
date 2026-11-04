@@ -237,6 +237,27 @@ class App {
     this._changed();
   }
 
+  // Tapping a scene in the Scene tab: it starts straight away. If nothing is
+  // playing, the selected journey begins in that scene; if something is, the
+  // scene changes and the menu gets out of the way.
+  pickScene(b) {
+    this.background = b;
+    // a journey with its own fixed scene (an instrument, say) ignores the Scene
+    // tab: then a plain journey that takes any scene plays instead
+    const cur = this.playing ? this.playingTrack : this.selected;
+    if (b !== 'auto' && this.sceneFor(cur) !== b) {
+      const plain = this.journeys.all.find((t) => (t.free || this.premium) && !t.strobe && !t.guided && this.sceneFor(t) === b) || this.journeys.free[0];
+      this.select(plain);
+      this.background = b;
+      this._changed();
+      return this.start(plain);
+    }
+    this.setBackground(b);
+    if (!this.playing) return this.beginOrResume();
+    if (this.renderer.xr.isPresenting) this.menu.show(false);
+    else this.ui.onSceneStart?.();
+  }
+
   setScene(name) {
     if (!SCENES[name]) name = 'galaxy';
     const feel = SCENES[name];

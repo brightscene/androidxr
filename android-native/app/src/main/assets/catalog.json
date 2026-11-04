@@ -320,6 +320,21 @@
     "audio": null
    },
    {
+    "id": "j-mri",
+    "title": "Space MRI machine",
+    "intent": "Glide into a healing scanner in orbit · a new deep-healing track",
+    "scene": "mri",
+    "palette": [
+     "#03111a",
+     "#3ac0c8",
+     "#ffe2a8"
+    ],
+    "free": false,
+    "kind": "Soundscape · 285 Hz",
+    "freq": 285,
+    "audio": null
+   },
+   {
     "id": "j-waterfall",
     "title": "Space waterfall",
     "intent": "An aurora waterfall pouring from a mountain floating in space",
@@ -900,6 +915,16 @@
     "#05050f",
     "#c9a227",
     "#ffffff"
+   ]
+  },
+  {
+   "id": "spacewash",
+   "label": "Space wash",
+   "group": "Dimensions",
+   "palette": [
+    "#0a0a1a",
+    "#3a3a7a",
+    "#c0c8ff"
    ]
   },
   {

@@ -39,6 +39,8 @@ import { SleepScene } from './sleep.js';
 import { StarsScene } from './stars.js';
 import { FinalFrontierScene } from './frontier.js';
 import { FireworksScene } from './fireworks.js';
+import { SpaceWashScene } from './spacewash.js';
+import { MriScene } from './mri.js';
 import { WasherScene } from './washer.js';
 import { DrumJourneyScene, IllusionScene, MindsEyeScene } from './lighttracks.js';
 import { TimePortalScene, KaleidosphereScene, NebulaFlightScene, WarpGateScene, MandalaBloomScene, SilkVortexScene } from './dimensions.js';
@@ -75,6 +77,8 @@ export const SCENES = {
   puffroad: { type: class extends RainbowRoadScene { constructor() { super({ puff: true }); } }, label: 'Sweetie road', group: 'Space', cruise: 0, nebula: 0, world: 'off' },
   neoncity: { type: NeonCityScene, label: 'Neon Tokyo flight', group: 'Dimensions', cruise: 0, nebula: 0, world: 'off' },
   washer: { type: WasherScene, label: 'Inside the washing machine', group: 'Dimensions', cruise: 0, nebula: 0, world: 'off' },
+  spacewash: { type: SpaceWashScene, label: 'Space wash', group: 'Dimensions', cruise: 0, nebula: 0, world: 'off' },
+  mri: { type: MriScene, label: 'Space MRI machine', group: 'Dimensions', premium: true, cruise: 0, nebula: 0, world: 'off' },
   fireworks: { type: FireworksScene, label: 'Fireworks', group: 'Sky & water', cruise: 0, nebula: 0, world: 'off' },
   drones: { type: DroneShowScene, label: 'Drone light show', group: 'Sky & water', cruise: 0, nebula: 0, world: 'off' },
   ski: { type: SkiScene, label: 'Ski run in the snow', group: 'Nature', cruise: 0, nebula: 0, world: 'off' },

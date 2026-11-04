@@ -146,7 +146,7 @@ const TABS = ['Journeys', 'Scene', 'Sound', 'Lights', 'Voice'];
 const MARK = typeof Image !== 'undefined' ? Object.assign(new Image(), { src: 'icons/mark.svg' }) : {};
 const W = 1.56, H = 1.34;
 const ROW0 = 0.33, ROWH = 0.1, LX = -0.74, PX = -0.4;
-const J_TOP = 0.475, J_BOT = -0.47;   // the journey list's window
+const J_TOP = 0.435, J_BOT = -0.47;   // the journey list window, with room beneath the logo and version
 
 export class XRMenu {
   constructor(app) {
@@ -504,7 +504,7 @@ export class XRMenu {
         c.font = `400 ${Math.round(h * 0.11)}px ${FONT}`;
         c.fillStyle = 'rgba(255,255,255,0.85)';
         c.fillText(v === 'auto' ? "each journey's own world" : (SCENES[v]?.group || ''), 28, h * 0.72);
-      }, () => app.setBackground(v));
+      }, () => app.pickScene(v));
       return { g: groupOf(v), b: this._btn(p, btn, 0, 0) };
     });
     const pageBtn = (txt, d) => this._btn(p, new Button(0.09, 0.055, pill(txt), () => { this.scenePage += d; this._layoutScenes(); }), 0, 0);

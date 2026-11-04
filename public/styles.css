@@ -231,3 +231,4 @@ body.ios-app #menu { max-height: calc(100vh - 32px - env(safe-area-inset-top) - 
 @keyframes sheetUp { from { transform: translate(-50%, 40px); opacity: 0; } to { transform: translateX(-50%); opacity: 1; } }
 #menu::before { content: ""; display: block; width: 44px; height: 5px; border-radius: 3px; background: rgba(255, 255, 255, 0.25); margin: -14px auto 12px; }
 body.ios-app #menu { max-height: min(74vh, calc(100vh - 24px)); }
+#version { margin: 16px 2px 18px; }

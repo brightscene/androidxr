@@ -14,6 +14,7 @@ export const PROFILES = {
   meditate: { label: 'Meditate', desc: 'deep theta', pts: [[0, 10], [0.2, 7.5], [0.45, 5.5], [0.75, 4.5], [1, 7]] },
   sleep: { label: 'Sleep', desc: 'theta → delta', pts: [[0, 9], [0.2, 6], [0.45, 3.5], [0.7, 2.2], [1, 1.5]] },
   focus: { label: 'Focus', desc: 'alpha / low beta', pts: [[0, 10], [0.3, 12], [0.7, 14], [1, 12]] },
+  restore: { label: 'Restore', desc: 'theta → deep delta, for healing', pts: [[0, 9], [0.15, 6.5], [0.35, 3.5], [0.55, 2.0], [0.75, 2.0], [0.9, 3.5], [1, 7]] },
 };
 
 export const ENTRAIN_MODES = ['binaural', 'isochronic', 'both', 'off'];

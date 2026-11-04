@@ -63,6 +63,12 @@ export const TRACKS = [
     palette: ['#0b1d3a', '#1f6f8b', '#99e1d9'], breath: [4, 2, 6, 1], arc: ARC,
   },
   {
+    id: 'heal', title: 'Deep healing', freq: 285, intent: 'Restorative health · deep cellular healing',
+    bpm: 46, scale: 'lydian', progression: [0, 4, 1, 5], barsPerChord: 4,
+    profile: 'restore', scene: 'mri', seed: 2285,
+    palette: ['#03111a', '#3ac0c8', '#ffe2a8'], breath: [4, 2, 7, 1], arc: ARC,
+  },
+  {
     id: 'mend', title: 'Mend', freq: 285, intent: 'Restoration · renewal',
     bpm: 56, scale: 'majorPent', progression: [0, 2, 4, 1], barsPerChord: 2,
     profile: 'meditate', scene: 'galaxy', seed: 285,
