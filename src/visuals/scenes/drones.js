@@ -3,8 +3,9 @@ import { BaseScene, NOISE, GRADE, STARS, POINT_SIZE, SFX, damp } from '../common
 
 // ===================================================================== Drone light show
 // Over a still night lake, a swarm of glowing drones glides from one formation
-// to the next like a murmuration of light: a slowly turning globe, a heart, the words "You Matter", "Amazing" and "You are Enough", and a
-// spiral galaxy, each mirrored in the water below.
+// to the next like a murmuration of light: a slowly turning globe, a heart, the words "You Matter", "Amazing" and "You are Enough", a
+// spiral galaxy, a turning Ferris wheel, a cottage, the Earth, a rocket, a lotus, a butterfly,
+// Saturn, a hot-air balloon, a jellyfish, a whale and the moon, each mirrored in the water below.
 const N = 1400;
 const CY = 22, CZ = -42;
 const WORD_DRONES = 820;      // enough to read clearly, without crowding the letters          // centre of the show in the sky
@@ -200,6 +201,155 @@ function pick(src) {
   return out;
 }
 
+
+// ---- blissful formations: points with their own colours, and some that move
+// a point: [x, y, z, parked, r, g, b, kind, a, rad, ox, oy] (kind/a/rad/ox/oy for moving parts)
+const hexRGB = (h) => { const c = new THREE.Color(h); return [c.r, c.g, c.b]; };
+function fillN(pts, width = 30) {
+  const lit = pts.length > N ? pts.sort(() => Math.random() - 0.5).slice(0, N) : pts;
+  const parked = Array.from({ length: N - lit.length }, (_, i) => [(i / Math.max(1, N - lit.length) - 0.5) * width, -CY + 4 + Math.random() * 2, (Math.random() - 0.5) * 6, 1]);
+  return lit.concat(parked);
+}
+function ferrisTargets() {
+  const R = 12, pts = [];
+  for (const z of [-1.2, 1.2]) for (let i = 0; i < 170; i++) { const a = (i / 170) * Math.PI * 2; pts.push([0, 0, z, 0, ...hexRGB(i % 2 ? '#7ff0ff' : '#ffffff'), 1, a, R]); }
+  for (let s = 0; s < 12; s++) for (let k = 1; k < 10; k++) { const a = (s / 12) * Math.PI * 2; pts.push([0, 0, 0, 0, ...hexRGB('#b48aff'), 1, a, (k / 10) * R]); }
+  const cabCols = ['#ff7a9a', '#ffd27a', '#7affb0', '#7ac8ff', '#ff9a5a', '#e08aff'];
+  for (let c = 0; c < 16; c++) { const a = (c / 16) * Math.PI * 2; for (let k = 0; k < 18; k++) pts.push([0, 0, 0, 0, ...hexRGB(cabCols[c % 6]), 2, a, R, ((k % 6) / 5 - 0.5) * 1.6, -0.6 - Math.floor(k / 6) * 0.55]); }
+  for (let k = 0; k < 18; k++) pts.push([0, 0, 0, 0, ...hexRGB('#ffffff'), 1, (k / 18) * Math.PI * 2, 0.8]);
+  for (const sx of [-1, 1]) for (const z of [-1.5, 1.5]) for (let k = 0; k < 26; k++) { const f = k / 25; pts.push([sx * f * 9, -f * 17, z, 0, ...hexRGB('#8a9ab8')]); }
+  for (const p of pts) if (p[7]) { const a = p[8]; p[0] = Math.cos(a) * p[9] + (p[7] === 2 ? p[10] : 0); p[1] = Math.sin(a) * p[9] + (p[7] === 2 ? p[11] : 0); }
+  return fillN(pts);
+}
+const ferrisAnim = (b, t) => {
+  if (!b[7]) return b;
+  const a = b[8] + t * 0.22;
+  return [Math.cos(a) * b[9] + (b[7] === 2 ? b[10] : 0), Math.sin(a) * b[9] + (b[7] === 2 ? b[11] : 0), b[2]];
+};
+function earthTargets() {
+  const pts = [], M = 1250, R = 13;
+  for (let i = 0; i < M; i++) {
+    const y = 1 - (i + 0.5) / M * 2, r = Math.sqrt(1 - y * y), lon = i * 2.39996, lat = Math.asin(y);
+    const land = Math.sin(lon * 2 + 1.3) * Math.cos(lat * 2) + 0.6 * Math.sin(lon * 3 - 2) * Math.sin(lat * 3 + 1) + 0.4 * Math.cos(lon * 5 + lat * 4);
+    let col = land > 0.25 ? (Math.abs(lat) < 0.5 && land > 0.85 ? '#d9b26a' : '#3fbf5a') : '#2a6fe0';
+    if (Math.abs(lat) > 1.15) col = '#f2f8ff';
+    if (Math.sin(lon * 7 + lat * 9) + Math.sin(lon * 3 - lat * 11) > 1.55) col = '#ffffff';   // a few clouds
+    pts.push([Math.cos(lon) * r * R, y * R, Math.sin(lon) * r * R, 0, ...hexRGB(col)]);
+  }
+  return fillN(pts);
+}
+function saturnTargets() {
+  const pts = [], R = 7;
+  for (let i = 0; i < 700; i++) {
+    const y = 1 - (i + 0.5) / 700 * 2, r = Math.sqrt(1 - y * y), a = i * 2.39996;
+    pts.push([Math.cos(a) * r * R, y * R * 0.92, Math.sin(a) * r * R, 0, ...hexRGB(Math.sin(y * 14) > 0.3 ? '#f2d39a' : '#d9a86a')]);
+  }
+  const tilt = 0.42;
+  for (let i = 0; i < 620; i++) {
+    const rr = 10 + Math.random() * 6, a = Math.random() * Math.PI * 2;
+    if (rr > 13.2 && rr < 13.7) continue;   // the Cassini division
+    const x = Math.cos(a) * rr, z = Math.sin(a) * rr;
+    pts.push([x, -z * Math.sin(tilt), z * Math.cos(tilt), 0, ...hexRGB(rr < 13 ? '#fff0c8' : '#e8c890')]);
+  }
+  return fillN(pts);
+}
+function butterflyTargets() {
+  const pts = [];
+  const inWing = (x, y) => ((x - 6) / 7) ** 2 + ((y - 3.5) / 5.5) ** 2 < 1 || ((x - 4.5) / 4.5) ** 2 + ((y + 4) / 3.8) ** 2 < 1;
+  while (pts.length < 2300) {
+    const x = Math.random() * 14, y = Math.random() * 18 - 8.5;
+    if (x < 0.4 || !inWing(x, y)) continue;
+    const edge = !inWing(x + 0.9, y) || !inWing(x, y + 0.9) || !inWing(x, y - 0.9);
+    const spot = (x - 9) ** 2 + (y - 5) ** 2 < 1.6 || (x - 6) ** 2 + (y + 4.5) ** 2 < 1.2;
+    const col = spot ? '#ffffff' : edge ? '#7a3aaa' : y > 0 ? (x > 7 ? '#ff8a3a' : '#ffb04a') : '#c86aff';
+    for (const sx of [1, -1]) pts.push([sx * x, y, 0, 0, ...hexRGB(col), 3]);
+  }
+  for (let k = 0; k < 40; k++) pts.push([0, -6 + k * 0.32, 0, 0, ...hexRGB('#ffe8c8')]);
+  for (const sx of [-1, 1]) for (let k = 0; k < 10; k++) pts.push([sx * k * 0.3, 7 + k * 0.4, 0, 0, ...hexRGB('#ffe8c8')]);   // antennae
+  return fillN(spread(pts.sort(() => Math.random() - 0.5), 1250));
+}
+const butterflyAnim = (b, t) => {
+  if (b[7] !== 3) return b;
+  const f = 0.75 * Math.sin(t * 2.0) ** 2;   // the wings lift and open again
+  return [Math.sign(b[0]) * Math.abs(b[0]) * Math.cos(f), b[1], Math.abs(b[0]) * Math.sin(f) + b[2]];
+};
+function jellyfishTargets() {
+  const pts = [];
+  for (let i = 0; i < 620; i++) {
+    const y = (i + 0.5) / 620, r = Math.sqrt(1 - y * y), a = i * 2.39996;
+    pts.push([Math.cos(a) * r * 8, 6 + y * 5.5, Math.sin(a) * r * 8, 0, ...hexRGB(y > 0.6 ? '#ffb8f0' : '#c88aff'), 4]);
+  }
+  for (let s = 0; s < 12; s++) {
+    const a = (s / 12) * Math.PI * 2, cx = Math.cos(a) * (s % 2 ? 6 : 3.5), cz = Math.sin(a) * (s % 2 ? 6 : 3.5);
+    for (let k = 0; k < 55; k++) pts.push([cx, 6 - k * 0.32, cz, 0, ...hexRGB(s % 2 ? '#8af0ff' : '#ffd0f8'), 5, s, k * 0.32]);
+  }
+  return fillN(pts);
+}
+const jellyAnim = (b, t) => {
+  if (b[7] === 4) { const k = 1 + 0.07 * Math.sin(t * 1.4); return [b[0] * k, 6 + (b[1] - 6) / k, b[2] * k]; }
+  if (b[7] === 5) { const d = b[9], w = (Math.sin(t * 1.4 - d * 0.35 + b[8]) - Math.sin(-d * 0.35 + b[8])) * 0.12 * d; return [b[0] + w, b[1], b[2] + w * 0.5]; }
+  return b;
+};
+// pictures, drawn and then flown
+function drawCottage(c) {
+  c.fillStyle = '#3a8a4a'; c.fillRect(0, 335, 600, 65);                                          // the lawn
+  c.fillStyle = '#e8eef8'; c.fillRect(170, 190, 260, 150);                                       // the walls
+  c.fillStyle = '#e0553a'; c.beginPath(); c.moveTo(150, 195); c.lineTo(300, 90); c.lineTo(450, 195); c.fill();   // the roof
+  c.fillStyle = '#b07a5a'; c.fillRect(380, 100, 30, 70);                                         // the chimney
+  c.fillStyle = '#ffd36a'; for (const [x, y] of [[195, 215], [345, 215], [195, 275]]) c.fillRect(x, y, 55, 42);   // glowing windows
+  c.beginPath(); c.arc(300, 140, 18, 0, Math.PI * 2); c.fill();                                  // the round attic window
+  c.fillStyle = '#a06a3a'; c.fillRect(280, 270, 44, 70);                                         // the door
+  c.fillStyle = '#e8e8e8'; for (let k = 0; k < 5; k++) { c.beginPath(); c.arc(398 + k * 16, 80 - k * 18, 10 + k * 3, 0, Math.PI * 2); c.fill(); }   // smoke
+  c.fillStyle = '#3aaa5a'; c.beginPath(); c.arc(510, 230, 50, 0, Math.PI * 2); c.fill(); c.fillStyle = '#8a5a3a'; c.fillRect(500, 270, 20, 65);   // a tree
+}
+const cottageAnim = (b, t) => (b[4] > 0.85 && b[5] > 0.85 && b[6] > 0.85 && b[1] > 9 ? [b[0] + 0.6 * (Math.sin(t * 0.9 + b[1] * 0.4) - Math.sin(b[1] * 0.4)), b[1] + 0.5 * Math.sin(t * 0.6) ** 2, b[2]] : b);
+function drawRocket(c) {
+  c.fillStyle = '#e8eef8'; c.beginPath(); c.moveTo(300, 30); c.bezierCurveTo(360, 90, 360, 220, 340, 290); c.lineTo(260, 290); c.bezierCurveTo(240, 220, 240, 90, 300, 30); c.fill();
+  c.fillStyle = '#ff4a5a'; c.beginPath(); c.moveTo(300, 30); c.bezierCurveTo(330, 55, 342, 80, 345, 100); c.lineTo(255, 100); c.bezierCurveTo(258, 80, 270, 55, 300, 30); c.fill();   // the nose
+  c.fillStyle = '#5ab8ff'; c.beginPath(); c.arc(300, 160, 26, 0, Math.PI * 2); c.fill();      // the porthole
+  c.fillStyle = '#ff4a5a'; c.beginPath(); c.moveTo(262, 230); c.lineTo(215, 300); c.lineTo(262, 290); c.fill(); c.beginPath(); c.moveTo(338, 230); c.lineTo(385, 300); c.lineTo(338, 290); c.fill();   // fins
+  c.fillStyle = '#ffa020'; c.beginPath(); c.moveTo(268, 292); c.quadraticCurveTo(300, 400, 332, 292); c.fill();   // the flame
+  c.fillStyle = '#fff07a'; c.beginPath(); c.moveTo(284, 292); c.quadraticCurveTo(300, 360, 316, 292); c.fill();
+}
+const rocketAnim = (b, t, i) => {
+  const flame = b[1] < -4 && b[4] > 0.9 && b[6] < 0.6;
+  return [b[0], b[1] + 0.6 * Math.sin(t * 0.8) + (flame ? 0.5 * (Math.sin(t * 13 + i) - Math.sin(i)) : 0), b[2]];
+};
+function drawLotus(c) {
+  c.fillStyle = '#3aaa6a'; c.beginPath(); c.ellipse(170, 330, 120, 26, 0, 0, Math.PI * 2); c.fill(); c.beginPath(); c.ellipse(440, 335, 120, 24, 0, 0, Math.PI * 2); c.fill();   // lily pads
+  const petal = (a, len, w, col) => { c.save(); c.translate(300, 300); c.rotate(a); c.fillStyle = col; c.beginPath(); c.moveTo(0, 0); c.quadraticCurveTo(w, -len * 0.55, 0, -len); c.quadraticCurveTo(-w, -len * 0.55, 0, 0); c.fill(); c.restore(); };
+  for (const a of [-1.3, -0.85, 0.85, 1.3]) petal(a, 170, 60, '#ff8ac8');
+  for (const a of [-0.55, -0.2, 0.2, 0.55]) petal(a, 210, 55, '#ffb8e0');
+  petal(0, 240, 50, '#fff0f8');
+  c.fillStyle = '#ffd36a'; c.beginPath(); c.ellipse(300, 290, 40, 16, 0, 0, Math.PI * 2); c.fill();
+}
+const lotusAnim = (b, t) => { const k = 1 + 0.05 * Math.sin(t * 0.7); return [b[0] * k, b[1] * k, b[2]]; };
+function drawBalloon(c) {
+  const cols = ['#ff4a5a', '#ffb02a', '#ffe14a', '#4ad07a', '#4ab8ff', '#a46aff'];
+  c.save(); c.beginPath(); c.moveTo(300, 330); c.bezierCurveTo(140, 230, 150, 30, 300, 30); c.bezierCurveTo(450, 30, 460, 230, 300, 330); c.clip();
+  for (let k = 0; k < 12; k++) { c.fillStyle = cols[k % 6]; c.fillRect(150 + k * 26, 0, 26, 400); }
+  c.restore();
+  c.strokeStyle = '#e8d8b0'; c.lineWidth = 4; c.beginPath(); c.moveTo(270, 318); c.lineTo(282, 360); c.moveTo(330, 318); c.lineTo(318, 360); c.stroke();
+  c.fillStyle = '#c08a5a'; c.fillRect(276, 358, 48, 34);
+}
+const balloonAnim = (b, t) => [b[0] + 1.0 * Math.sin(t * 0.3), b[1] + 1.4 * Math.sin(t * 0.5), b[2]];
+function drawWhale(c) {
+  c.fillStyle = '#3a8ae0';
+  c.beginPath(); c.moveTo(60, 230); c.bezierCurveTo(80, 120, 300, 110, 420, 190); c.bezierCurveTo(460, 210, 480, 220, 500, 200);
+  c.lineTo(560, 150); c.lineTo(545, 215); c.lineTo(580, 260); c.lineTo(500, 235); c.bezierCurveTo(440, 270, 200, 300, 60, 230); c.fill();
+  c.fillStyle = '#bfe0ff'; c.beginPath(); c.moveTo(70, 240); c.bezierCurveTo(160, 290, 330, 280, 430, 240); c.bezierCurveTo(330, 260, 160, 265, 70, 240); c.fill();   // the pale belly
+  c.fillStyle = '#ffffff'; c.beginPath(); c.arc(130, 200, 7, 0, Math.PI * 2); c.fill();   // eye
+  c.fillStyle = '#bff0ff'; for (let k = 0; k < 6; k++) { c.beginPath(); c.arc(150 + (k % 2 ? 10 : -10), 110 - k * 14, 6 + k, 0, Math.PI * 2); c.fill(); }   // the spout
+}
+const whaleAnim = (b, t) => (b[0] > 6 ? [b[0], b[1] + 1.4 * Math.sin(t * 1.1) * ((b[0] - 6) / 14), b[2]] : [b[0], b[1] + 0.3 * Math.sin(t * 1.1), b[2]]);
+function drawMoon(c) {
+  c.fillStyle = '#ffe9a8'; c.beginPath(); c.arc(300, 200, 140, 0, Math.PI * 2); c.fill();
+  c.globalCompositeOperation = 'destination-out'; c.beginPath(); c.arc(360, 170, 125, 0, Math.PI * 2); c.fill(); c.globalCompositeOperation = 'source-over';
+  c.fillStyle = '#ffffff';
+  const star = (x, y, r) => { c.beginPath(); for (let k = 0; k < 10; k++) { const a = (k / 10) * Math.PI * 2 - Math.PI / 2, rr = k % 2 ? r * 0.45 : r; c.lineTo(x + Math.cos(a) * rr, y + Math.sin(a) * rr); } c.fill(); };
+  star(470, 90, 26); star(520, 230, 18); star(420, 310, 20); star(90, 80, 16); star(540, 340, 12);
+}
+
 const SHOW = [
   { kind: 'sphere', hold: 16, cols: ['#6fd3ff', '#a493ff', '#ffffff'], spin: 0.15 },
   { kind: 'heart', hold: 18, cols: ['#ff3b6b', '#ff6f91', '#ffb3c6'], spin: 0.05 },
@@ -208,11 +358,18 @@ const SHOW = [
   { kind: 'text', text: 'Amazing', hold: 14, cols: ['#7ff0ff', '#b8a9ff', '#ffffff'] },
   { kind: 'spiral', hold: 16, cols: ['#a493ff', '#f29bd0', '#5ed6d0'], spin: 0.08 },
   { kind: 'text', text: 'You are Enough', hold: 16, cols: ['#ffd27a', '#ffffff', '#ffb36b'] },
-  { kind: 'photo', name: 'dog', hold: 18 },
+  { kind: 'gen', make: ferrisTargets, anim: ferrisAnim, hold: 22 },
+  { kind: 'picture', draw: drawCottage, anim: cottageAnim, hold: 18 },
+  { kind: 'gen', make: earthTargets, hold: 20, spin: 0.12 },
   { kind: 'heart', hold: 10, cols: ['#ff3b6b', '#ff8fb4', '#ffffff'] },
-  { kind: 'photo', name: 'lady', hold: 22 },
-  { kind: 'sphere', hold: 10, cols: ['#6fd3ff', '#a493ff', '#ffffff'], spin: 0.15 },
-  { kind: 'photo', name: 'bunny', hold: 18 },
+  { kind: 'picture', draw: drawRocket, anim: rocketAnim, hold: 16 },
+  { kind: 'picture', draw: drawLotus, anim: lotusAnim, hold: 18 },
+  { kind: 'gen', make: butterflyTargets, anim: butterflyAnim, hold: 18 },
+  { kind: 'gen', make: saturnTargets, hold: 18, spin: 0.08 },
+  { kind: 'picture', draw: drawBalloon, anim: balloonAnim, hold: 16 },
+  { kind: 'gen', make: jellyfishTargets, anim: jellyAnim, hold: 18, spin: 0.05 },
+  { kind: 'picture', draw: drawWhale, anim: whaleAnim, hold: 18 },
+  { kind: 'picture', draw: drawMoon, hold: 16 },
   { kind: 'picture', draw: drawBrand, hold: 16, wide: true },
 ];
 
@@ -300,6 +457,7 @@ export class DroneShowScene extends BaseScene {
     if (f.kind === 'picture') return f.wide ? pictureTargets(f.draw, 66, 1150, 900, 300) : pictureTargets(f.draw, 46, 1100);
     if (f.kind === 'photo') return photoTargets(f.name, f.name === 'lady' ? 34 : 32) || sphereTargets();
     if (f.kind === 'spiral') return spiralTargets();
+    if (f.kind === 'gen') return f.make();
     return sphereTargets();
   }
   // order target points to roughly match where each drone is now, so they glide sideways
@@ -315,7 +473,9 @@ export class DroneShowScene extends BaseScene {
     const cs = Math.cos(this.spin), sn = Math.sin(this.spin);
     const nav = 0.12;
     for (let i = 0; i < N; i++) {
-      const a = this.from[i], b = this.to[i], m = this.mid[i];
+      const a = this.from[i], m = this.mid[i];
+      let b = this.to[i];
+      if (k === 99 && this.cur.anim && !b[3]) b = this.cur.anim(b, this.animT || 0, i);
       const local = (k - this.delay[i]) / this.dur[i];
       const e0 = Math.min(1, Math.max(0, local));
       const e = e0 * e0 * (3 - 2 * e0);
@@ -363,7 +523,9 @@ export class DroneShowScene extends BaseScene {
       this.state = 'move'; this.t = 0;
       if (this.fade > 0.5) SFX.play('whoosh', { pan: 0, dur: 5, gain: 0.25 });
     }
+    if (this.state === 'hold') this.animT = (this.animT || 0) + dt;
     if (this.state === 'move') {
+      this.animT = 0;
       this._place(this.t);
       if (this.t > 8.5) { this.state = 'hold'; this.t = 0; if (this.fade > 0.5) SFX.play('chime', { note: [0, 4, 7, 12][this.step % 4], pan: 0, gain: 0.3 }); }
     } else this._place(99);

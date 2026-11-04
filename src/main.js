@@ -909,6 +909,8 @@ class App {
     }
     INPUT.hands = hands;
     this._detectShake(list);
+    // while the menu is open, hands and pointers are for the menu only: the scene doesn't see them
+    if (xr.isPresenting && this.menu.visible) { INPUT.pointers = []; INPUT.hands = []; INPUT.held.clear(); }
   }
 
   // Shaking both hands for about two seconds also centres the view.

@@ -605,21 +605,6 @@
     "audio": null
    },
    {
-    "id": "j-churchbells",
-    "title": "Church bells",
-    "intent": "Pull the ropes in a tower ringing room and ring rounds",
-    "scene": "churchbells",
-    "palette": [
-     "#120a08",
-     "#8a3a1a",
-     "#ffb070"
-    ],
-    "free": false,
-    "kind": "Soundscape · 174 Hz",
-    "freq": 174,
-    "audio": null
-   },
-   {
     "id": "j-handpan",
     "title": "Handpan",
     "intent": "A handpan in the aurora-lit dark · eight tunings, including the monks’ harmonics",

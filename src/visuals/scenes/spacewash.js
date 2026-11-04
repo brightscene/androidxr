@@ -3,12 +3,11 @@ import { BaseScene, NOISE, GRADE, SFX, damp } from '../common.js';
 import { particles } from './kit.js';
 
 // ===================================================================== Space wash
-// The washing machine, gone cosmic. Every perforation in the drum is a glowing
-// orb of light; through the door, space. Molten lava floods in instead of water,
-// crusted and cracked with fire, embers rising, and the drum tumbles a load of
-// spaceship junk (hull panels, a solar panel, a dish, a thruster, a fuel tank,
-// an antenna) before draining and spinning up, the orbs streaking into rings of
-// light. The door and the lava stay level, so it stays comfortable.
+// The washing machine, gone cosmic and calm. Every perforation in the drum is
+// an orb of light that breathes on its own, slowly brightening and fading in
+// soft teal, blue, violet and rose; aurora light flows along the walls and a
+// starfield streams in through the door towards you, while the drum turns
+// slowly one way, then the other.
 const R = 2.3, FRONT = -3.2, BACK = 2.6, EYE = 1.6;
 const PHASES = [['fill', 14], ['wash', 42], ['drain', 8], ['spin', 18], ['slow', 7], ['rest', 5]];
 const CYCLE = PHASES.reduce((s, p) => s + p[1], 0);
@@ -42,10 +41,17 @@ export class SpaceWashScene extends BaseScene {
           // every hole a glowing orb, slowly cycling through colours; streaking into rings in the spin
           vec2 id = floor(g);
           float h = fract(sin(dot(id, vec2(12.9898, 78.233))) * 43758.5453);
-          vec3 oc = 0.55 + 0.45 * cos(6.28318 * (h + uTime * 0.05 + vec3(0.0, 0.33, 0.67)));
+          vec3 oc = 0.6 + 0.4 * cos(6.28318 * (h * 0.6 + 0.45 + uTime * 0.01 + vec3(0.0, 0.33, 0.67)));   // soft teal, blue, violet and rose
           float orb = smoothstep(0.2, 0.0, length(f)), halo = exp(-dot(f, f) * 18.0);
           c *= 0.22;   // dark steel, so the orbs shine
-          c += oc * (orb * 1.6 + halo * 0.35) * (0.75 + 0.25 * sin(uTime * 2.0 + h * 40.0));
+          // each orb breathes on its own, slowly: rising, resting, fading
+          float period = 5.0 + h * 9.0, ph = fract(uTime / period + h * 7.0);
+          float breath = pow(0.5 + 0.5 * sin(ph * 6.28318), 2.0);
+          c += oc * (orb * 1.4 + halo * 0.3) * (0.12 + 0.88 * breath);
+          // aurora light flowing along the walls, towards you
+          float flow = fbm(vec3(a * 1.8, z * 0.5 + uTime * 0.35, uTime * 0.05));
+          vec3 ac = mix(vec3(0.1, 0.9, 0.55), vec3(0.6, 0.3, 1.0), smoothstep(0.3, 0.8, fbm(vec3(a, z * 0.2, 7.0))));
+          c += ac * smoothstep(0.5, 0.85, flow) * 0.45;
           c += vec3(1.0, 0.97, 0.9) * pow(max(0.0, sin(a * 2.0 + 1.0)), 30.0) * 0.25 * lightF;   // a soft sheen
           // the three paddles
           float pd = abs(fract(a / 6.28318 * 3.0) - 0.5);
@@ -113,8 +119,7 @@ export class SpaceWashScene extends BaseScene {
           c += vec3(1.0, 0.5, 0.1) * pow(vnoise(vec3(vP.xz * 6.0, uTime * 1.5)), 10.0) * 0.8;   // bubbles bursting
           gl_FragColor = vec4(grade(c), uFade); }`,
     }));
-    this.rig.add(water);
-    this.suds = particles(U, { count: 320, min: [-1.8, -2.2, -3], max: [1.8, 0.4, 2.4], vel: [0, 0.35, 0], sway: 0.4, size: [0.01, 0.035], colors: ['#ffb040', '#ff6a10', '#ffe08a'], alpha: 0 });   // embers
+    this.suds = particles(U, { count: 700, min: [-1.7, -1.7, FRONT], max: [1.7, 1.7, BACK], vel: [0, 0, 1.6], sway: 0.15, size: [0.008, 0.03], colors: ['#ffffff', '#9affd8', '#c8a8ff', '#8ad8ff'], alpha: 0.85 });   // stars streaming in through the door
     this.rig.add(this.suds);
 
     // the load: spaceship junk, metal and panels, lit by the lava and the orbs
@@ -140,55 +145,20 @@ export class SpaceWashScene extends BaseScene {
       [new THREE.CylinderGeometry(0.02, 0.02, 1.0, 8), metal('#c8ccd2', '#c8ccd2', 0)],               // an antenna
       [new THREE.BoxGeometry(0.4, 0.4, 0.4), metal('#7a7f88', '#e74c3c', 0)],                         // a cargo box
     ];
-    this.clothes = junk.map(([g, mat], i) => {
-      const m = new THREE.Mesh(g, mat);
-      this.rig.add(m);
-      return { m, phase: i / junk.length * Math.PI * 2, z: FRONT + 0.9 + (i % 4) * 1.2, spin: new THREE.Vector3(Math.random(), Math.random(), Math.random()) };
-    });
+    this.clothes = [];   // nothing tumbling: just light
 
     this.t = 0; this.ang = 0; this.vel = 0; this.dir = 1; this.flip = 8; this.phaseName = '';
   }
   _sfx(kind, o) { if (this.fade > 0.5) SFX.play(kind, o); }
   update(dt) {
     const U = this.uniforms;
-    this.t = (this.t + dt) % CYCLE;
-    let k = this.t, ph = 'fill', pt = 0;
-    for (const [name, len] of PHASES) { if (k < len) { ph = name; pt = k / len; break; } k -= len; }
-    if (ph !== this.phaseName) {
-      this.phaseName = ph;
-      if (ph === 'fill') this._sfx('hiss', { pan: 0, gain: 0.4, dur: 12, freq: 180 });
-      if (ph === 'spin') this._sfx('whoosh', { pan: 0, dur: 6, gain: 0.5 });
-      if (ph === 'drain') this._sfx('hiss', { pan: 0.3, gain: 0.3, dur: 7, freq: 140 });
-    }
-    // water level: fills, holds, drains
-    const full = -R + 0.9, empty = -R - 0.1;
-    const level = ph === 'fill' ? empty + (full - empty) * pt : ph === 'wash' ? full : ph === 'drain' ? full + (empty - full) * pt : empty;
-    U.uLevel.value = damp(U.uLevel.value, level, 2, dt);
-    // drum speed (radians/s): gentle back-and-forth tumbling, then a fast spin
-    let target = 0;
-    if (ph === 'fill') target = 0.6 * this.dir;
-    if (ph === 'wash') { this.flip -= dt; if (this.flip <= 0) { this.dir *= -1; this.flip = 7 + Math.random() * 3; } target = 1.6 * this.dir; }
-    if (ph === 'drain') target = 0.8;
-    if (ph === 'spin') target = 2 + 5 * Math.min(1, pt * 2);
-    if (ph === 'slow') target = 7 * (1 - pt);
-    this.vel = damp(this.vel, target, ph === 'wash' ? 1.2 : 0.8, dt);
+    // the drum turns slowly, easing one way and then the other
+    this.flip -= dt;
+    if (this.flip <= 0) { this.dir *= -1; this.flip = 18 + Math.random() * 10; }
+    this.vel = damp(this.vel, 0.18 * this.dir, 0.3, dt);
     this.ang += this.vel * dt;
     U.uAng.value = this.ang;
-    U.uSpin.value = Math.min(1, Math.max(0, (Math.abs(this.vel) - 2) / 5));
-    U.uSlosh.value = damp(U.uSlosh.value, Math.min(1, Math.abs(this.vel)), 1, dt);
-    this.suds.userData.u.uAlpha.value = U.uLevel.value > -R + 0.2 ? 0.9 : 0.15;
-    // the washing: lifted by the paddles, tumbling back down; pressed to the wall in the spin
-    const pinned = U.uSpin.value;
-    for (const c of this.clothes) {
-      const lift = (this.ang * 0.9 + c.phase) % (Math.PI * 2);
-      const tumbleA = -Math.PI / 2 + Math.sin(lift) * 1.4;                    // rises up the side, then falls back
-      const wallA = this.ang + c.phase;                                       // stuck to the turning wall
-      const a = tumbleA * (1 - pinned) + wallA * pinned;
-      const r = (R - 0.55) * (0.75 + 0.25 * pinned) + Math.sin(lift * 2) * 0.15 * (1 - pinned);
-      c.m.position.set(Math.cos(a) * r, Math.sin(a) * r, c.z + Math.sin(this.ang * 0.3 + c.phase) * 0.3);
-      c.m.rotation.x += dt * c.spin.x * (1.5 - pinned);
-      c.m.rotation.y += dt * c.spin.y * (1.5 - pinned);
-      c.m.rotation.z = pinned ? a + Math.PI / 2 : c.m.rotation.z + dt * c.spin.z;
-    }
+    U.uSpin.value = 0;
+    U.uLevel.value = -R - 1;   // empty
   }
 }

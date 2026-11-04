@@ -128,7 +128,7 @@ export const SCENES = {
   tibetanbowls: { type: SingingBowlsScene, label: 'Tibetan singing bowls', group: 'Mind', premium: true, cruise: 0, nebula: 0, world: 'off' },
   crystalbowls: { type: CrystalBowlsScene, label: 'Crystal singing bowls', group: 'Mind', premium: true, cruise: 0, nebula: 0, world: 'off' },
   handbells: { type: HandbellsScene, label: 'Handbells', group: 'Mind', premium: true, cruise: 0, nebula: 0, world: 'off' },
-  churchbells: { type: ChurchBellsScene, label: 'Church bells', group: 'Mind', premium: true, cruise: 0, nebula: 0, world: 'off' },
+  churchbells: { hidden: true, type: ChurchBellsScene, label: 'Church bells', group: 'Mind', premium: true, cruise: 0, nebula: 0, world: 'off' },
   handpan: { type: HandpanScene, label: 'Handpan', group: 'Mind', premium: true, cruise: 0, nebula: 0, world: 'off' },
   steeldrums: { type: SteelDrumsScene, label: 'Space steel drums', group: 'Mind', premium: true, cruise: 0, nebula: 0, world: 'off' },
   cymaticplate: { type: CymaticPlateScene, label: 'Cymatics instrument', group: 'Mind', premium: true, cruise: 0.4, nebula: 0.7, world: 'full' },
