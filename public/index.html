@@ -92,7 +92,8 @@
 
     <section class="pane" data-pane="Lights">
       <div class="panel lights2" id="lights-panel">
-      <div class="lighthead"><button id="lights-tog" class="mtog big"><span class="sw"></span><span>Lights</span></button><span id="lights-status" class="muted"></span></div>
+      <div class="lighthead"><button class="mtog big lsrc" data-src="track"><span class="sw"></span><span>Lights on with audio track</span></button><button class="mtog big lsrc" data-src="tones"><span class="sw"></span><span>Lights on with brainwave tones</span></button></div>
+      <p id="lights-status" class="muted"></p>
       <div class="lsec"><span class="label">Quick looks</span><div class="looks" id="light-looks"></div></div>
       <div class="lsec" id="light-symbols-sec"><span class="label">Symbol</span><div class="tiles" id="light-symbols"></div></div>
       <div class="lsec"><span class="label">Colour</span><div class="swatches" id="light-colours"></div></div>
@@ -103,7 +104,6 @@
       <details class="more"><summary>More options</summary>
         <div class="lsec"><span class="label">Flashing</span><div class="seg" id="light-mode"><button data-v="exact">Exact, as encoded</button><button data-v="soft">Softened</button></div></div>
         <div class="lsec"><span class="label">Eyes (headset)</span><div class="seg" id="light-layout"><button data-v="sides">Both eyes see both</button><button data-v="eyes">Each eye its own</button><button data-v="eyesc">Each eye, centred</button></div></div>
-        <div class="lsec"><button id="lights-generated" class="mtog"><span class="sw"></span><span>Pulse with MindLyte's brainwave tones <small class="muted">(tracks without light encoding)</small></span></button></div>
         <div class="row lightimport"><button id="light-import" class="ghost small">Import a light &amp; sound track…</button><span class="muted">AudioStrobe or SpectraStrobe audio from your device: the lights follow its encoding. (Choose the file here, outside the headset.)</span></div>
       </details>
     </div>

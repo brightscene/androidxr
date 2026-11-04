@@ -74,7 +74,7 @@ class App {
     this.lightMax = p.lightsV >= 5 ? p.lightMax ?? 1 : 1;   // full brightness by default
     this.lightMode = p.lightMode || 'exact';
     // v3: lights pulse with the tones by default, so switching lights on always shows them
-    this.lightsGenerated = p.v >= 3 ? p.lightsGenerated ?? true : true;
+    this.lightSource = p.lightSource === 'tones' ? 'tones' : 'track';   // what the lights follow: the audio track's light encoding, or the brainwave tones
     // the sound mixer: a level for each layer, and on/off for music, voice and scene sounds
     // (tones, solfeggio and nature switch with their own settings; their kind is remembered)
     this.mixLevels = { music: 1, tones: 1, sol: 1, nature: 1, voice: 1, scene: 1, ...(p.mixLevels || {}) };
@@ -172,7 +172,7 @@ class App {
         strobeAccepted: this.strobeAccepted, lights: this.lights, lightsV: 7, lightColour: this.lightColour,
         mixLevels: this.mixLevels, mixOn: this.mixOn, toneType: this.toneType, natureType: this.natureType,
         v: 3, lightLayout: this.lightLayout, lightDim: this.lightDim,
-        lightMax: this.lightMax, lightMode: this.lightMode, lightsGenerated: this.lightsGenerated, lightSymbol: this.lightSymbol,
+        lightMax: this.lightMax, lightMode: this.lightMode, lightSource: this.lightSource, lightSymbol: this.lightSymbol,
       }));
     } catch (_) {}
   }
@@ -251,6 +251,13 @@ class App {
     if (on && !this.strobeAccepted) { this.ui.showStrobeWarning(); this.menu.showWarning(true); return; }
     this.lights = on; this._changed();
   }
+  // the two "Lights on with…" switches: one at a time; tapping the one that's on turns lights off
+  setLightSource(src) {
+    if (this.lights && this.lightSource === src) { this.lights = false; this._changed(); return; }
+    this.lightSource = src;
+    this.setLights(true);
+    this._changed();
+  }
   acceptStrobe() {
     this.strobeAccepted = true; this.lights = true; this.menu.showWarning(false); this.ui.hideStrobeWarning(); this._changed();
     if (this.playing && this.renderer.xr.isPresenting) this.menu.show(false);   // straight into the session that asked
@@ -260,17 +267,21 @@ class App {
   // pattern, or brainwave tones that are actually playing (with Pulse with tones on)
   lightsAvailable(tr = this.playing ? this.playingTrack : this.selected) {
     if (!tr) return false;
-    if (tr.strobe || tr.mindflash) return true;
-    return this.lightsGenerated && this.entrainment !== 'off' && !tr.musicOff && !tr.plain && !tr.stream;
+    if (this.lightSource === 'track') return !!(tr.strobe || tr.mindflash);
+    return this.entrainment !== 'off' && !tr.musicOff && !tr.plain && !tr.stream;
   }
   lightsWhy(tr = this.playing ? this.playingTrack : this.selected) {
-    if (tr?.strobe) return `${tr.title}: the lights follow its light encoding`;
-    if (tr?.mindflash) return `${tr.title}: its own light pattern`;
-    if (this.lightsAvailable(tr)) return `${tr.title}: the lights pulse with the brainwave tones`;
-    if (tr?.musicOff || tr?.plain || tr?.stream) return `${tr?.title || 'This journey'} has no light encoding or brainwave tones, so the lights stay off`;
-    if (this.entrainment === 'off') return 'Brainwave tones are off (Sound), so there\u2019s nothing for the lights to follow';
-    return 'Turn on \u201cPulse with tones\u201d (More options) for the lights to follow the brainwave tones';
+    const name = tr?.title || 'This journey';
+    if (this.lightSource === 'track') {
+      if (tr?.strobe) return `${name}: the lights follow its light encoding`;
+      if (tr?.mindflash) return `${name}: its own light pattern`;
+      return `${name} has no light encoding, so the lights stay off. Choose \u201cwith brainwave tones\u201d instead, or a light & sound journey`;
+    }
+    if (this.lightsAvailable(tr)) return `${name}: the lights pulse with the brainwave tones`;
+    if (tr?.musicOff || tr?.plain || tr?.stream) return `${name} has no brainwave tones, so the lights stay off`;
+    return 'Brainwave tones are off (Sound), so there\u2019s nothing for the lights to follow';
   }
+
   setLightOpt(key, v) { this[key] = v; if (key === 'lightSymbol') this.strobe.setSymbol(v); this._changed(); }
   cycle(key, options) { const i = options.indexOf(this[key]); return options[(i + 1) % options.length]; }
 
@@ -450,7 +461,7 @@ class App {
     // a light track: make sure the viewer sees the safety warning and lights come on
     const needsWarning = (track.strobe || track.mindflash) && !this.strobeAccepted;
     if (needsWarning) this.setLights(true);                       // shows the flashing-lights warning first
-    else if (track.mindflash && !this.lights) this.lights = true;  // Clear mind is its lights
+    else if (track.mindflash) { this.lights = true; this.lightSource = 'track'; }  // Clear mind is its lights
     await this.engine.init();
     this.engine.setVolume(this.volume);
     if (this.playing && this.player) {
@@ -835,7 +846,7 @@ class App {
   _updateLights(dt, t) {
     let target = null;
     const tr = this.playingTrack;
-    if (tr?.mindflash) {
+    if (tr?.mindflash && this.lightSource === 'track') {
       const on = this.lights && this.strobeAccepted && this.playing && this.player;
       if (!this._mfCols) this._mfCols = [new THREE.Color(0.1, 1, 0.35), new THREE.Color(0.15, 0.45, 1)];
       this.strobe.updateFrames(on ? this._mindFlash(dt) : null, this._mfCols[0], this._mfCols[1], this.lightMax);
@@ -846,7 +857,7 @@ class App {
     this.strobe.updateFrames?.(null);
     if (this.lights && this.strobeAccepted && this.playing && this.player) {
       const now = this.engine.heardTime;
-      const st = tr.strobe;
+      const st = this.lightSource === 'track' ? tr.strobe : null;
       if (st) {
         const i = Math.min(st.frames - 1, Math.max(0, Math.floor(this.player.elapsed(now) * st.rate)));
         const eye = (arr, side) => {

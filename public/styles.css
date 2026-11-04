@@ -266,7 +266,12 @@ html, body { overscroll-behavior: none; }
 #lights-pop #lights-panel { background: none; border: 0; padding: 0; margin: 0; }
 html, body { overflow-x: hidden; }
 
-.lighthead { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; margin-bottom: 12px; }
+.lighthead { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 6px; }
+.lighthead .lsrc { border: 1.5px solid rgba(255,255,255,0.2); border-radius: 999px; padding: 9px 16px 9px 10px; background: rgba(255,255,255,0.05); font-size: 15px; }
+.lighthead .lsrc.on { background: linear-gradient(90deg, #ffb84a, #ff6ad0); border-color: #fff; font-weight: 600; }
+.lighthead .lsrc[data-src=tones].on { background: linear-gradient(90deg, #2ec4b6, #a493ff); }
+.lighthead .lsrc.on .sw { background: rgba(255,255,255,0.35) !important; }
+#lights-status { margin: 0 2px 12px; font-size: 13px; }
 details.more { margin-top: 14px; border-top: 1px solid var(--line); padding-top: 10px; }
 details.more summary { cursor: pointer; color: var(--muted); margin-bottom: 10px; }
 .lightimport { margin-top: 14px; gap: 12px; align-items: center; flex-wrap: wrap; }

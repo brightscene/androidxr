@@ -400,8 +400,6 @@ export class DomUI {
     for (const b of this.$('#durations').children) b.classList.toggle('on', Number(b.dataset.min) === app.minutes);
     this.$('#length-group').classList.toggle('disabled', !!app.selected.guided);
     for (const f of this.mixers || []) f();
-    const ls = this.$('#lights-status');
-    if (ls) { const tr = app.playing ? app.playingTrack : app.selected; ls.textContent = !app.lights ? '' : tr.strobe ? `${tr.title}: the lights follow its encoding` : `${tr.title}: the lights pulse with the brainwave tones`; }
     this.$('#journey').value = app.journey;
     this.$('#dives').value = app.dives;
     this.$('#whispers').checked = app.whispers;
@@ -458,7 +456,7 @@ export class DomUI {
   // swatches; brightness and background sliders; the rest under More options
   _buildLightsUI() {
     const app = this.app, $ = this.$;
-    $('#lights-tog').addEventListener('click', () => { app.setLights(!app.lights); this.refresh(); });
+    for (const b of document.querySelectorAll('.lsrc')) b.addEventListener('click', () => { app.setLightSource(b.dataset.src); this.refresh(); });
     const looks = $('#light-looks');
     looks.innerHTML = '';
     LIGHT_LOOKS.forEach(([n, cols, o]) => {
@@ -497,15 +495,14 @@ export class DomUI {
     $('#light-max').addEventListener('input', (e) => { app.setLightOpt('lightMax', Number(e.target.value)); this._lightsUI(); });
     $('#light-dim').addEventListener('input', (e) => { app.setLightOpt('lightDim', Number(e.target.value)); this._lightsUI(); });
     for (const [id, key] of [['#light-mode', 'lightMode'], ['#light-layout', 'lightLayout']]) $(id).addEventListener('click', (e) => { const v = e.target.dataset.v; if (v) { app.setLightOpt(key, v); this.refresh(); } });
-    $('#lights-generated').addEventListener('click', () => { app.setLightOpt('lightsGenerated', !app.lightsGenerated); this.refresh(); });
     $('#light-import').addEventListener('click', () => $('#file')?.click());
     this._lightsUI = () => {
       const look = app.lightColour;
       if (this._symLook !== look) { this._symLook = look; for (const b of this.symbolTiles) { const cv = b.querySelector('canvas'), c = cv.getContext('2d'); c.clearRect(0, 0, 128, 128); b._draw(c); } }
-      $('#lights-tog').classList.toggle('on', app.lights);
+      for (const b of document.querySelectorAll('.lsrc')) b.classList.toggle('on', app.lights && app.lightSource === b.dataset.src);
       const tr = app.playing ? app.playingTrack : app.selected;
       const avail = app.lightsAvailable();
-      $('#lights-status').textContent = !app.lights ? 'Off' : app.lightsWhy();
+      $('#lights-status').textContent = !app.lights ? 'Lights are off. Switch one on: the lights follow the track\u2019s own light encoding, or pulse with the brainwave tones.' : app.lightsWhy();
       $('#lights-panel').classList.toggle('unavail', app.lights && !avail);
       for (const b of looks.children) b.classList.toggle('on', Object.entries(b._o).every(([k, v]) => app[k] === v));
       for (const b of this.symbolTiles) b.classList.toggle('on', b._v === app.lightSymbol);
@@ -513,7 +510,6 @@ export class DomUI {
       $('#light-max').value = app.lightMax; $('#light-max-v').textContent = `${Math.round(app.lightMax * 100)}%`;
       $('#light-dim').value = app.lightDim; $('#light-dim-v').textContent = app.lightDim ? `${Math.round(app.lightDim * 100)}%` : 'off';
       for (const [id, key] of [['#light-mode', 'lightMode'], ['#light-layout', 'lightLayout']]) for (const b of $(id).children) b.classList.toggle('on', b.dataset.v === app[key]);
-      $('#lights-generated').classList.toggle('on', app.lightsGenerated);
       // the style pictures take on the chosen colours
       const cs = cols();
     };

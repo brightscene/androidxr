@@ -759,24 +759,35 @@ export class XRMenu {
     const X0 = -0.205, XW = 0.97;   // the space to the right of the cards
 
     // Lights: the switch, and what the lights will follow
-    card(p, y0, 'Lights', () => (app.lights ? 'on' : 'off'), 'bulb', ['#ffb84a', '#ff6ad0']);
-    this._btn(p, new Button(0.11, 0.062, (c, W, H, b) => {
-      const o = app.lights;
-      roundRect(c, 4, 4, W - 8, H - 8, (H - 8) / 2);
-      c.fillStyle = o ? gradient(c, 0, 0, W, 0, ['#ffb84a', '#ff6ad0']) : 'rgba(255,255,255,0.14)'; c.fill();
-      if (b.hover) { c.strokeStyle = '#fff'; c.lineWidth = 3; c.stroke(); }
-      const kr = (H - 8) / 2 - 5;
-      c.beginPath(); c.arc(o ? W - 4 - kr - 5 : 4 + kr + 5, H / 2, kr, 0, Math.PI * 2); c.fillStyle = '#fff'; c.shadowColor = 'rgba(0,0,0,0.4)'; c.shadowBlur = 6; c.fill(); c.shadowBlur = 0;
-    }, () => { app.setLights(!app.lights); this.refresh(); }, 1600), -0.165, y0);
-    this._btn(p, new Button(0.84, 0.07, (c, W, H) => {
+    card(p, y0, 'Lights', () => (!app.lights ? 'off' : app.lightSource === 'track' ? 'on with the audio track' : 'on with brainwave tones'), 'bulb', ['#ffb84a', '#ff6ad0']);
+    // two switches, only one on at a time; tapping the one that's on turns the lights off
+    [['track', 'With audio track', ['#ffb84a', '#ff6ad0']], ['tones', 'With brainwave tones', ['#2ec4b6', '#a493ff']]].forEach(([src, label, cols], i) => {
+      this._btn(p, new Button(0.272, 0.064, (c, W, H, b) => {
+        const o = app.lights && app.lightSource === src;
+        roundRect(c, 4, 4, W - 8, H - 8, (H - 8) / 2);
+        c.fillStyle = o ? gradient(c, 0, 0, W, 0, cols) : b.hover ? 'rgba(255,255,255,0.16)' : 'rgba(255,255,255,0.08)'; c.fill();
+        c.strokeStyle = o ? '#fff' : 'rgba(255,255,255,0.25)'; c.lineWidth = o ? 4 : 2; c.stroke();
+        // a little switch at the left
+        const sh = H * 0.42, sw = sh * 1.75, sx = H * 0.32, sy = (H - sh) / 2;
+        roundRect(c, sx, sy, sw, sh, sh / 2); c.fillStyle = o ? 'rgba(255,255,255,0.35)' : 'rgba(255,255,255,0.18)'; c.fill();
+        c.beginPath(); c.arc(o ? sx + sw - sh / 2 : sx + sh / 2, H / 2, sh / 2 - 4, 0, Math.PI * 2); c.fillStyle = '#fff'; c.fill();
+        c.fillStyle = '#fff'; c.textAlign = 'left'; c.textBaseline = 'middle';
+        let size = Math.round(H * 0.34); c.font = `${o ? 600 : 500} ${size}px ${FONT}`;
+        while (c.measureText(label).width > W - (sx + sw + 24) && size > 10) { size -= 1; c.font = `${o ? 600 : 500} ${size}px ${FONT}`; }
+        c.fillText(label, sx + sw + 14, H / 2 + 2);
+      }, () => { app.setLightSource(src); this.refresh(); }, 1600), X0 + 0.136 + i * 0.28, y0);
+    });
+    this._btn(p, new Button(0.4, 0.07, (c, W, H) => {
       const tr = app.playing ? app.playingTrack : app.selected;
-      const text = !app.strobeAccepted ? 'Switch on to read the flashing-lights safety note first.' : app.lightsWhy(tr);
+      const text = !app.strobeAccepted ? 'Switch one on to read the flashing-lights safety note first.' : !app.lights ? 'Lights are off' : app.lightsWhy(tr);
       const ok = !app.lights || app.lightsAvailable(tr);
       c.fillStyle = ok ? 'rgba(255,255,255,0.65)' : '#ffcf8a'; c.textAlign = 'left'; c.textBaseline = 'middle';
       let size = Math.round(H * 0.36); c.font = `400 ${size}px ${FONT}`;
-      while (c.measureText(text).width > W - 10 && size > 12) { size -= 1; c.font = `400 ${size}px ${FONT}`; }
-      c.fillText(text, 6, H / 2);
-    }, null, 1600), -0.085 + 0.42, y0);
+      // two lines if it's long
+      const words = text.split(' '); let l1 = text, l2 = '';
+      if (c.measureText(text).width > W - 10) { size = Math.round(H * 0.3); c.font = `400 ${size}px ${FONT}`; l1 = ''; for (const w of words) { if (!l2 && c.measureText(l1 + w).width < W - 10) l1 += w + ' '; else l2 += w + ' '; } }
+      if (l2) { c.fillText(l1.trim(), 6, H * 0.3); c.fillText(l2.trim(), 6, H * 0.72); } else c.fillText(l1, 6, H / 2);
+    }, null, 1600), X0 + 0.565 + 0.2, y0);
 
     const ess = (this.lightsEssentials = new THREE.Group());
     const adv = (this.lightsAdvanced = new THREE.Group());
@@ -857,9 +868,8 @@ export class XRMenu {
     // more options, in the same space
     const r = (i, ...a) => this._row(adv, (ROW0 - (y0 - RH)) / ROWH + i, ...a);
     r(0, 'Flashing', [['Exact, as encoded', 'exact'], ['Softened', 'soft']], () => app.lightMode, (v) => app.setLightOpt('lightMode', v), [0.25, 0.18]);
-    r(1, 'Pulse with tones', [['On', true], ['Off', false]], () => app.lightsGenerated, (v) => app.setLightOpt('lightsGenerated', v));
-    r(2, 'Eyes', [['Both eyes see both', 'sides'], ['Each eye its own', 'eyes'], ['Each eye, centred', 'eyesc']], () => app.lightLayout, (v) => app.setLightOpt('lightLayout', v), [0.27, 0.25, 0.25]);
-    this._btn(adv, new Button(1.2, 0.05, textDraw('To use a light & sound track of your own, import it from the Lights tab on a screen first.', { alpha: 0.5, size: 0.46 }), null), 0.05, ROW0 - ((ROW0 - (y0 - RH)) / ROWH + 3) * ROWH, false);
+    r(1, 'Eyes', [['Both eyes see both', 'sides'], ['Each eye its own', 'eyes'], ['Each eye, centred', 'eyesc']], () => app.lightLayout, (v) => app.setLightOpt('lightLayout', v), [0.27, 0.25, 0.25]);
+    this._btn(adv, new Button(1.2, 0.05, textDraw('To use a light & sound track of your own, import it from the Lights tab on a screen first.', { alpha: 0.5, size: 0.46 }), null), 0.05, ROW0 - ((ROW0 - (y0 - RH)) / ROWH + 2) * ROWH, false);
 
     // the switch between them
     this._btn(p, new Button(0.3, 0.06, pill(() => (adv.visible ? '\u2039 Back' : 'More options \u203a'), () => false), () => { adv.visible = !adv.visible; ess.visible = !adv.visible; this.refresh(); }), 0.615, y - TH / 2 - 0.045);
