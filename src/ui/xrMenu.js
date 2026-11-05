@@ -252,7 +252,7 @@ export class XRMenu {
       c.strokeStyle = 'rgba(255,255,255,0.18)';
       c.lineWidth = 4 * k;
       c.stroke();
-      // the brand: light-tunnel mark, then "mind" + gradient "lyte", version beneath
+      // the brand: light-tunnel mark, then "mind" + gradient "boss", version beneath
       if (MARK.complete && MARK.naturalWidth) c.drawImage(MARK, 22 * k, 20 * k, 56 * k, 56 * k);
       c.textAlign = 'left';
       c.textBaseline = 'alphabetic';
@@ -262,11 +262,11 @@ export class XRMenu {
       c.fillText('mind', x0, yb);
       const mw = c.measureText('mind').width;
       c.font = `500 ${28 * k}px Comfortaa, Jost, system-ui, sans-serif`;
-      const lw = c.measureText('lyte').width;
+      const lw = c.measureText('boss').width;
       const lg = c.createLinearGradient(x0 + mw, 0, x0 + mw + lw, 0);
       lg.addColorStop(0, '#5ED6D0'); lg.addColorStop(0.55, '#A493FF'); lg.addColorStop(1, '#F29BD0');
       c.fillStyle = lg;
-      c.fillText('lyte', x0 + mw, yb);
+      c.fillText('boss', x0 + mw, yb);
       c.font = `400 ${11 * k}px ${FONT}`; c.fillStyle = 'rgba(255,255,255,0.4)'; c.fillText(`v${__BUILD__}`, x0 + 2 * k, yb + 18 * k);
     }, null, 1300);
     // redraw once the logo and brand font have loaded
@@ -527,7 +527,7 @@ export class XRMenu {
       roundRect(c, 0, 0, w, h, 40); c.fillStyle = 'rgba(12,10,32,0.97)'; c.fill();
       c.strokeStyle = 'rgba(255,255,255,0.3)'; c.lineWidth = 4; c.stroke();
       c.textAlign = 'center'; c.fillStyle = '#fff';
-      c.font = `600 ${Math.round(h * 0.075)}px ${FONT}`; c.fillText('MindLyte Premium', w / 2, h * 0.16);
+      c.font = `600 ${Math.round(h * 0.075)}px ${FONT}`; c.fillText('MindBoss Premium', w / 2, h * 0.16);
       c.font = `400 ${Math.round(h * 0.042)}px ${FONT}`; c.fillStyle = 'rgba(255,255,255,0.85)';
       ['Every journey: light & sound tracks, guided sessions,', 'solfeggio soundscapes, image cycling and the affirmation field.', 'New journeys as they arrive.'].forEach((l, i) => c.fillText(l, w / 2, h * (0.28 + i * 0.07)));
       c.fillStyle = this.unlockMsg ? '#ffd27a' : 'rgba(255,255,255,0.5)';

@@ -5,7 +5,7 @@ import UIKit
 final class NowPlaying {
     private weak var model: AppModel?
     private var registered = false
-    private var title = "MindLyte"
+    private var title = "MindBoss"
     private var paused = false
 
     init(model: AppModel) { self.model = model }
@@ -45,7 +45,7 @@ final class NowPlaying {
     private func update() {
         var info: [String: Any] = [
             MPMediaItemPropertyTitle: title,
-            MPMediaItemPropertyArtist: "MindLyte",
+            MPMediaItemPropertyArtist: "MindBoss",
             MPNowPlayingInfoPropertyPlaybackRate: paused ? 0.0 : 1.0,
         ]
         if let image = UIImage(named: "Mark") {

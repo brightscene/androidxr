@@ -44,7 +44,7 @@ struct SettingsView: View {
 
                 Section {
                     LabeledContent("Version", value: Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "")
-                    Link("MindLyte on the web", destination: URL(string: "https://brightscene.github.io/androidxr/")!)
+                    Link("MindBoss on the web", destination: URL(string: "https://brightscene.github.io/androidxr/")!)
                 } header: {
                     Text("About")
                 }
@@ -59,7 +59,7 @@ struct SettingsView: View {
                     let ok = await Health.shared.requestAccess()
                     if !ok {
                         healthOn = false
-                        note = "MindLyte can't save to Apple Health. You can allow it in the Health app under Sharing > Apps."
+                        note = "MindBoss can't save to Apple Health. You can allow it in the Health app under Sharing > Apps."
                     }
                 }
             }
@@ -72,7 +72,7 @@ struct SettingsView: View {
             let ok = await Reminders.schedule(hour: reminderMinutes / 60, minute: reminderMinutes % 60)
             if !ok {
                 reminderOn = false
-                note = "Notifications are turned off for MindLyte. You can allow them in the Settings app."
+                note = "Notifications are turned off for MindBoss. You can allow them in the Settings app."
             }
         }
     }

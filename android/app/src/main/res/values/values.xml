@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">MindLyte</string>
+    <string name="app_name">MindBoss</string>
     <!-- Lets Chrome show the site without an address bar once the site lists this app in /.well-known/assetlinks.json -->
     <string name="asset_statements" translatable="false">[{ \"relation\": [\"delegate_permission/common.handle_all_urls\"], \"target\": { \"namespace\": \"web\", \"site\": \"https://brightscene.github.io\" } }]</string>
     <color name="bg">#05060D</color>

@@ -3,7 +3,7 @@ plugins {
     id("org.jetbrains.kotlin.android")
 }
 
-// The site the app opens. Change this when MindLyte moves to its own domain.
+// The site the app opens. Change this when MindBoss moves to its own domain.
 val siteUrl = "https://brightscene.github.io/androidxr/"
 val siteHost = "brightscene.github.io"
 

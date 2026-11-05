@@ -14,7 +14,7 @@ struct MindLyteTogether: GroupActivity {
 
     var metadata: GroupActivityMetadata {
         var m = GroupActivityMetadata()
-        m.title = title.isEmpty ? "MindLyte" : "MindLyte · \(title)"
+        m.title = title.isEmpty ? "MindBoss" : "MindBoss · \(title)"
         m.subtitle = "A journey together"
         m.type = .generic
         return m

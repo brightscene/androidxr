@@ -25,7 +25,7 @@ final class AppModel: NSObject, ObservableObject, WKScriptMessageHandler {
             switch body["state"] as? String {
             case "start":
                 sessionStart = Date()
-                nowPlaying.start(title: body["title"] as? String ?? "MindLyte")
+                nowPlaying.start(title: body["title"] as? String ?? "MindBoss")
                 let id = body["id"] as? String, scene = body["scene"] as? String
                 if body["remote"] as? Bool != true { Task { @MainActor in self.sharePlay.local("start", journey: id, scene: scene) } }
             case "end":

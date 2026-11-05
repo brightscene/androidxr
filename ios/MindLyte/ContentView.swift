@@ -42,7 +42,7 @@ private struct Offline: View {
     var body: some View {
         VStack(spacing: 16) {
             Wordmark(size: 34)
-            Text("MindLyte needs a connection to load your journeys.")
+            Text("MindBoss needs a connection to load your journeys.")
                 .multilineTextAlignment(.center)
                 .foregroundStyle(.secondary)
             Button("Try again", action: retry)

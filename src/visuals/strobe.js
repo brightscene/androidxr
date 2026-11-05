@@ -84,7 +84,7 @@ const FRAG = /* glsl */ `
     else if (uStyle < 1.5) { // glowing orb: solid filled disc, white-hot core, corona
       float disc = smoothstep(0.37, 0.34, r);
       col = uCol * (disc * 1.25 + exp(-r * 3.2) * 0.7) + vec3(1.0) * exp(-r * r * 28.0) * 0.75 * disc;
-    } else if (uStyle > 3.5) { // MindLyte logo: seven nested rings spiralling into a bright core, swirling and breathing
+    } else if (uStyle > 3.5) { // MindBoss logo: seven nested rings spiralling into a bright core, swirling and breathing
       float ang = 0.885 + uTime * 0.35 + sin(uTime * 0.5) * 0.5;
       vec2 dir = vec2(cos(ang), sin(ang));
       float off = 0.261 * (0.75 + 0.35 * sin(uTime * 0.7));

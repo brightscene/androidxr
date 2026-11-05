@@ -1,4 +1,4 @@
-// The journeys on offer: a free set, and the rest with MindLyte Premium.
+// The journeys on offer: a free set, and the rest with MindBoss Premium.
 // A journey is a track (its sound, voice and lights) paired with its world.
 import { TRACKS, GUIDED, LIGHT_TRACKS } from './audio/tracks.js';
 

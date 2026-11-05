@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
 	<key>CFBundleDevelopmentRegion</key><string>en</string>
-	<key>CFBundleDisplayName</key><string>MindLyte</string>
+	<key>CFBundleDisplayName</key><string>MindBoss</string>
 	<key>CFBundleExecutable</key><string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key><string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
 	<key>CFBundleInfoDictionaryVersion</key><string>6.0</string>
@@ -36,10 +36,10 @@
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>MindLyte uses the microphone only when you record your own affirmations.</string>
+	<string>MindBoss uses the microphone only when you record your own affirmations.</string>
 	<key>NSHealthShareUsageDescription</key>
-	<string>MindLyte can save your sessions as mindful minutes in Apple Health.</string>
+	<string>MindBoss can save your sessions as mindful minutes in Apple Health.</string>
 	<key>NSHealthUpdateUsageDescription</key>
-	<string>MindLyte saves each session of a minute or more as mindful minutes in Apple Health.</string>
+	<string>MindBoss saves each session of a minute or more as mindful minutes in Apple Health.</string>
 </dict>
 </plist>

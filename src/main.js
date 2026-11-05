@@ -369,7 +369,7 @@ class App {
   }
 
   // ------------------------------------------------------------ playback
-  // For testing until payments are connected: a long press on the MindLyte logo
+  // For testing until payments are connected: a long press on the MindBoss logo
   // switches Premium on or off (remembered on this device).
   togglePremium() {
     this.premium = !this.premium;
@@ -432,7 +432,7 @@ class App {
     }
   }
 
-  // Only one MindLyte plays at a time: if the app is open twice (the installed
+  // Only one MindBoss plays at a time: if the app is open twice (the installed
   // app and a browser tab, say), whichever one starts a journey or steps into
   // the headset tells the others to fall silent.
   _claimAudio(post = true) {

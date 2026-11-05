@@ -122,8 +122,8 @@ export class DomUI {
   _mirrorHelp() {
     const apple = /iPhone|iPad|Macintosh/.test(navigator.userAgent);
     this.toast(apple
-      ? 'To show MindLyte on an Apple TV: open Control Centre, tap Screen Mirroring and choose your TV'
-      : 'To show MindLyte on a TV: use Cast in Chrome\u2019s menu, or your device\u2019s Screen cast / Smart View');
+      ? 'To show MindBoss on an Apple TV: open Control Centre, tap Screen Mirroring and choose your TV'
+      : 'To show MindBoss on a TV: use Cast in Chrome\u2019s menu, or your device\u2019s Screen cast / Smart View');
   }
 
   // tell the TV (when casting from Chrome) what's happening here

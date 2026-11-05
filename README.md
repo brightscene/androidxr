@@ -1,8 +1,8 @@
-# MindLyte: XR meditation for Android XR
+# MindBoss: XR meditation for Android XR
 
 **Live:** https://brightscene.github.io/androidxr/
 
-MindLyte is a meditation app for Android XR. You drift slowly through a field of stars and galaxies under a turning, projector-style nebula. Underneath plays generative music tuned to the nine solfeggio frequencies, with optional brainwave tones. Now and then a soft voice speaks. At certain points in the music the journey surges forward into a deep dive through the stars, then settles back to a drift.
+MindBoss is a meditation app for Android XR. You drift slowly through a field of stars and galaxies under a turning, projector-style nebula. Underneath plays generative music tuned to the nine solfeggio frequencies, with optional brainwave tones. Now and then a soft voice speaks. At certain points in the music the journey surges forward into a deep dive through the stars, then settles back to a drift.
 
 ## Journeys
 
@@ -39,7 +39,7 @@ MindLyte is a meditation app for Android XR. You drift slowly through a field of
 - All the scripts are original and live in `src/audio/scripts.js`. They're easy to edit: one line per row, with `[n]` setting the pause in seconds after a line and `@dive seconds intensity` starting a dive.
 - **Recorded narration (default):** every line is pre-recorded with **Kokoro**, an open-source neural voice (*af_heart*, a warm, unhurried female voice), at a slow pace. Each clip gets light processing (a little warmth, softened sibilance, even loudness) and plays centred and close, with the music dipping gently underneath. To regenerate the clips, for example with a different voice or pace, run `tools/generate-voice-kokoro.py`.
 - **The scripts are written to be spoken slowly and warmly,** with plain words, invitations rather than instructions, and lots of silence. They also **steer the scene as they go:** *Drift to Sleep* moves from a moonlit lotus pond out into the stars as the countdown starts, then slowly dims toward darkness. *Abundance* rises from a golden meadow toward a golden star and through into floating islands. *It's Going to Be Okay* sits on the beach, where a set of waves rolls in as you're asked to breathe with them and the sea calms as you hand it your worries.
-- If the recordings aren't available, MindLyte falls back to the device's own text-to-speech. It picks an **Irish English (en-IE)** voice if the device has one, and otherwise the closest British-Isles female voice. You can choose a different voice under *Voice*.
+- If the recordings aren't available, MindBoss falls back to the device's own text-to-speech. It picks an **Irish English (en-IE)** voice if the device has one, and otherwise the closest British-Isles female voice. You can choose a different voice under *Voice*.
 - **For a real Irish voice**, record every line once with ElevenLabs, which has Irish-accented voices in its Voice Library:
   ```bash
   ELEVENLABS_API_KEY=your_key node tools/generate-voice.mjs --voice <voice_id> --name "Aoife"
@@ -49,7 +49,7 @@ MindLyte is a meditation app for Android XR. You drift slowly through a field of
 - The music ducks gently whenever the voice speaks.
 
 **Lights: AudioStrobe® and SpectraStrobe™ decoding** (`src/audio/strobe.js`, `src/visuals/strobe.js`)
-- Light-and-sound tracks hide their light signals as near-inaudible tones in the audio. When you import a track (*Bring your own AI track*), MindLyte scans 17.5–20.6 kHz and works out which format the track uses:
+- Light-and-sound tracks hide their light signals as near-inaudible tones in the audio. When you import a track (*Bring your own AI track*), MindBoss scans 17.5–20.6 kHz and works out which format the track uses:
   - **AudioStrobe**: a single carrier, normally 19.2 kHz. Other frequencies are detected automatically too, such as the 19.5 kHz used by *Oceamniotic*. Its level in the left and right channels sets the left and right light.
   - **SpectraStrobe**: an 18.2 kHz reference tone plus red at 18.7, green at 19.2 and blue at 19.7 kHz, giving full colour in each eye. Each colour is scaled against the reference tone.
 - Each tone is demodulated (complex heterodyne, low-pass, then 500 Hz control frames). A 16-minute track decodes in a few seconds.
@@ -61,8 +61,8 @@ MindLyte is a meditation app for Android XR. You drift slowly through a field of
 - **Symbols:** Flower of Life, Sri Yantra, Lotus, Merkaba, Ripples and Seed of Life (or cycle through them all).
 - **AudioStrobe colours** (AudioStrobe carries no colour information, only brightness). All are fully saturated: Vivid magenta/cyan (the default), track palette, warm white, amber, violet/green or slow rainbow.
 - **Brightness** limit, and **Exact** or **Softened** flashing.
-- The control tones are notched out of what you hear. MindLyte's own tones are switched off on light tracks, because those tracks carry their own entrainment programme.
-- Optional: *Also pulse lights with MindLyte's brainwave tones*, which flashes the lights at the current binaural/isochronic beat on the generated tracks.
+- The control tones are notched out of what you hear. MindBoss's own tones are switched off on light tracks, because those tracks carry their own entrainment programme.
+- Optional: *Also pulse lights with MindBoss's brainwave tones*, which flashes the lights at the current binaural/isochronic beat on the generated tracks.
 - ⚠️ Lights stay off until the photosensitivity warning has been accepted. This happens once, either on screen or in the headset.
 
 **Background** (on the *Scene* tab in the headset, or *Scene, sound & journey* on the flat screen): *Auto* uses each track's own scene. You can also force any scene for every track (Galaxy voyage, Light ocean, Breathing orb, Aurora, Sacred geometry, Lotus mandala, Cymatics), choose **Stars only** for a still, quiet sky, or choose **Off** for pure black (in passthrough, just your room), leaving only the lights.

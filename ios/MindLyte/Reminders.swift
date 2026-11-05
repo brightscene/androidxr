@@ -12,7 +12,7 @@ enum Reminders {
         center.removePendingNotificationRequests(withIdentifiers: [id])
         let content = UNMutableNotificationContent()
         content.title = "Time for a journey"
-        content.body = "A few quiet minutes of light and sound with MindLyte."
+        content.body = "A few quiet minutes of light and sound with MindBoss."
         content.sound = .default
         var when = DateComponents()
         when.hour = hour

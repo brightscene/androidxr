@@ -45,7 +45,7 @@ function pictureTargets(draw, width, count, W = 600, H = 400) {
   return lit.concat(parked);
 }
 function drawBrand(c) {
-  // the MindLyte light-tunnel mark, then the wordmark with its gradient "lyte"
+  // the MindBoss light-tunnel mark, then the wordmark with its gradient "boss"
   const rings = [[56, 66, 50, '#5ED6D0'], [60.3, 60.8, 39, '#74CAE4'], [63.5, 56.9, 30, '#8BB4F4'], [66.3, 53.4, 22, '#A493FF'], [69, 50.1, 15, '#BB98F5'], [71.6, 47, 9.5, '#D59BE5'], [74, 44, 5.5, '#F29BD0']];
   const s = 2.3, ox = 20, oy = 18;
   c.lineWidth = 7;
@@ -58,11 +58,11 @@ function drawBrand(c) {
   c.fillText('mind', x0, 150);
   const mw = c.measureText('mind').width;
   c.font = '500 118px Comfortaa, Jost, system-ui, sans-serif';
-  const lw = c.measureText('lyte').width;
+  const lw = c.measureText('boss').width;
   const g = c.createLinearGradient(x0 + mw, 0, x0 + mw + lw, 0);
   g.addColorStop(0, '#5ED6D0'); g.addColorStop(0.55, '#A493FF'); g.addColorStop(1, '#F29BD0');
   c.fillStyle = g;
-  c.fillText('lyte', x0 + mw, 150);
+  c.fillText('boss', x0 + mw, 150);
 }
 const ell = (c, x, y, rx, ry, rot = 0) => { c.beginPath(); c.ellipse(x, y, rx, ry, rot, 0, Math.PI * 2); c.fill(); };
 function drawCollie(c) {

@@ -16,7 +16,7 @@ export const LIGHT_COLOURS = [
 export const LIGHT_SYMBOLS = [
   [-1, 'Glow', 'field'], [-2, 'Glow wide', 'wide'],
   [0, 'Flower Life'], [1, 'Sri Yantra'], [2, 'Lotus'], [3, 'Merkaba'], [4, 'Ripples'], [5, 'Seed Life'],
-  [6, 'Glowing orb', 'orb'], [8, 'Neon ring', 'ring'], [9, 'Crystal', 'crystal'], [10, 'MindLyte', 'logo'],
+  [6, 'Glowing orb', 'orb'], [8, 'Neon ring', 'ring'], [9, 'Crystal', 'crystal'], [10, 'MindBoss', 'logo'],
 ];
 export const LIGHT_LOOKS = [
   ['Gentle glow', ['#ffb84a', '#ff8ad0'], { lightSymbol: -1, lightColour: 'palette', lightMode: 'soft', lightMax: 1, lightDim: 0.8 }],
@@ -47,7 +47,7 @@ export function drawStyle(c, kind, x, y, s, cols = ['#ff4ad0', '#2ee0ff']) {
   const cx = x + s / 2, cy = y + s / 2, r = s * 0.36;
   c.save();
   const glow = (gx, gy, gr, col) => { const g = c.createRadialGradient(gx, gy, 0, gx, gy, gr); g.addColorStop(0, col); g.addColorStop(1, 'rgba(0,0,0,0)'); c.fillStyle = g; c.beginPath(); c.arc(gx, gy, gr, 0, Math.PI * 2); c.fill(); };
-  if (kind === 'logo') {   // the MindLyte mark: nested rings spiralling into a bright core
+  if (kind === 'logo') {   // the MindBoss mark: nested rings spiralling into a bright core
     glow(cx, cy, r * 1.3, cols[0] + '77');
     const k = (s * 0.86) / 100, ox = cx - 65 * k, oy = cy - 55 * k;
     const R = [[56, 66, 50, '#5ED6D0'], [60.3, 60.8, 39, '#74CAE4'], [63.5, 56.9, 30, '#8BB4F4'], [66.3, 53.4, 22, '#A493FF'], [69, 50.1, 15, '#BB98F5'], [71.6, 47, 9.5, '#D59BE5'], [74, 44, 5.5, '#F29BD0']];

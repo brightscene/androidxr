@@ -256,7 +256,7 @@ private fun UnlockDialog(premium: Boolean, onClose: () -> Unit) {
     AlertDialog(
         onDismissRequest = onClose,
         containerColor = Color(0xF5100E24),
-        title = { Text("MindLyte Premium", color = Fg) },
+        title = { Text("MindBoss Premium", color = Fg) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text("Every journey: light & sound tracks, guided sessions, solfeggio soundscapes, image cycling and the affirmation field. New journeys as they arrive.", color = Fg)
